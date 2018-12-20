@@ -4,6 +4,14 @@ hicstuff package
 Submodules
 ----------
 
+hicstuff.commands module
+------------------------
+
+.. automodule:: hicstuff.commands
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 hicstuff.compressed\_utils module
 ---------------------------------
 
@@ -12,10 +20,10 @@ hicstuff.compressed\_utils module
     :undoc-members:
     :show-inheritance:
 
-hicstuff.filter3C module
-------------------------
+hicstuff.filter module
+----------------------
 
-.. automodule:: hicstuff.filter3C
+.. automodule:: hicstuff.filter
     :members:
     :undoc-members:
     :show-inheritance:
@@ -40,6 +48,14 @@ hicstuff.iteralign module
 -------------------------
 
 .. automodule:: hicstuff.iteralign
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+hicstuff.main module
+--------------------
+
+.. automodule:: hicstuff.main
     :members:
     :undoc-members:
     :show-inheritance:
