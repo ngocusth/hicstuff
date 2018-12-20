@@ -40,9 +40,10 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
         -s or --size: Minimum size threshold to consider contigs. Defaults to 0 (keep all tigs).
         -n or --no-clean-up: If enabled, intermediary BED files will be kept after erating the contact map. Disabled by defaut.
         -p or --pos-matrix: If enabled, generates a sparse matrix with positions (chr,pos) tead of GRAAL-compatible format.
-        -t or --threads: Number of threads to use for the aligner and samtools. Defaults to         -T or --tmp: Directory for storing intermediary BED files and temporary sort files. aults to the output directory.
+        -t or --threads: Number of threads to use for the aligner and samtools. Defaults to 1
+        -T or --tmp: Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
         -m or --minimap: Use the minimap2 aligner instead of bowtie2. Not enabled by default.
-        -i or --iterative: Map reads iteratively, by truncating reads to 20bp and then eatedly extending and aligning them.
+        -i or --iterative: Map reads iteratively, by truncating reads to 20bp and then eatedly extending and aligning them. Not enabled by default.
         -F or --filter: Filter out spurious 3C events (loops and uncuts). Requires -e to be estriction enzyme, not a chunk size.
         -h or --help: Display this help message.
 
