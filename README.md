@@ -34,7 +34,7 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
         -2 or --reverse: Reverse FASTQ reads
         -f or --fasta: Reference genome to map against in FASTA format
         -o or --output: Output directory. Defaults to the current directory.
-        -e or --enzyme: Restriction enzyme if a string, or chunk size (i.e. resolution) if a ber. Defaults to 5000 bp chunks.
+        -e or --enzyme: Restriction enzyme if a string, or chunk size (i.e. resolution) if a number. Defaults to 5000 bp chunks.
         -q or --quality-min: Minimum mapping quality for selecting contacts. Defaults to 30.
         -d or --duplicates: If enabled, trims (10bp) adapters and PCR duplicates prior to ping. Not enabled by default.
         -s or --size: Minimum size threshold to consider contigs. Defaults to 0 (keep all tigs).
