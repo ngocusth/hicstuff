@@ -5,7 +5,12 @@ from hicstuff.hicstuff import bin_sparse, normalize_sparse, bin_kb_sparse
 from hicstuff.iteralign import *
 from hicstuff.fraglist import write_frag_info, write_sparse_matrix
 from hicstuff.filter import get_thresholds, filter_events, process_read_pair
-from hicstuff.vizmap import load_raw_matrix, raw_cols_to_sparse, sparse_to_dense, plot_matrix
+from hicstuff.vizmap import (
+    load_raw_matrix,
+    raw_cols_to_sparse,
+    sparse_to_dense,
+    plot_matrix,
+)
 from re import findall
 import sys, os, subprocess, shutil
 from docopt import docopt
@@ -257,4 +262,4 @@ class Pipeline(AbstractCommand):
             else:
                 str_args += arg + " " + val
             str_args += " "
-        subprocess.call("bash scripts/yahcp" + str_args, shell=True)
+        subprocess.call("bash yahcp" + str_args, shell=True)
