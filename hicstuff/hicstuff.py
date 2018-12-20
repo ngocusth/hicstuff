@@ -24,6 +24,8 @@ import string
 import collections
 import itertools
 import warnings
+import scipy
+import scipy.linalg
 
 
 def despeckle_global(M, positions=None, stds=2):
@@ -40,15 +42,15 @@ def despeckle_global(M, positions=None, stds=2):
     lengths = np.abs(np.diff(positions))
 
     def distance(i, j):
-        mean_length = (lengths[i] + lengths[j]) / 2.
+        mean_length = (lengths[i] + lengths[j]) / 2.0
         if positions[i] < positions[j]:
             d = (
                 (positions[j] - positions[i] - lengths[i]) + mean_length
-            ) / 1000.
+            ) / 1000.0
         else:
             d = (
                 (positions[i] - positions[j] - lengths[j]) + mean_length
-            ) / 1000.
+            ) / 1000.0
         return d
 
     measurements, bins = {}, []
@@ -389,12 +391,12 @@ def normalize_dense(M, norm="frag", order=1, iterations=3):
             sumrows = s.sum(axis=1)
             maskrows = (sumrows != 0)[:, None] * (sumrows != 0)[None, :]
             sums_row = sumrows[:, None] * np.ones(sumrows.shape)[None, :]
-            s[maskrows] = 1. * s[maskrows] / sums_row[maskrows]
+            s[maskrows] = 1.0 * s[maskrows] / sums_row[maskrows]
 
             sumcols = s.sum(axis=0)
             maskcols = (sumcols != 0)[:, None] * (sumcols != 0)[None, :]
             sums_col = sumcols[None, :] * np.ones(sumcols.shape)[:, None]
-            s[maskcols] = 1. * s[maskcols] / sums_col[maskcols]
+            s[maskcols] = 1.0 * s[maskcols] / sums_col[maskcols]
 
     elif norm == "mirnylib":
         try:
@@ -416,11 +418,11 @@ def normalize_dense(M, norm="frag", order=1, iterations=3):
             s_norm_x = np.linalg.norm(s, ord=floatorder, axis=0)
             s_norm_y = np.linalg.norm(s, ord=floatorder, axis=1)
             s_norm = np.tensordot(s_norm_x, s_norm_y, axes=0)
-            s[s_norm != 0] = 1. * s[s_norm != 0] / s_norm[s_norm != 0]
+            s[s_norm != 0] = 1.0 * s[s_norm != 0] / s_norm[s_norm != 0]
 
     elif norm == "global":
         s_norm = np.linalg.norm(s, ord=floatorder)
-        s /= 1. * s_norm
+        s /= 1.0 * s_norm
 
     elif callable(norm):
         s = norm(M)
@@ -1144,15 +1146,15 @@ def rippe_parameters(matrix, positions, lengths=None, init=None, circ=False):
     measurements, bins = [], []
     for i in range(n):
         for j in range(1, i):
-            mean_length = (lengths[i] + lengths[j]) / 2.
+            mean_length = (lengths[i] + lengths[j]) / 2.0
             if positions[i] < positions[j]:
                 d = (
                     (positions[j] - positions[i] - lengths[i]) + mean_length
-                ) / 1000.
+                ) / 1000.0
             else:
                 d = (
                     (positions[i] - positions[j] - lengths[j]) + mean_length
-                ) / 1000.
+                ) / 1000.0
 
             bins.append(np.abs(d))
             measurements.append(matrix[i, j])
@@ -1166,8 +1168,8 @@ def estimate_param_rippe(measurements, bins, init=None, circ=False):
     """
 
     # Init values
-    DEFAULT_INIT_RIPPE_PARAMETERS = [1., 9.6, -1.5]
-    d = 3.
+    DEFAULT_INIT_RIPPE_PARAMETERS = [1.0, 9.6, -1.5]
+    d = 3.0
 
     def log_residuals(p, y, x):
         kuhn, lm, slope, A = p
@@ -1193,14 +1195,14 @@ def estimate_param_rippe(measurements, bins, init=None, circ=False):
             s0 = n0 * (n_l - n0) / n_l
             norm_lin = param[3] * (
                 0.53
-                * (param[0] ** -3.)
+                * (param[0] ** -3.0)
                 * np.power(n0, (param[2]))
                 * np.exp((d - 2) / ((np.power(n0, 2) + d)))
             )
 
             norm_circ = param[3] * (
                 0.53
-                * (param[0] ** -3.)
+                * (param[0] ** -3.0)
                 * np.power(s0, (param[2]))
                 * np.exp((d - 2) / ((np.power(s0, 2) + d)))
             )
@@ -1209,7 +1211,7 @@ def estimate_param_rippe(measurements, bins, init=None, circ=False):
                 param[3]
                 * (
                     0.53
-                    * (param[0] ** -3.)
+                    * (param[0] ** -3.0)
                     * np.power(s, (param[2]))
                     * np.exp((d - 2) / ((np.power(s, 2) + d)))
                 )
@@ -1221,7 +1223,7 @@ def estimate_param_rippe(measurements, bins, init=None, circ=False):
 
             rippe = param[3] * (
                 0.53
-                * (param[0] ** -3.)
+                * (param[0] ** -3.0)
                 * np.power((param[1] * x / param[0]), (param[2]))
                 * np.exp(
                     (d - 2) / ((np.power((param[1] * x / param[0]), 2) + d))
@@ -1325,7 +1327,7 @@ def null_model(
             computed_contacts = (
                 0.53
                 * A
-                * (kuhn ** (-3.))
+                * (kuhn ** (-3.0))
                 * (dist ** slope)
                 * np.exp((d - 2) / (dist + d))
             )
@@ -1428,7 +1430,7 @@ def scalogram(M, circ=False):
     try:
         n = min(M.shape)
     except AttributeError:
-        n = M.size
+        n = len(M)
 
     N = np.zeros(M.shape)
     for i in range(n):
@@ -1463,3 +1465,44 @@ def asd(M1, M2):
     spectra2 = np.abs(fft2(M2))
 
     return np.linalg.norm(spectra2 - spectra1)
+
+
+def compartments(M, normalize=True):
+    """A/B compartment analysis
+
+    Perform a PCA-based A/B compartment analysis on a normalized, single
+    chromosome contact map. The results are two vectors whose values (negative
+    or positive) should presumably correlate with the presence of 'active'
+    vs. 'inert' chromatin.
+
+    Parameters
+    ----------
+    M : array_like
+        The input, normalized contact map. Must be a single chromosome.
+    normalize : bool
+        Whether to normalize the matrix beforehand.
+    Returns
+    -------
+
+    PC1 : numpy.ndarray
+        A vector representing the first component.
+    PC2 : numpy.ndarray
+        A vector representing the second component.
+    """
+
+    if not type(M) is np.ndarray:
+        M = np.array(M)
+
+    if M.shape[0] != M.shape[1]:
+        raise ValueError("Matrix is not square.")
+
+    if normalize:
+        N = normalize_dense(M)
+    else:
+        N = np.copy(M)
+
+    from sklearn.decomposition import PCA
+
+    pca = PCA(n_components=2)
+    PC1, PC2 = pca.fit_transform(N)
+    return PC1, PC2
