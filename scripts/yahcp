@@ -147,7 +147,7 @@ if [[ "$enzyme" =~ "^[0-9]+$" ]] && [ "$filter_events" -eq 1 ]; then
   exit 1
 fi
 
-for tool in $aligner samtools bedtools fraglist; do
+for tool in $aligner samtools bedtools; do
   command -v $tool >/dev/null 2>&1 || {
     echo "Error! $tool is needed and could not be found on your machine."
     exit 1
