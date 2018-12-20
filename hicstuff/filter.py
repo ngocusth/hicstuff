@@ -124,7 +124,7 @@ def get_thresholds(in_dat, interactive=False):
     # open the file for reading (just the first 1 000 000 lines)
     for line in in_dat:
         i += 1
-        if i == 1_000_000:
+        if i == 1000000:
             break
         # Process Hi-C pair into a dictionary
         p = process_read_pair(line)

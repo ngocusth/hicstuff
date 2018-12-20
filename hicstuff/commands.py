@@ -169,7 +169,7 @@ class View(AbstractCommand):
     def execute(self):
 
         input_map = self.args["<contact_map>"]
-        # binsuffix = {"bp": 1, "kb": 1000, "Mb": 1_000_000}
+        # binsuffix = {"bp": 1, "kb": 1000, "Mb": 1000000}
         try:
             binning = int(self.args["--binning"])
         except ValueError:
