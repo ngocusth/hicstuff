@@ -281,30 +281,26 @@ if [ "$bedgraph" -eq 0 ]; then
     uniq -c |
     sed 's/^\s*//' |
     tr ' ' '\t' |
-    awk '{print $0,$1}' |
+    awk -v OFS="\t" '{print $0,$1}' |
     cut -f1 --complement >>"$output_dir/$matrix_out"
-  if [ ! -z "$prefix" ]; then
-    echo """
-      Cannot use a prefix in default mode. Filenames are kept default for GRAAL
-      compatibility. If you do not need the GRAAL format, you can use -b to
-      output the matrix in 2D bedgraph instead.
-      """
-  fi
+  matext="tsv"
 # Write 2D bedgraph matrix
 else
   cut -f4,5,9,10 --complement "$tmp_dir/contact_intersect_sorted.bed" |
     sort -V |
     uniq -c |
     sed 's/^\s*//' |
-    tr '' '\t' |
-    awk '{print $0,$1}' |
+    tr ' ' '\t' |
+    awk -v OFS="\t" '{print $0,$1}' |
     cut -f1 --complement |
     tr '\t' ' ' >"${output_dir}/${matrix_out}"
-  if [ ! -z "$prefix" ]; then
-    mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.txt"
-    mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.bed"
-    mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.bg2"
-  fi
+  matext="2bg"
+fi
+
+if [ ! -z "$prefix" ]; then
+    mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
+    mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
+    mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
 fi
 
 if [ $clean_up -eq 1 ]; then
