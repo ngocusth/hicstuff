@@ -8,6 +8,16 @@
 
 A lightweight library that generates and handles Hi-C contact maps in either CSV or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
 
+## Table of contents
+
+* [Installation](#Installation)
+* [Usage](#Usage)
+  * [Full pipeline](#Full-pipeline)
+  * [Individual components](#Individual-components)
+* [Library](#Library)
+* [Connecting the modules](#Connecting-the-modules)
+* [File formats](#File-formats)
+
 ## Installation
 
 ```sh
@@ -26,39 +36,43 @@ or, for the latest version:
 
 All components of the pipelines can be run at once using the `hicstuff pipeline` commands. This allows to generate a contact matrix from reads in a single command. By default, the output sparse matrix is in GRAAL format, but it can be a 2D bedgraph file if required.
 
-    Usage:
-        hicstuff pipeline -1 reads_forward.fastq -2 reads_reverse.fastq -f genome.fa [-s size] [-o output_directory] [-e enzyme] [-q quality_min] [--duplicates] [--clean-up]
 
-    Options:
-        -1 or --forward: Forward FASTQ reads
-        -2 or --reverse: Reverse FASTQ reads
-        -f or --fasta: Reference genome to map against in FASTA format
-        -o or --output: Output directory. Defaults to the current directory.
-        -e or --enzyme: Restriction enzyme if a string, or chunk size (i.e. resolution) if a number. Defaults to 5000 bp chunks.
-        -q or --quality-min: Minimum mapping quality for selecting contacts. Defaults to 30.
-        -d or --duplicates: If enabled, trims (10bp) adapters and PCR duplicates prior to ping. Not enabled by default.
-        -s or --size: Minimum size threshold to consider contigs. Defaults to 0 (keep all tigs).
-        -n or --no-clean-up: If enabled, intermediary BED files will be kept after erating the contact map. Disabled by defaut.
-        -p or --pos-matrix: If enabled, generates a sparse matrix with positions (chr,pos) tead of GRAAL-compatible format.
-        -t or --threads: Number of threads to use for the aligner and samtools. Defaults to 1
-        -T or --tmp: Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
-        -m or --minimap: Use the minimap2 aligner instead of bowtie2. Not enabled by default.
-        -i or --iterative: Map reads iteratively, by truncating reads to 20bp and then eatedly extending and aligning them. Not enabled by default.
-        -F or --filter: Filter out spurious 3C events (loops and uncuts). Requires -e to be estriction enzyme, not a chunk size.
-        -h or --help: Display this help message.
+    Entire Pipeline to process fastq files into a Hi-C matrix. Uses all the individual components of hicstuff.
 
-    Output:
-         -abs_fragments_contacts_weighted.txt: the sparse contact map
-         -fragments_list.txt: information about restriction fragments (or chunks)
-         -info_contigs.txt: information about contigs or chromosomes
+    usage:
+        pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no_cleanup]
+                 [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
+                 [--tmp=DIR] [--iterative] [--outdir=DIR] [--filter]
+                 [--enzyme=ENZ] --fasta=FILE <fq1> <fq2>
 
+    arguments:
+        fq1:             Forward fastq file
+        fq2:             Reverse fastq file
 
-### Library
+    options:
+        -e ENZ, --enzyme=ENZ       Restriction enzyme if a string, or chunk size (i.e. resolution) if a number. [default: 5000]
+        -f FILE, --fasta=FILE      Reference genome to map against in FASTA format
+        -o DIR, --outdir=DIR       Output directory. Defaults to the current directory.
+        -P PREFIX, --prefix=PREFIX Override default GRAAL-compatible filenames and use a prefix with extensions instead.
+        -q INT, --quality_min=INT  Minimum mapping quality for selecting contacts. [default: 30].
+        -d, --duplicates:          If enabled, trims (10bp) adapters and PCR duplicates prior to mapping. Not enabled by default.
+        -s INT, --size=INT         Minimum size threshold to consider contigs. Keep all contigs by default. [default: 0]
+        -n, --no-clean-up          If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
+        -b, --bedgraph             If enabled, generates a sparse matrix in 2D Bedgraph format (cooler-compatible) instead of GRAAL-compatible format.
+        -t INT, --threads=INT      Number of threads to allocate. [default: 1].
+        -T DIR, --tmp=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
+        -m, --minimap2             If enabled, the minimap2 aligner instead of bowtie2. Not enabled by default.
+        -i, --iterative            If enabled, map reads iteratively using hicstuff iteralign, by truncating reads to 20bp and then repeatedly extending and aligning them.
+        -F, --filter               If enabled, out spurious 3C events (loops and uncuts) using hicstuff filter. Requires -e to be a restriction enzyme, not a chunk size.
+        -C, --circular             Enable if the genome is circular to add the last restriction fragment at the digestion step.
+        -h, --help                 Display this help message.
 
-All components of the hicstuff program can be used as python modules. See the documentation on [reathedocs](https://hicstuff.readthedocs.io). The expected contact map format for the library is a simple CSV file, and the objects handled by the library are simple ```numpy``` arrays.
+    output:
+        abs_fragments_contacts_weighted.txt: the sparse contact map
+        fragments_list.txt: information about restriction fragments (or chunks)
+        info_contigs.txt: information about contigs or chromosomes
 
-
-### Individual pipeline components
+### Individual components
 
 For more advanced usage, different scripts can be used independently on the command line to perform individual parts of the pipeline.
 
@@ -138,6 +152,20 @@ Visualize a Hi-C matrix file as a heatmap of contact frequencies. Allows to tune
         -n, --normalize         Should SCN normalization be performed before rendering the matrix ?
         -m INT, --max=INT       Saturation threshold. Maximum pixel value is set to this percentile [default: 99].
         -o IMG, --output=IMG    Path where the matrix will be stored in PNG format.
+
+
+
+### Library
+
+All components of the hicstuff program can be used as python modules. See the documentation on [reathedocs](https://hicstuff.readthedocs.io). The expected contact map format for the library is a simple CSV file, and the objects handled by the library are simple ```numpy``` arrays. The various submodules of hicstuff contain various utilities.
+
+
+```python
+import hicstuff.fraglist # Functions to work with fragments (digestion, matrix building)
+import hicstuff.iteralign # Functions related to iterative alignment
+import hicstuff.hicstuff # Contains utilities to modify and operate on contact maps as numpy arrays
+import hicstuff.vizmap # Utilities to visualise contact maps
+```
 
 ### Connecting the modules
 
