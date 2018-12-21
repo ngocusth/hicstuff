@@ -28,9 +28,7 @@ minimap=0
 circular=""
 iterative=0
 filter_events=0
-tmp_dir=$output_dir
 prefix=""
-
 #Argument parsing
 while [[ $# -gt 0 ]]; do
 
@@ -130,6 +128,7 @@ set -o pipefail
 
 set -- "${arguments[@]}"
 
+tmp_dir=$output_dir
 # Check everything's in place
 python3 -c "import Bio" >/dev/null 2>&1 || {
   echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)"
@@ -298,9 +297,9 @@ else
 fi
 
 if [ ! -z "$prefix" ]; then
-    mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
-    mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
-    mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
+  mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
+  mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
+  mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
 fi
 
 if [ $clean_up -eq 1 ]; then
