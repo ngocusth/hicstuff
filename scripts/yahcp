@@ -277,7 +277,7 @@ echo "Generating contact map..."
 if [ "$bedgraph" -eq 0 ]; then
   echo -e "id_fragment_a\tid_fragment_b\tn_contact" >"$output_dir/$matrix_out"
   cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed" |
-    sort -V |
+    sort -S 2G ${sort_par} -V |
     uniq -c |
     sed 's/^\s*//' |
     tr ' ' '\t' |
@@ -287,7 +287,7 @@ if [ "$bedgraph" -eq 0 ]; then
 # Write 2D bedgraph matrix
 else
   cut -f4,5,9,10 --complement "$tmp_dir/contact_intersect_sorted.bed" |
-    sort -V |
+    sort -S 2G ${sort_par} -V |
     uniq -c |
     sed 's/^\s*//' |
     tr ' ' '\t' |
