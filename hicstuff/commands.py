@@ -210,7 +210,7 @@ class Pipeline(AbstractCommand):
     usage:
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no_cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
-                 [--tmp=DIR] [--iterative] [--outdir=DIR] [--filter]
+                 [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
                  [--enzyme=ENZ] [--no_cleanup] --fasta=FILE <fq1> <fq2>
 
     arguments:
@@ -223,16 +223,16 @@ class Pipeline(AbstractCommand):
         -o DIR, --outdir=DIR       Output directory. Defaults to the current directory.
         -P PREFIX, --prefix=PREFIX Overrides default GRAAL-compatible filenames and use a prefix with extensions instead.
         -q INT, --quality_min=INT  Minimum mapping quality for selecting contacts. [default: 30].
-        -d, --duplicates:          If enabled, trims (10bp) adapters and PCR duplicates prior to mapping. Not enabled by default.
         -s INT, --size=INT         Minimum size threshold to consider contigs. Keep all contigs by default. [default: 0]
         -n, --no_cleanup          If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
         -b, --bedgraph             If enabled, generates a sparse matrix in 2D Bedgraph format (cooler-compatible) instead of GRAAL-compatible format.
         -t INT, --threads=INT      Number of threads to allocate. [default: 1].
-        -T DIR, --tmp=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
+        -T DIR, --tmpdir=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
         -m, --minimap2             Use the minimap2 aligner instead of bowtie2. Not enabled by default.
         -i, --iterative            Map reads iteratively using hicstuff iteralign, by truncating reads to 20bp and then repeatedly extending and aligning them.
         -F, --filter               Filter out spurious 3C events (loops and uncuts) using hicstuff filter. Requires -e to be a restriction enzyme, not a chunk size.
         -C, --circular             Enable if the genome is circular.
+        -d, --duplicates:          If enabled, trims (10bp) adapters and remove PCR duplicates prior to mapping. Only works if reads start with a 10bp sequence. Not enabled by default.
         -h, --help                 Display this help message.
 
     output:
