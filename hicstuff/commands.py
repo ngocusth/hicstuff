@@ -37,7 +37,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20] --out_sam=FILE --fasta=FILE <reads.fq>
+        iteralign [--minimap2] [--threads=1] [--min_len=20] [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
