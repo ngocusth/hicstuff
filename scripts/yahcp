@@ -94,7 +94,7 @@ while [[ $# -gt 0 ]]; do
     duplicate=1
     shift
     ;;
-  -n | --no-clean-up)
+  -n | --no_cleanup)
     clean_up=0
     shift
     ;;

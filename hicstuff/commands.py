@@ -11,8 +11,7 @@ from hicstuff.vizmap import (
     sparse_to_dense,
     plot_matrix,
 )
-from re import findall
-import sys, os, subprocess, shutil
+import sys, os, subprocess, shutil, logging
 from docopt import docopt
 
 
@@ -212,7 +211,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no_cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
                  [--tmp=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] --fasta=FILE <fq1> <fq2>
+                 [--enzyme=ENZ] [--no_cleanup] --fasta=FILE <fq1> <fq2>
 
     arguments:
         fq1:             Forward fastq file
@@ -226,7 +225,7 @@ class Pipeline(AbstractCommand):
         -q INT, --quality_min=INT  Minimum mapping quality for selecting contacts. [default: 30].
         -d, --duplicates:          If enabled, trims (10bp) adapters and PCR duplicates prior to mapping. Not enabled by default.
         -s INT, --size=INT         Minimum size threshold to consider contigs. Keep all contigs by default. [default: 0]
-        -n, --no-clean-up          If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
+        -n, --no_cleanup          If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
         -b, --bedgraph             If enabled, generates a sparse matrix in 2D Bedgraph format (cooler-compatible) instead of GRAAL-compatible format.
         -t INT, --threads=INT      Number of threads to allocate. [default: 1].
         -T DIR, --tmp=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
