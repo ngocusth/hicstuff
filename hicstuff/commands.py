@@ -123,7 +123,6 @@ class Filter(AbstractCommand):
         output      Path to the filtered file, in the same format as the input.
 
     options:
-        -F FILE, --frags=FILE             BED file containing digested genome fragments
         -i, --interactive                 Interactively shows plots and asks for thresholds.
         -t INT-INT, --thresholds=INT-INT  Manually defines integer values for the thresholds in the order [uncut, loop].
         -p, --plot_summary                If set, a plot with library composition informations will be displayed.
@@ -136,12 +135,12 @@ class Filter(AbstractCommand):
             uncut_thr, loop_thr = self.args["--thresholds"].split("-")
         else:
             # Threshold defined at runtime
-            with open(self.args["<input_file>"]) as handle_in:
+            with open(self.args["<input>"]) as handle_in:
                 uncut_thr, loop_thr = get_thresholds(
                     handle_in, interactive=self.args["--interactive"]
                 )
         # Filter library and write to output file
-        with open(args.input_file) as handle_in:
+        with open(self.args["<input>"]) as handle_in:
             filter_events(
                 handle_in,
                 output_handle,
@@ -242,8 +241,14 @@ class Pipeline(AbstractCommand):
     """
 
     def execute(self):
+
+        if self.args["--filter"] and self.args["--enzyme"].isdigit():
+            raise ValueError(
+                "You cannot filter without specifying a restriction enzyme."
+            )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
+
         str_args = " "
         # Pass formatted arguments to bash
         for arg, val in self.args.items():

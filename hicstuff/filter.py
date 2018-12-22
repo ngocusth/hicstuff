@@ -116,9 +116,14 @@ def get_thresholds(in_dat, interactive=False):
     """
     thr_uncut = None
     thr_loop = None
-    max_sites = 500
+    max_sites = 50
     # Map of event -> legend name of event for intrachromosomal pairs.
-    legend = {"++": "++ (weirds)", "--": "-- (weirds)", "+-": "+- (uncuts)", "-+": "-+ (loops)"}
+    legend = {
+        "++": "++ (weirds)",
+        "--": "-- (weirds)",
+        "+-": "+- (uncuts)",
+        "-+": "-+ (loops)",
+    }
     n_events = {event: np.zeros(max_sites) for event in legend.keys()}
     i = 0
     # open the file for reading (just the first 1 000 000 lines)
@@ -138,7 +143,11 @@ def get_thresholds(in_dat, interactive=False):
     def plot_event(n_events, legend, name):
         plt.xlim([-0.5, 15])
         plt.plot(
-            range(n_events[name].shape[0]), n_events[name], "o-", label=legend[name], linewidth=2.0
+            range(n_events[name].shape[0]),
+            n_events[name],
+            "o-",
+            label=legend[name],
+            linewidth=2.0,
         )
 
     if interactive:
@@ -167,14 +176,23 @@ def get_thresholds(in_dat, interactive=False):
             "\033[92muncuts\033[0m events will be excluded\n",
             file=sys.stderr,
         )
-        thr_uncut = int(input("Enter threshold for the \033[92muncuts\033[0m events (+-):"))
-        thr_loop = int(input("Enter threshold for the \033[91mloops\033[0m events (-+):"))
+        thr_uncut = int(
+            input("Enter threshold for the \033[92muncuts\033[0m events (+-):")
+        )
+        thr_loop = int(
+            input("Enter threshold for the \033[91mloops\033[0m events (-+):")
+        )
         try:
             plt.clf()
         except _tkinter.TclError:
             pass
     else:
         # Estimate thresholds from data
+        for event in n_events:
+            fixed = n_events[event]
+            fixed[fixed == 0] = 1
+            n_events[event] = fixed
+
         all_events = np.log(np.array(list(n_events.values())))
         # Compute median occurences at each restriction sites
         event_med = np.median(all_events, axis=0)
@@ -186,22 +204,33 @@ def get_thresholds(in_dat, interactive=False):
         for site in range(max_sites)[::-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if abs(np.log(n_events["+- (uncuts)"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["+-"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_uncut = site
-            if abs(np.log(n_events["-+ (loops)"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["-+"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
                 "The threshold for loops or uncut could not be estimated. "
                 "Please try running with -i to investigate the problem."
             )
-        print(
-            "Inferred thresholds: uncuts={0} loops={1}".format(thr_uncut, thr_loop), file=sys.stderr
-        )
+            print(
+                "Inferred thresholds: uncuts={0} loops={1}".format(
+                    thr_uncut, thr_loop
+                ),
+                file=sys.stderr,
+            )
     return thr_uncut, thr_loop
 
 
-def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
+def filter_events(
+    in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False
+):
     """
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
     with reads closer than the uncut threshold and -+ pairs with reads closer
@@ -291,14 +320,19 @@ def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
             )
 
     if lrange_inter > 0:
-        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
+        ratio_inter = round(
+            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
+        )
     else:
         ratio_inter = 0
 
     # Dump quick summary of operation results into stderr
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
-    print("Proportion of inter contacts: {}%".format(ratio_inter), file=sys.stderr)
+    print(
+        "Proportion of inter contacts: {}%".format(ratio_inter),
+        file=sys.stderr,
+    )
     print(
         "{0} pairs discarded: Loops: {1}, Uncuts: {2}, Weirds: {3}".format(
             discarded, n_loops, n_uncuts, n_weirds
@@ -306,7 +340,9 @@ def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
         file=sys.stderr,
     )
     print(
-        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2)),
+        "{0} pairs kept ({1}%)".format(
+            kept, round(100 * kept / (kept + discarded), 2)
+        ),
         file=sys.stderr,
     )
 
@@ -319,17 +355,47 @@ def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
             # The slices will be ordered and plotted counter-clockwise.
             labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
-            colors = ["salmon", "lightskyblue", "lightcoral", "palegreen", "plum"]
+            colors = [
+                "salmon",
+                "lightskyblue",
+                "lightcoral",
+                "palegreen",
+                "plum",
+            ]
             plt.pie(
-                fracs, labels=labels, colors=colors, autopct="%1.1f%%", shadow=True, startangle=90
+                fracs,
+                labels=labels,
+                colors=colors,
+                autopct="%1.1f%%",
+                shadow=True,
+                startangle=90,
             )
-            plt.title("Distribution of library events", bbox={"facecolor": "1.0", "pad": 5})
+            plt.title(
+                "Distribution of library events",
+                bbox={"facecolor": "1.0", "pad": 5},
+            )
             plt.text(
-                0.3, 1.15, "Threshold Uncuts =" + str(thr_uncut), fontdict=None, withdash=False
+                0.3,
+                1.15,
+                "Threshold Uncuts =" + str(thr_uncut),
+                fontdict=None,
+                withdash=False,
             )
-            plt.text(0.3, 1.05, "Threshold Loops =" + str(thr_loop), fontdict=None, withdash=False)
+            plt.text(
+                0.3,
+                1.05,
+                "Threshold Loops =" + str(thr_loop),
+                fontdict=None,
+                withdash=False,
+            )
 
-            plt.text(-1.5, -1.2, "Total number of reads =" + str(i), fontdict=None, withdash=False)
+            plt.text(
+                -1.5,
+                -1.2,
+                "Total number of reads =" + str(i),
+                fontdict=None,
+                withdash=False,
+            )
             plt.text(
                 -1.5,
                 -1.3,
@@ -342,7 +408,13 @@ def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
                 -1.4,
                 "selected reads = {0}%".format(
                     float(lrange_inter + lrange_intra)
-                    / (n_loops + n_uncuts + n_weirds + lrange_inter + lrange_intra)
+                    / (
+                        n_loops
+                        + n_uncuts
+                        + n_weirds
+                        + lrange_inter
+                        + lrange_intra
+                    )
                 ),
                 fontdict=None,
                 withdash=False,
@@ -350,26 +422,7 @@ def filter_events(in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False):
             plt.show()
         except _tkinter.TclError:
             print(
-                "No Xserver (might be due to windows environment), " "skipping figure generation",
+                "No Xserver (might be due to windows environment), "
+                "skipping figure generation",
                 file=sys.stderr,
             )
-
-
-def main():
-    args = parse_args()
-    # Open connection for writing
-    output_handle = sys.stdout if not args.output_file else open(args.output_file, "w")
-    if args.thresholds:
-        # Thresholds supplied by user beforehand
-        uncut_thr, loop_thr = args.thresholds
-    else:
-        # Threshold defined at runtime
-        with open(args.input_file) as handle_in:
-            uncut_thr, loop_thr = get_thresholds(handle_in, interactive=args.interactive)
-    # Filter library and write to output file
-    with open(args.input_file) as handle_in:
-        filter_events(handle_in, output_handle, uncut_thr, loop_thr, plot_events=args.plot_summary)
-
-
-if __name__ == "__main__":
-    main()

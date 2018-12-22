@@ -265,9 +265,7 @@ bedtools intersect -a "$tmp_dir"/total_contacts.bed \
 
 # Filter spurious (loops and uncuts) 3C events
 if [ "$filter_events" -eq 1 ]; then
-  hicstuff filter -F "$tmp_dir"/fragments_list.bed \
-    "$tmp_dir/contact_intersect_sorted.bed" \
-    "$tmp_dir/contacts.filtered.bed" &&
+  hicstuff filter "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contacts.filtered.bed" &&
     mv "$tmp_dir/contacts.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
 fi
 
