@@ -10,7 +10,8 @@ from Bio.Restriction import RestrictionBatch
 import os
 import collections
 import copy
-import argparse
+import matplotlib.pyplot as plt
+import pandas as pd
 
 DEFAULT_FRAGMENTS_LIST_FILE_NAME = "fragments_list.txt"
 DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
@@ -34,7 +35,7 @@ def write_frag_info(
     output_dir=None,
 ):
     """Write the fragments_list.txt and info_contigs.txt that are necessary
-    for GRAAL to run
+    for GRAAL to run.
     """
     try:
         my_enzyme = RestrictionBatch([enzyme]).get(enzyme)
@@ -56,7 +57,9 @@ def write_frag_info(
 
         with open(frag_list_path, "w") as fragments_list:
 
-            fragments_list.write("id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n")
+            fragments_list.write(
+                "id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n"
+            )
 
             total_frags = 0
 
@@ -71,7 +74,8 @@ def write_frag_info(
                 except AttributeError:
                     n = len(my_seq)
                     my_frags = (
-                        my_seq[i : min(i + my_enzyme, n)] for i in range(0, len(my_seq), my_enzyme)
+                        my_seq[i : min(i + my_enzyme, n)]
+                        for i in range(0, len(my_seq), my_enzyme)
                     )
                 n_frags = 0
 
@@ -206,7 +210,9 @@ def write_sparse_matrix(
                             )
                         )
                     else:
-                        fragment_pair = tuple(sorted((id_frag_for, id_frag_rev)))
+                        fragment_pair = tuple(
+                            sorted((id_frag_for, id_frag_rev))
+                        )
                         contacts[fragment_pair] += 1
                         # print("Successfully added contact between"
                         #       " {} and {}".format(id_fragment_forward,
@@ -227,7 +233,9 @@ def write_sparse_matrix(
     print("Writing sparse matrix...")
     if bedgraph:
         # Get reverse mapping between fragments ids and pos
-        positions_and_ids = {id: pos for pos, id in list(ids_and_positions.items())}
+        positions_and_ids = {
+            id: pos for pos, id in list(ids_and_positions.items())
+        }
 
         def parse_coord(coord):
             return "\t".join(str(x) for x in coord)
@@ -238,7 +246,9 @@ def write_sparse_matrix(
                 nb_contacts = contacts[id_pair]
                 coord_a = parse_coord(positions_and_ids[id_fragment_a])
                 coord_b = parse_coord(positions_and_ids[id_fragment_b])
-                line_to_write = "{}\t{}\t{}\n".format(coord_a, coord_b, nb_contacts)
+                line_to_write = "{}\t{}\t{}\n".format(
+                    coord_a, coord_b, nb_contacts
+                )
                 output_handle.write(line_to_write)
 
     else:
@@ -247,7 +257,9 @@ def write_sparse_matrix(
             for id_pair in sorted(contacts):
                 id_fragment_a, id_fragment_b = id_pair
                 nb_contacts = contacts[id_pair]
-                line_to_write = "{}\t{}\t{}\n".format(id_fragment_a, id_fragment_b, nb_contacts)
+                line_to_write = "{}\t{}\t{}\n".format(
+                    id_fragment_a, id_fragment_b, nb_contacts
+                )
                 output_handle.write(line_to_write)
 
     print("Done.")
@@ -288,17 +300,27 @@ def dade_to_GRAAL(
         print("I detected fixed size binning")
     else:
         print(
-            ("Sorry, I don't understand this matrix's " "binning: I read {}".format(str(bin_type)))
+            (
+                "Sorry, I don't understand this matrix's "
+                "binning: I read {}".format(str(bin_type))
+            )
         )
 
     header_data = [
-        header_elt.replace("'", "").replace('"', "").replace("\n", "").split("~")
+        header_elt.replace("'", "")
+        .replace('"', "")
+        .replace("\n", "")
+        .split("~")
         for header_elt in header[1:]
     ]
 
-    (global_frag_ids, contig_names, local_frag_ids, frag_starts, frag_ends) = np.array(
-        list(zip(*header_data))
-    )
+    (
+        global_frag_ids,
+        contig_names,
+        local_frag_ids,
+        frag_starts,
+        frag_ends,
+    ) = np.array(list(zip(*header_data)))
 
     frag_starts = frag_starts.astype(np.int32) - 1
     frag_ends = frag_ends.astype(np.int32) - 1
@@ -316,7 +338,12 @@ def dade_to_GRAAL(
 
             length_tig = np.sum(frag_lengths[contig_names == contig])
             n_frags = collections.Counter(contig_names)[contig]
-            line_to_write = "%s\t%s\t%s\t%s\n" % (contig, length_tig, n_frags, cumul_length)
+            line_to_write = "%s\t%s\t%s\t%s\n" % (
+                contig,
+                length_tig,
+                n_frags,
+                cumul_length,
+            )
             info_contigs.write(line_to_write)
             cumul_length += n_frags
 
@@ -324,7 +351,9 @@ def dade_to_GRAAL(
 
     with open(output_frags, "w") as fragments_list:
 
-        fragments_list.write("id\tchrom\tstart_pos\tend_pos" "\tsize\tgc_content\n")
+        fragments_list.write(
+            "id\tchrom\tstart_pos\tend_pos" "\tsize\tgc_content\n"
+        )
         bogus_gc = 0.5
 
         for i in range(total_length):
@@ -341,79 +370,42 @@ def dade_to_GRAAL(
         print("Fragment list written")
 
 
-def main():
+def plot_frag_len(
+    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME, output_dir=None
+):
+    """
+    Shows a histogram of fragment length distribution based on an
+    input fragment file.
+    """
 
-    parser = argparse.ArgumentParser(
-        description="Process and " "generate GRAAL compatible" " contact maps."
+    try:
+        frag_list_path = os.path.join(output_dir, output_frags)
+    except AttributeError:
+        frag_list_path = output_frags
+    frags = pd.read_csv(frag_list_path, sep="\t")
+    nbins = 40
+    fig, ax = plt.subplots()
+    n, bins, patches = ax.hist(frags["size"], bins=nbins)
+
+    ax.set_xlabel("Fragment length [bp]")
+    ax.set_ylabel("Number of fragments")
+    ax.set_title("Distribution of restriction fragment length")
+    ax.annotate(
+        "Total fragments: {}".format(frags.shape[0]),
+        xy=(0.95, 0.95),
+        xycoords="axes fraction",
+        fontsize=12,
+        horizontalalignment="right",
+        verticalalignment="top",
     )
-
-    parser.add_argument("-d", "--dade", action="store_true", help="Dade mode")
-
-    parser.add_argument(
-        "-i", "--intersection", type=str, help="Input file to process (fasta or bed file)"
+    ax.annotate(
+        "Median length: {}".format(frags["size"].median()),
+        xy=(0.95, 0.90),
+        xycoords="axes fraction",
+        fontsize=12,
+        horizontalalignment="right",
+        verticalalignment="top",
     )
-
-    parser.add_argument(
-        "-f", "--fasta", type=str, help="Reference FASTA file to perform enzyme " "catalysis on"
-    )
-
-    parser.add_argument(
-        "-F", "--frags", type=str, help="Fragments list for sparse matrix generation"
-    )
-
-    parser.add_argument("-o", "--output-dir", help="Directory for output files", required=True)
-
-    parser.add_argument(
-        "-b",
-        "--bedgraph",
-        help="Generate position-based "
-        "sparse matrix (chrA,posA\tchrB,posB\tcontacts) rather than GRAAL "
-        "compatible.",
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "-e",
-        "--enzyme",
-        type=str,
-        help="Restriction enzyme to use " "or integer (for evenly-sized chunks)",
-    )
-
-    parser.add_argument("-s", "--size", type=str, help="Minimum size threshold")
-
-    parser.add_argument("-C", "--circular", action="store_true", help="Genome is circular")
-
-    args = parser.parse_args()
-
-    _dade = args.dade
-    _output_dir = args.output_dir
-    _enzyme = args.enzyme
-    _frags = args.frags
-    _fasta = args.fasta
-    _intersection = args.intersection
-    _size = args.size
-    _circular = args.circular
-    _bedgraph = args.bedgraph
-
-    if _intersection:
-        input_file = _intersection
-        write_sparse_matrix(
-            intersect_sorted=input_file,
-            fragments_list=_frags,
-            output_dir=_output_dir,
-            bedgraph=_bedgraph,
-        )
-
-    elif _dade:
-        input_file = _dade
-        dade_to_GRAAL(input_file)
-
-    elif _fasta:
-        input_file = _fasta
-        write_frag_info(
-            fasta=input_file, enzyme=_enzyme, size=_size, circular=_circular, output_dir=_output_dir
-        )
-
-
-if __name__ == "__main__":
-    main()
+    # Tweak spacing to prevent clipping of ylabel
+    fig.tight_layout()
+    plt.show()

@@ -3,7 +3,11 @@
 # cmdoret, 20181412
 from hicstuff.hicstuff import bin_sparse, normalize_sparse, bin_kb_sparse
 from hicstuff.iteralign import *
-from hicstuff.fraglist import write_frag_info, write_sparse_matrix
+from hicstuff.fraglist import (
+    write_frag_info,
+    write_sparse_matrix,
+    plot_frag_len,
+)
 from hicstuff.filter import get_thresholds, filter_events, process_read_pair
 from hicstuff.vizmap import (
     load_raw_matrix,
@@ -76,7 +80,7 @@ class Digest(AbstractCommand):
     named "info_contigs.txt" and "fragments_list.txt"
 
     usage:
-        digest [--circular] [--size=INT] [--outdir=DIR] --enzyme=ENZ <fasta>
+        digest [--plot] [--circular] [--size=INT] [--outdir=DIR] --enzyme=ENZ <fasta>
 
     arguments:
         fasta                     Fasta file to be digested
@@ -86,6 +90,7 @@ class Digest(AbstractCommand):
         -e ENZ, --enzyme=ENZ     A restriction enzyme or an integer representing chunk sizes (in bp)
         -s INT, --size=INT       Minimum size threshold to keep fragments [default: 0]
         -o DIR, --outdir=DIR     Directory where the fragments and contigs files will be written. Defaults to current directory.
+        -p, --plot               Show a histogram of fragment length distribution after digestion.
 
     output:
         fragments_list.txt: information about restriction fragments (or chunks)
@@ -106,6 +111,9 @@ class Digest(AbstractCommand):
             output_dir=self.args["--outdir"],
             circular=self.args["--circular"],
         )
+
+        if self.args["--plot"]:
+            plot_frag_len(output_dir=self.args["--outdir"])
 
 
 class Filter(AbstractCommand):
