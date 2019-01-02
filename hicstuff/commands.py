@@ -3,11 +3,7 @@
 # cmdoret, 20181412
 from hicstuff.hicstuff import bin_sparse, normalize_sparse, bin_kb_sparse
 from hicstuff.iteralign import *
-from hicstuff.fraglist import (
-    write_frag_info,
-    write_sparse_matrix,
-    plot_frag_len,
-)
+from hicstuff.fraglist import write_frag_info, write_sparse_matrix, frag_len
 from hicstuff.filter import get_thresholds, filter_events, process_read_pair
 from hicstuff.vizmap import (
     load_raw_matrix,
@@ -112,8 +108,7 @@ class Digest(AbstractCommand):
             circular=self.args["--circular"],
         )
 
-        if self.args["--plot"]:
-            plot_frag_len(output_dir=self.args["--outdir"])
+        frag_len(output_dir=self.args["--outdir"], plot=self.args["--plot"])
 
 
 class Filter(AbstractCommand):

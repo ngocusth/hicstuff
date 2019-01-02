@@ -29,6 +29,7 @@ circular=""
 iterative=0
 filter_events=0
 prefix=""
+tmp_dir=""
 #Argument parsing
 while [[ $# -gt 0 ]]; do
 
@@ -128,7 +129,29 @@ set -o pipefail
 
 set -- "${arguments[@]}"
 
-tmp_dir=$output_dir
+# If no output dir specified, defaults to output dir
+if [ -z $tmp_dir ]; then
+    tmp_dir=$output_dir
+fi
+
+# Initialize logfile:
+if  [ ! -z $prefix ]; then
+    logfile="${output_dir}/${prefix}.log"
+else
+    logfile="${output_dir}/hicstuff.log"
+fi
+echo "LOGFILE: $logfile"
+
+cat << LOGHEAD > "$logfile"
+hicstuff v$(hicstuff --version) log file
+date: $(date)
+enzyme: $enzyme
+input1: $reads_for
+input2: $reads_rev
+ref: $fasta
+---
+LOGHEAD
+
 # Check everything's in place
 python3 -c "import Bio" >/dev/null 2>&1 || {
   echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)"
@@ -160,7 +183,10 @@ mkdir -p "$tmp_dir"
 
 # Write fragments_list.txt info_contigs.txt
 echo "Writing fragment information..."
-hicstuff digest $circular --enzyme "$enzyme" --outdir "$output_dir" --size "$size" "$fasta"
+hicstuff digest $circular \
+                --enzyme "$enzyme" \
+                --outdir "$output_dir" \
+                --size "$size" "$fasta" 2>&1 | tee -a $logfile
 
 # Remove adapters and PCR duplicates
 if [ $duplicate -eq 1 ]; then
@@ -220,6 +246,14 @@ samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_rev" |
 
 wait
 
+# Add mapping statistics to log file
+# 4 line per reads per line and 2 fq file
+n_reads=$((zcat $reads_for 2> /dev/null || cat $reads_for) | wc -l | awk '{print $1/2}')
+echo "$n_reads"
+n_mapped=$(wc -l "$tmp_dir"/unsorted_contacts*.bed | tail -n 1 | awk '{print $1}')
+perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
+echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min (${n_mapped}/${n_reads})" | tee -a "$logfile"
+
 # Check if version of UNIX sort supports parallelization and add flag if it does
 sort_par=""
 par=$(sort --version | awk 'NR==1 {if($NF > 8.23) {print 1} else {print 0}}')
@@ -265,9 +299,12 @@ bedtools intersect -a "$tmp_dir"/total_contacts.bed \
 
 # Filter spurious (loops and uncuts) 3C events
 if [ "$filter_events" -eq 1 ]; then
-  hicstuff filter "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contacts.filtered.bed" &&
-    mv "$tmp_dir/contacts.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
+  hicstuff filter "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contacts.filtered.bed" 2>&1 | \
+      tee -a "$logfile"
+  mv "$tmp_dir/contacts.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
 fi
+
+echo "$(wc -l $tmp_dir/contact_intersect_sorted.bed | awk '{print $1}') pairs used to build the contact map" | tee -a "$logfile"
 
 echo "Generating contact map..."
 # Write GRAAL matrix out of intersecting bed file

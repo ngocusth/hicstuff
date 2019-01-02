@@ -370,12 +370,13 @@ def dade_to_GRAAL(
         print("Fragment list written")
 
 
-def plot_frag_len(
-    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME, output_dir=None
+def frag_len(
+    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME, output_dir=None, plot=False
 ):
     """
-    Shows a histogram of fragment length distribution based on an
-    input fragment file.
+    Prints summary of fragment length distribution based on an
+    input fragment file. Can optionally show a histogram instead
+    of text summary.
     """
 
     try:
@@ -383,29 +384,38 @@ def plot_frag_len(
     except AttributeError:
         frag_list_path = output_frags
     frags = pd.read_csv(frag_list_path, sep="\t")
+    nfrags = frags.shape[0]
+    med_len = frags["size"].median()
     nbins = 40
-    fig, ax = plt.subplots()
-    n, bins, patches = ax.hist(frags["size"], bins=nbins)
+    if plot:
+        fig, ax = plt.subplots()
+        n, bins, patches = ax.hist(frags["size"], bins=nbins)
 
-    ax.set_xlabel("Fragment length [bp]")
-    ax.set_ylabel("Number of fragments")
-    ax.set_title("Distribution of restriction fragment length")
-    ax.annotate(
-        "Total fragments: {}".format(frags.shape[0]),
-        xy=(0.95, 0.95),
-        xycoords="axes fraction",
-        fontsize=12,
-        horizontalalignment="right",
-        verticalalignment="top",
-    )
-    ax.annotate(
-        "Median length: {}".format(frags["size"].median()),
-        xy=(0.95, 0.90),
-        xycoords="axes fraction",
-        fontsize=12,
-        horizontalalignment="right",
-        verticalalignment="top",
-    )
-    # Tweak spacing to prevent clipping of ylabel
-    fig.tight_layout()
-    plt.show()
+        ax.set_xlabel("Fragment length [bp]")
+        ax.set_ylabel("Number of fragments")
+        ax.set_title("Distribution of restriction fragment length")
+        ax.annotate(
+            "Total fragments: {}".format(nfrags),
+            xy=(0.95, 0.95),
+            xycoords="axes fraction",
+            fontsize=12,
+            horizontalalignment="right",
+            verticalalignment="top",
+        )
+        ax.annotate(
+            "Median length: {}".format(med_len),
+            xy=(0.95, 0.90),
+            xycoords="axes fraction",
+            fontsize=12,
+            horizontalalignment="right",
+            verticalalignment="top",
+        )
+        # Tweak spacing to prevent clipping of ylabel
+        fig.tight_layout()
+        plt.show()
+    else:
+        print(
+            "Genome digested into {0} fragments with a median "
+            "length of {1}".format(nfrags, med_len),
+            file=sys.stderr,
+        )
