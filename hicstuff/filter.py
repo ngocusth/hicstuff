@@ -12,18 +12,15 @@ pairs at longer distances, but can also be entered manually.
 The program takes a 2D BED file as input with the following fields:
 chromA startA endA indiceA strandA chromB startB endB indiceB strandB
 Each line of the file represents a Hi-C pair with reads A and B. The indices
-are 0-based and represent the restriction fragment to which reads are attributed.
+are 0-based and represent the restriction fragment to which reads are
+attributed.
 
 @author: cmdoret (reimplementation of Axel KournaK's code)
 """
 
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import sys
-import argparse
-import pysam as ps
-import os
 
 
 def process_read_pair(line):
@@ -97,15 +94,15 @@ def process_read_pair(line):
 
 def get_thresholds(in_dat, interactive=False):
     """
-    Analyses the events in the first million of Hi-C pairs in the library, plots
+    Analyse the events in the first million of Hi-C pairs in the library, plot
     the occurrences of each event type according to number of restriction
-    fragments, and asks user interactively for the minimum threshold for uncuts
+    fragments, and ask user interactively for the minimum threshold for uncuts
     and loops.
 
     Parameters
     ----------
     in_dat: file object
-        File handle in read mode to the input 2D BED file containing Hi-C pairs.
+        File handle in read mode to the 2D BED file containing Hi-C pairs.
     interactive: bool
         If True, plots are diplayed and thresholds are required interactively.
     Returns
@@ -162,12 +159,14 @@ def get_thresholds(in_dat, interactive=False):
             plt.legend()
             plt.show(block=False)
 
-        except _tkinter.TclError:
+        except Exception:
             print(
-                "No Xserver (might be due to windows environment), "
-                "cannot display figure. Try running without the -i flag.",
+                "Unable to show plots. Perhaps there is no Xserver running ?"
+                "(might be due to windows environment). Try running without "
+                "the -i flag.",
                 file=sys.stderr,
             )
+            raise
 
         # Asks the user for appropriate thresholds
         print(
@@ -184,7 +183,7 @@ def get_thresholds(in_dat, interactive=False):
         )
         try:
             plt.clf()
-        except _tkinter.TclError:
+        except Exception:
             pass
     else:
         # Estimate thresholds from data
@@ -219,12 +218,12 @@ def get_thresholds(in_dat, interactive=False):
                 "The threshold for loops or uncut could not be estimated. "
                 "Please try running with -i to investigate the problem."
             )
-            print(
-                "Inferred thresholds: uncuts={0} loops={1}".format(
-                    thr_uncut, thr_loop
-                ),
-                file=sys.stderr,
-            )
+        print(
+            "Filtering with thresholds: uncuts={0} loops={1}".format(
+                thr_uncut, thr_loop
+            ),
+            file=sys.stderr,
+        )
     return thr_uncut, thr_loop
 
 
@@ -239,7 +238,7 @@ def filter_events(
     Parameters
     ----------
     in_dat : file object
-        File handle in read mode to the input 2D BED file containing Hi-C pairs.
+        File handle in read mode to the 2D BED file containing Hi-C pairs.
     out_filtered : file object
         File handle in write mode the output filtered 2D BED file.
     thr_uncut : int
@@ -249,13 +248,12 @@ def filter_events(
         Minimum number of restriction sites between reads to keep an
         intrachromosomal -+ pair.
     plot_events : bool
-        If True, a plot summarising the proportion of each type of event will be
+        If True, a plot showing the proportion of each type of event will be
         shown after filtering.
     """
     n_uncuts = 0
     n_loops = 0
     n_weirds = 0
-    n_int = 0
     lrange_intra = 0
     lrange_inter = 0
 
@@ -330,7 +328,8 @@ def filter_events(
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
     print(
-        "Proportion of inter contacts: {}%".format(ratio_inter),
+        "Proportion of inter contacts: {0}% (intra: {1}, "
+        "inter: {2}".format(ratio_inter, lrange_intra, lrange_inter),
         file=sys.stderr,
     )
     print(
@@ -351,7 +350,6 @@ def filter_events(
         try:
             # Plot: make a square figure and axes to plot a pieChart:
             plt.figure(1, figsize=(6, 6))
-            ax = plt.axes([0.1, 0.1, 0.8, 0.8])
             # The slices will be ordered and plotted counter-clockwise.
             labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
@@ -420,9 +418,11 @@ def filter_events(
                 withdash=False,
             )
             plt.show()
-        except _tkinter.TclError:
+        except Exception:
             print(
-                "No Xserver (might be due to windows environment), "
-                "skipping figure generation",
+                "Unable to show plots. Perhaps there is no Xserver running ?"
+                "(might be due to windows environment) skipping figure "
+                "generation.",
                 file=sys.stderr,
             )
+            raise

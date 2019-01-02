@@ -266,7 +266,7 @@ class Pipeline(AbstractCommand):
             elif arg == "<fq2>":
                 str_args += "-2 " + val
             # Ignore value of flags (only add name)
-            elif val == True:
+            elif val is True:
                 str_args += arg
             # Skip flags that are not specified
             elif val in (None, False):

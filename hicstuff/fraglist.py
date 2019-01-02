@@ -7,7 +7,7 @@ Functions used to write GRAAL compatible sparse matrices.
 
 from Bio import SeqIO, SeqUtils
 from Bio.Restriction import RestrictionBatch
-import os
+import os, sys
 import collections
 import copy
 import matplotlib.pyplot as plt
@@ -103,7 +103,7 @@ def write_frag_info(
                                 current_id > 1 and start_pos > 0
                             )
                         except AssertionError:
-                            print((current_id, start_pos))
+                            print((current_id, start_pos), file=sys.stderr)
                             raise
                         start_pos = end_pos
                         current_id += 1
