@@ -134,6 +134,10 @@ if [ -z $tmp_dir ]; then
     tmp_dir=$output_dir
 fi
 
+# Initialize output folders
+mkdir -p "$output_dir"
+mkdir -p "$tmp_dir"
+
 # Initialize logfile:
 if  [ ! -z $prefix ]; then
     logfile="${output_dir}/${prefix}.log"
@@ -178,8 +182,6 @@ done
 
 t=$((threads / 2 < 1 ? 1 : threads / 2))
 
-mkdir -p "$output_dir"
-mkdir -p "$tmp_dir"
 
 # Write fragments_list.txt info_contigs.txt
 echo "Writing fragment information..."
