@@ -144,8 +144,8 @@ if  [ ! -z $prefix ]; then
 else
     logfile="${output_dir}/hicstuff.log"
 fi
-echo "LOGFILE: $logfile"
 
+echo "LOGFILE: $logfile"
 cat << LOGHEAD > "$logfile"
 hicstuff v$(hicstuff --version) log file
 date: $(date)
@@ -156,9 +156,13 @@ ref: $fasta
 ---
 LOGHEAD
 
+# Initiate timer
+SECONDS=0
+
 # Check everything's in place
 python3 -c "import Bio" >/dev/null 2>&1 || {
-  echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)"
+  echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)" |
+    tee -a "$logfile"
   exit 1
 }
 
@@ -168,14 +172,17 @@ else
   aligner=minimap2
 fi
 
+# If a restriction enzyme is specified, event filtering is meaningless
 if [[ "$enzyme" =~ "^[0-9]+$" ]] && [ "$filter_events" -eq 1 ]; then
-  echo "A restriction enzyme must be specified to filter 3C events."
+  echo "A restriction enzyme must be specified to filter 3C events." |
+    tee -a "$logfile"
   exit 1
 fi
 
 for tool in $aligner samtools bedtools; do
   command -v $tool >/dev/null 2>&1 || {
-    echo "Error! $tool is needed and could not be found on your machine."
+    echo "Error! $tool is needed and could not be found on your machine." |
+      tee -a "$logfile"
     exit 1
   }
 done
@@ -195,7 +202,8 @@ if [ $duplicate -eq 1 ]; then
   echo "Removing adapters and PCR duplicates..."
 
   command -v pcr_duplicates >/dev/null 2>&1 || {
-    echo "Error! pcr_duplicates is needed and could not be found on your machine."
+    echo "Error! pcr_duplicates is needed and could not be found on your machine." |
+      tee -a "$logfile"
     exit 1
   }
 
@@ -249,8 +257,10 @@ samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_rev" |
 wait
 
 # Add mapping statistics to log file
-# 4 line per reads per line and 2 fq file
-n_reads=$((zcat $reads_for 2> /dev/null || cat $reads_for) | wc -l | awk '{print $1/2}')
+# 4 line per reads per line
+n_pairs=$((zcat $reads_for 2> /dev/null || cat $reads_for) | wc -l | awk '{print $1/4}')
+echo "$n_pairs read pairs in fastq files." | tee -a "$logfile"
+n_reads=$((n_pairs*2))
 echo "$n_reads"
 n_mapped=$(wc -l "$tmp_dir"/unsorted_contacts*.bed | tail -n 1 | awk '{print $1}')
 perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
@@ -347,5 +357,7 @@ if [ $clean_up -eq 1 ]; then
   rm "$tmp_dir"/total_contacts.bed
   rm "$tmp_dir"/contact_intersect_sorted.bed
 fi
+
+echo "Contact map generated after $(($SECONDS/3600)):$((($SECONDS/60)%60)):$(($SECONDS%60)) (H:M:S)." |  tee -a "$logfile"
 
 echo "Finito"
