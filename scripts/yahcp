@@ -261,14 +261,16 @@ wait
 n_pairs=$((zcat $reads_for 2> /dev/null || cat $reads_for) | wc -l | awk '{print $1/4}')
 echo "$n_pairs read pairs in fastq files." | tee -a "$logfile"
 n_reads=$((n_pairs*2))
-echo "$n_reads"
 n_mapped=$(wc -l "$tmp_dir"/unsorted_contacts*.bed | tail -n 1 | awk '{print $1}')
 perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
 echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min (${n_mapped}/${n_reads})" | tee -a "$logfile"
 
 # Check if version of UNIX sort supports parallelization and add flag if it does
 sort_par=""
-par=$(sort --version | awk 'NR==1 {if($NF > 8.23) {print 1} else {print 0}}')
+par=$(sort --version | awk 'NR==1 {split($NF, vnum, "."); 
+                              if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23)) 
+                                  {print 1} 
+                              else {print 0}}')
 [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
 # Sort all forward and reverse reads by name into a single bed
