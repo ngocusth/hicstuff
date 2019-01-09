@@ -274,7 +274,7 @@ par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
 [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
 # Sort all forward and reverse reads by name into a single bed
-sort -S 2G "${sort_par}" -T "$tmp_dir" -k1,1d -k2,2n \
+sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n \
   "$tmp_dir"/unsorted_contacts_for.bed \
   "$tmp_dir"/unsorted_contacts_rev.bed \
   >"$tmp_dir"/total_contacts.bed
