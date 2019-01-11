@@ -1,7 +1,8 @@
-# Structure based on Rémy Greinhofer (rgreinho) tutorial on subcommands in docopt
-# https://github.com/rgreinho/docopt-subcommands-example
+# Structure based on Rémy Greinhofer (rgreinho) tutorial on subcommands in
+# docopt : https://github.com/rgreinho/docopt-subcommands-example
 # cmdoret, 20181412
-from hicstuff.hicstuff import bin_sparse, normalize_sparse, bin_kb_sparse
+from hicstuff.hicstuff import bin_sparse, normalize_sparse  # , bin_bp_sparse
+import re
 from hicstuff.iteralign import *
 from hicstuff.fraglist import write_frag_info, write_sparse_matrix, frag_len
 from hicstuff.filter import get_thresholds, filter_events, process_read_pair
@@ -166,21 +167,33 @@ class View(AbstractCommand):
         contact_map             Sparse contact matrix in GRAAL format
 
     options:
-        -b INT, --binning=INT   Subsampling factor to use for binning [default: 1].
-        -n, --normalize         Should SCN normalization be performed before rendering the matrix ?
-        -m INT, --max=INT       Saturation threshold. Maximum pixel value is set to this percentile [default: 99].
-        -o IMG, --output=IMG    Path where the matrix will be stored in PNG format.
+        -b INT[kb], --binning=INT[kb]   Subsampling factor or fix value in kb to use for binning [default: 1].
+        -n, --normalize                 Should SCN normalization be performed before rendering the matrix ?
+        -m INT, --max=INT               Saturation threshold. Maximum pixel value is set to this percentile [default: 99].
+        -o IMG, --output=IMG            Path where the matrix will be stored in PNG format.
     """
 
     def execute(self):
 
         input_map = self.args["<contact_map>"]
-        # binsuffix = {"bp": 1, "kb": 1000, "Mb": 1000000}
+        bp_unit = False
+        binsuffix = {"B": 1, "K": 1000, "M": 10e6, "G": 10e9}
+        bin_str = self.args["--binning"].upper()
         try:
-            binning = int(self.args["--binning"])
+            # Subsample binning
+            binning = int(bin_str)
         except ValueError:
-            print("Please provide an integer for binning.", file=sys.stderr)
-            raise
+            if re.match(r"^[0-9]+[KM]B[P]?$", bin_str):
+                # Extract unit and multiply accordingly for fixed bp binning
+                unit_pos = re.match(r"[KM]?B[P]?$", bin_str).start()
+                bp_unit = bin_str[unit_pos:]
+                binning = int(bin_str[:unit_pos]) * binsuffix[bp_unit[0]]
+            else:
+                print(
+                    "Please provide an integer or kb value for binning.",
+                    file=sys.stderr,
+                )
+                raise
 
         vmax = float(self.args["--max"])
 
@@ -194,7 +207,13 @@ class View(AbstractCommand):
             sparse_map = normalize_sparse(sparse_map, norm="SCN")
 
         if binning > 1:
-            binned_map = bin_sparse(M=sparse_map, subsampling_factor=binning)
+            if bp_unit:
+                # binned_map = bin_bp_sparse()
+                pass
+            else:
+                binned_map = bin_sparse(
+                    M=sparse_map, subsampling_factor=binning
+                )
         else:
             binned_map = sparse_map
 
@@ -213,7 +232,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no_cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--no_cleanup] --fasta=FILE <fq1> <fq2>
+                 [--enzyme=ENZ] --fasta=FILE <fq1> <fq2>
 
     arguments:
         fq1:             Forward fastq file
