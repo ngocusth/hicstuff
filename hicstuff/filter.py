@@ -199,8 +199,8 @@ def get_thresholds(in_dat, interactive=False):
         # from median at long distances
         mad = np.median(abs(all_events - event_med))
         exp_stdev = mad / 0.67449
-        # Iterate over sites, from furthest to closest
-        for site in range(max_sites)[::-1]:
+        # Iterate over sites, from furthest to frag+2
+        for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
             if (
@@ -405,7 +405,8 @@ def filter_events(
                 -1.5,
                 -1.4,
                 "selected reads = {0}%".format(
-                    float(lrange_inter + lrange_intra)
+                    100
+                    * float(lrange_inter + lrange_intra)
                     / (
                         n_loops
                         + n_uncuts
