@@ -267,9 +267,9 @@ echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min ($
 
 # Check if version of UNIX sort supports parallelization and add flag if it does
 sort_par=""
-par=$(sort --version | awk 'NR==1 {split($NF, vnum, "."); 
-                              if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23)) 
-                                  {print 1} 
+par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
+                              if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23))
+                                  {print 1}
                               else {print 0}}')
 [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
