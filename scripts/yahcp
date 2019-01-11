@@ -313,6 +313,10 @@ bedtools intersect -a "$tmp_dir"/total_contacts.bed \
 
 # Filter spurious (loops and uncuts) 3C events
 if [ "$filter_events" -eq 1 ]; then
+  if [ $clean_up -eq 0 ]; then
+    # Keep unfiltered in case user wants it
+    cp "$tmp_dir/contacts_intersect_sorted.bed" "$tmpdir/contacts_intersect_sorted.unfiltered.bed"
+fi
   hicstuff filter "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contacts.filtered.bed" 2>&1 | \
       tee -a "$logfile"
   mv "$tmp_dir/contacts.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
