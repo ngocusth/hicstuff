@@ -242,43 +242,85 @@ def build_pyramid(M, subsampling_factor=3):
     return N
 
 
-def bin_kb_dense(M, positions, length=10):
+def bin_bp_dense(M, positions, bin_len=10000):
     """Perform binning with a fixed genomic length in
-    kilobase pairs (kb). Fragments will be binned such
+    base pairs. Fragments will be binned such
     that their total length is closest to the specified input.
     If a contig list is specified, binning will be performed
-    such that fragments never overlap two contigs.
+    such that fragments never overlap two contigs. Fragments longer
+    than bin size will not be split, which can result in larger bins.
+    The last smaller bin of the chromosome will be merged with the 
+    previous one.
+    Parameters
+    ----------
+    M : 2D numpy array of ints or floats
+        The Hi-C matrix to bin in dense format
+    positions : numpy array of int
+        List of 0-based basepair start positions of fragments bins
+    bin_len : int
+        Bin length in basepairs
+    Returns
+    -------
+    2D numpy array of ints of floats :
+        Binned matrix
+    list :
+        List of binned fragments
     """
+    positions = np.array(positions)
+    # Get fragments where new chromosome starts (positions reset)
+    chromstart = np.where(positions == 0)[0]
+    chromend = np.append(chromstart[1:], M.shape[0])
+    chromlen = chromend - chromstart
+    # Assign a chromosome to each fragment
+    chroms = np.repeat(range(len(chromlen)), chromlen)
+    # Get binned positions
+    positions = positions // bin_len
+    frags = np.array([chroms, positions], dtype=np.int64).T
+    # Keep track of index fragments
+    frag_idx = range(frags.shape[0])
+    # Number of bins to create
+    n_bins = np.unique(frags, axis=0).shape[0]
+    # Initialise output fragment list (post binning)
+    out_frags = np.zeros((n_bins, 2))
+    # initialise matrix for matching frags (row) to bins (col)
+    bin_attr = np.zeros((frags.shape[0], n_bins))
+    # Use (chr, bin) as grouping key (coord) and indices of fragments
+    # belonging to current bin (bin_frags)
+    bin_No = 0
+    for coords, bin_frags in itertools.groupby(
+        frag_idx, lambda x: tuple(frags[x, :])
+    ):
+        bin_frags = list(bin_frags)
+        first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
+        out_frags[bin_No, :] = coords[0], coords[1] * bin_len
+        # Fill frag-bin attribution matrix matrix line by line
+        bin_attr[first_frag:last_frag, bin_No] = 1
+        bin_No += 1
+    # Perform binning (sum of contacts in each bin) using dot products
+    D = M @ bin_attr
+    out_M = bin_attr.T @ D
+    return out_M, out_frags
 
-    unit = 10 ** 3
-    ul = unit * length
-    unit = positions / ul
-    n = len(positions)
-    idx = [i for i in range(n - 1) if np.ceil(unit[i]) < np.ceil(unit[i + 1])]
-    binned_positions = positions[idx]
-    m = len(idx) - 1
-    N = np.zeros((m, m))
-    for i in range(m):
-        N[i] = np.array(
-            [
-                M[idx[j] : idx[j + 1], idx[i] : idx[i + 1]].sum()
-                for j in range(m)
-            ]
-        )
 
-    return N, binned_positions
-
-
-def bin_exact_kb_dense(M, positions, length=10):
+def bin_exact_bp_dense(M, positions, bin_len=10000):
     """Perform the kb-binning procedure with total bin lengths being exactly
     set to that of the specified input. Fragments overlapping two potential
     bins will be split and related contact counts will be divided according
     to overlap proportions in each bin.
+    M : 2D numpy array of ints or floats
+        The Hi-C matrix to bin in dense format
+    positions : numpy array of int
+        List of basepair start positions of fragments bins
+    bin_len : int
+        Bin length in basepairs
+    Returns
+    -------
+    2D numpy array of ints of floats :
+        Binned matrix
+    list :
+        List of binned fragments
     """
-
-    unit = 10 ** 3
-    ul = unit * length
-    units = positions / ul
+    units = positions / bin_len
     n = len(positions)
     idx = [
         i for i in range(n - 1) if np.ceil(units[i]) < np.ceil(units[i + 1])
@@ -300,24 +342,39 @@ def bin_exact_kb_dense(M, positions, length=10):
     return N
 
 
-def bin_kb_sparse(M, positions, length=10):
-    """Perform the exact kb-binning procedure on a sparse matrix.
+def bin_bp_sparse(M, positions, bin_len=10000):
+    """
+    Performs the bp-binning procedure on a sparse matrix.
+    Parameters
+    ----------
+    M : sparse numpy matrix
+        Hi-C contact matrix in sparse format.
+    positions : list of ints
+        Start positions of fragments in the matrix, in base pairs.
+    bin_len : int
+        Desired length of bins, in base pairs
+    Returns
+    -------
+    sparse numpy matrix:
+        The binned matrix in sparse format.
+    list of ints:
+        The new bin start positions.
     """
 
     try:
         from scipy.sparse import coo_matrix
     except ImportError as e:
         print(str(e))
-        print("I am peforming dense normalization by default.")
-        return bin_kb_dense(M.todense(), positions=positions)
+        print("Peforming dense binning by default.")
+        return bin_bp_dense(M.todense(), positions=positions, bin_len=bin_len)
     r = M.tocoo()
-    unit = 10 ** 3
-    ul = unit * length
-    units = positions / ul
+    units = positions / bin_len
     n = len(positions)
     indices = np.floor(units)
-    row = [indices[np.floor(i)] for i in r.row / ul]
-    col = [indices[np.floor(j)] for j in r.col / ul]
+    # Relies on default behaviour that duplicate i,j entries will be
+    # summed when rebuilding sparse matrix
+    row = [indices[np.floor(i)] for i in r.row / bin_len]
+    col = [indices[np.floor(j)] for j in r.col / bin_len]
     binned_indices = positions[
         [i for i in range(n - 1) if np.ceil(units[i]) < np.ceil(units[i + 1])]
     ]
