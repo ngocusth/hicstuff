@@ -15,7 +15,6 @@ CLASSIFIERS = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.4",
     "Programming Language :: Python :: 3.5",
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
@@ -32,7 +31,7 @@ name = "hicstuff"
 
 MAJOR = 0
 MINOR = 1
-MAINTENANCE = 11
+MAINTENANCE = 12
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MAINTENANCE)
 
 LICENSE = "GPLv3"
@@ -62,7 +61,7 @@ setup(
     packages=find_packages(),
     # package_data={"hicstuff": ("kernels/*")},
     scripts=["scripts/pcr_duplicates", "scripts/yahcp"],
-    python_requires=">=3.4",
+    python_requires=">=3.5",
     include_package_data=True,
     long_description_content_type="text/markdown",
     install_requires=REQUIREMENTS,
