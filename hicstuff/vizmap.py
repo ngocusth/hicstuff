@@ -63,7 +63,7 @@ def sparse_to_dense(M):
     return E
 
 
-def plot_matrix(array, filename, vmax=None, dpi=DEFAULT_DPI):
+def plot_matrix(array, filename=None, vmax=None, dpi=DEFAULT_DPI):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
     as little whitespace as possible.

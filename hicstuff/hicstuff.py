@@ -28,6 +28,46 @@ import scipy
 import scipy.linalg
 
 
+def despeckle_simple(B, th2):
+    """Single-chromosome despeckling
+    
+    Simple speckle removing function on a single chromomsome. It also works
+    for multiple chromosomes but trends may be disrupted.
+    
+    Parameters
+    ----------
+    B : array_like
+        The input matrix to despeckle
+    th2 : float
+        The number of standard deviations above the mean beyond which
+        despeckling should be performed
+    
+    Returns
+    -------
+    array_like
+        The despeckled matrix
+    """
+
+    A = np.copy(B)
+    n1 = A.shape[0]
+    dist = {u: np.diag(A, u) for u in range(n1)}
+
+    medians, stds = {}, {}
+    for u in dist:
+        medians[u] = np.median(dist[u])
+        stds[u] = np.std(dist[u])
+
+    for nw, j in itertools.product(range(n1), range(n1)):
+        lp = j + nw
+        kp = j - nw
+        if lp < n1:
+            if A[j, lp] > medians[nw] + th2 * stds[nw]:
+                A[j, lp] = medians[nw]
+        if kp >= 0:
+            if A[j, kp] > medians[nw] + th2 * stds[nw]:
+                A[j, kp] = medians[nw]
+    return A   
+
 def despeckle_global(M, positions=None, stds=2):
     """Compute a trend by averaging all contacts of equal
     distance, then sets outstanding values (above stds standard
@@ -46,11 +86,11 @@ def despeckle_global(M, positions=None, stds=2):
         if positions[i] < positions[j]:
             d = (
                 (positions[j] - positions[i] - lengths[i]) + mean_length
-            ) / 1000.0
+            ) // 1000.0
         else:
             d = (
                 (positions[i] - positions[j] - lengths[j]) + mean_length
-            ) / 1000.0
+            ) // 1000.0
         return d
 
     measurements, bins = {}, []
@@ -1504,5 +1544,5 @@ def compartments(M, normalize=True):
     from sklearn.decomposition import PCA
 
     pca = PCA(n_components=2)
-    PC1, PC2 = pca.fit_transform(N)
+    PC1, PC2 = pca.fit_transform(N).T
     return PC1, PC2
