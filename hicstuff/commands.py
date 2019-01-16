@@ -244,21 +244,22 @@ class View(AbstractCommand):
         output_file = self.args["--output"]
         raw_map = load_raw_matrix(input_map)
         sparse_map = raw_cols_to_sparse(raw_map)
-        if self.args["--normalize"]:
-            sparse_map = normalize_sparse(sparse_map, norm="SCN")
 
         if binning > 1:
             if bp_unit:
                 binned_map, binned_frags = bin_bp_sparse(
                     M=sparse_map, positions=pos, bin_len=binning
                 )
-                pass
+
             else:
                 binned_map = bin_sparse(
                     M=sparse_map, subsampling_factor=binning
                 )
         else:
             binned_map = sparse_map
+
+        if self.args["--normalize"]:
+            binned_map = normalize_sparse(binned_map, norm="SCN")
 
         try:
             dense_map = sparse_to_dense(binned_map)

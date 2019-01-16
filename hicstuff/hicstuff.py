@@ -441,9 +441,10 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         # Get bin position in basepair
         out_pos[bin_No] = coords[1] * bin_len
         bin_No += 1
+
     # Relies on default behaviour that duplicate i,j entries will be
     # summed when rebuilding sparse matrix
-    return coo_matrix((r.data, (row, col))), out_pos
+    return coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No)), out_pos
 
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):
