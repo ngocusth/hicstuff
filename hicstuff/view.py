@@ -1,25 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""Quickly visualize contact maps.
-
-Usage:
-    vizmap.py <contact_map> [--binning=1] [--normalize] [--output=<output.png>]
-                            [--max=99]
-
-Options:
-    -h, --help              Display this help message.
-    --version               Display the program's current version.
-    -b 1, --binning 1       Subsampling factor for binning. [default: 1]
-    -N, --normalize         Normalize the contact map prior to binning.
-                            [default: False]
-    -o file, --output file  Save image to output instead of plotting it.
-                            [default: output.png]
-    -m 99, --max 99         Saturation percentile threshold in the contact map.
-                            [default: 99]
-
-"""
-
 import numpy as np
 import functools
 from matplotlib import pyplot as plt
@@ -43,7 +24,9 @@ except ImportError:
 DEFAULT_DPI = 500
 DEFAULT_SATURATION_THRESHOLD = 99
 
-load_raw_matrix = functools.partial(np.genfromtxt, skip_header=True, dtype=np.float64)
+load_raw_matrix = functools.partial(
+    np.genfromtxt, skip_header=True, dtype=np.float64
+)
 
 
 def raw_cols_to_sparse(M):

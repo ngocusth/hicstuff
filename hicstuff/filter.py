@@ -92,7 +92,9 @@ def process_read_pair(line):
     return p
 
 
-def get_thresholds(in_dat, interactive=False):
+def get_thresholds(
+    in_dat, interactive=False, plot_events=False, fig_path=None
+):
     """
     Analyse the events in the first million of Hi-C pairs in the library, plot
     the occurrences of each event type according to number of restriction
@@ -105,6 +107,8 @@ def get_thresholds(in_dat, interactive=False):
         File handle in read mode to the 2D BED file containing Hi-C pairs.
     interactive: bool
         If True, plots are diplayed and thresholds are required interactively.
+    plot_events : bool
+        Whether to show the plot
     Returns
     -------
     dictionary
@@ -150,6 +154,7 @@ def get_thresholds(in_dat, interactive=False):
     if interactive:
         # PLot:
         try:
+            plt.figure(0)
             for event in legend.keys():
                 plot_event(n_events, legend, event)
             plt.grid()
@@ -161,9 +166,9 @@ def get_thresholds(in_dat, interactive=False):
 
         except Exception:
             print(
-                "Unable to show plots. Perhaps there is no Xserver running ?"
+                "Unable to show plots. Perhaps there is no Xserver running ? "
                 "(might be due to windows environment). Try running without "
-                "the -i flag.",
+                "the interactive option.",
                 file=sys.stderr,
             )
             raise
@@ -224,11 +229,36 @@ def get_thresholds(in_dat, interactive=False):
             ),
             file=sys.stderr,
         )
+        if plot_events:
+            try:
+                plt.figure(1)
+                for event in legend.keys():
+                    plot_event(n_events, legend, event)
+                    plt.grid()
+                    plt.xlabel("Number of restriction fragment(s)")
+                    plt.ylabel("Number of events")
+                    plt.yscale("log")
+                    plt.legend()
+                    plt.axvline(x=thr_loop, color="r")
+                    plt.axvline(x=thr_uncut, color="g")
+                    if fig_path:
+                        plt.savefig(fig_path)
+                    else:
+                        plt.show(block=False)
+
+            except Exception:
+                print(
+                    "Unable to show plots. Perhaps there is no Xserver running ? "
+                    "(might be due to windows environment). Try running without "
+                    "the plot option.",
+                    file=sys.stderr,
+                )
+                raise
     return thr_uncut, thr_loop
 
 
 def filter_events(
-    in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False
+    in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False, fig_path=None
 ):
     """
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
@@ -345,11 +375,11 @@ def filter_events(
         file=sys.stderr,
     )
 
-    # Visualize summary interactively if requested by user
+    # Visualize summary if requested by user
     if plot_events:
         try:
             # Plot: make a square figure and axes to plot a pieChart:
-            plt.figure(1, figsize=(6, 6))
+            plt.figure(2, figsize=(6, 6))
             # The slices will be ordered and plotted counter-clockwise.
             labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
@@ -418,7 +448,10 @@ def filter_events(
                 fontdict=None,
                 withdash=False,
             )
-            plt.show()
+            if fig_path:
+                plt.savefig(fig_path)
+            else:
+                plt.show()
         except Exception:
             print(
                 "Unable to show plots. Perhaps there is no Xserver running ?"

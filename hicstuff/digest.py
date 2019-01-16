@@ -371,12 +371,25 @@ def dade_to_GRAAL(
 
 
 def frag_len(
-    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME, output_dir=None, plot=False
+    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME,
+    output_dir=None,
+    plot=False,
+    fig_path=None,
 ):
     """
-    Prints summary of fragment length distribution based on an
+    Generates summary of fragment length distribution based on an
     input fragment file. Can optionally show a histogram instead
     of text summary.
+    Parameters
+    ----------
+    output_frags : str
+        Path to the output list of fragments.
+    output_dir : str
+        Directory where the list should be saved.
+    plot : bool
+        Wether a histogram of fragment length should be shown.
+    fig_path : str
+        If a path is given, the figure will be saved instead of shown.
     """
 
     try:
@@ -412,7 +425,10 @@ def frag_len(
         )
         # Tweak spacing to prevent clipping of ylabel
         fig.tight_layout()
-        plt.show()
+        if fig_path:
+            plt.savefig(fig_path)
+        else:
+            plt.show()
     else:
         print(
             "Genome digested into {0} fragments with a median "

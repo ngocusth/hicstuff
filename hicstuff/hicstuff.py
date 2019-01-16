@@ -26,6 +26,7 @@ import itertools
 import warnings
 import scipy
 import scipy.linalg
+import copy
 
 
 def despeckle_simple(B, th2=2):
@@ -290,7 +291,7 @@ def bin_bp_dense(M, positions, bin_len=10000):
     If a contig list is specified, binning will be performed
     such that fragments never overlap two contigs. Fragments longer
     than bin size will not be split, which can result in larger bins.
-    The last smaller bin of the chromosome will be merged with the 
+    The last smaller bin of the chromosome will be merged with the
     previous one.
     Parameters
     ----------
@@ -304,8 +305,8 @@ def bin_bp_dense(M, positions, bin_len=10000):
     -------
     2D numpy array of ints of floats :
         Binned matrix
-    list :
-        List of binned fragments
+    numpy array of ints :
+        List of binned fragments positions in basepair
     """
     positions = np.array(positions)
     # Get fragments where new chromosome starts (positions reset)
@@ -322,7 +323,7 @@ def bin_bp_dense(M, positions, bin_len=10000):
     # Number of bins to create
     n_bins = np.unique(frags, axis=0).shape[0]
     # Initialise output fragment list (post binning)
-    out_frags = np.zeros((n_bins, 2))
+    out_pos = np.zeros((n_bins, 1))
     # initialise matrix for matching frags (row) to bins (col)
     bin_attr = np.zeros((frags.shape[0], n_bins))
     # Use (chr, bin) as grouping key (coord) and indices of fragments
@@ -333,14 +334,14 @@ def bin_bp_dense(M, positions, bin_len=10000):
     ):
         bin_frags = list(bin_frags)
         first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
-        out_frags[bin_No, :] = coords[0], coords[1] * bin_len
+        out_pos[bin_No] = coords[1] * bin_len
         # Fill frag-bin attribution matrix matrix line by line
         bin_attr[first_frag:last_frag, bin_No] = 1
         bin_No += 1
     # Perform binning (sum of contacts in each bin) using dot products
     D = M @ bin_attr
     out_M = bin_attr.T @ D
-    return out_M, out_frags
+    return out_M, out_pos
 
 
 def bin_exact_bp_dense(M, positions, bin_len=10000):
@@ -390,7 +391,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     ----------
     M : sparse numpy matrix
         Hi-C contact matrix in sparse format.
-    positions : list of ints
+    positions : numpy array of ints
         Start positions of fragments in the matrix, in base pairs.
     bin_len : int
         Desired length of bins, in base pairs
@@ -409,17 +410,41 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         print("Peforming dense binning by default.")
         return bin_bp_dense(M.todense(), positions=positions, bin_len=bin_len)
     r = M.tocoo()
-    units = positions / bin_len
-    n = len(positions)
-    indices = np.floor(units)
+    # Get fragments where new chromosome starts (positions reset)
+    chromstart = np.where(positions == 0)[0]
+    chromend = np.append(chromstart[1:], M.shape[0])
+    chromlen = chromend - chromstart
+    # Assign a chromosome to each fragment
+    chroms = np.repeat(range(len(chromlen)), chromlen)
+    # Get binned positions
+    positions = positions // bin_len
+    frags = np.array([chroms, positions], dtype=np.int64).T
+    # Keep track of index fragments
+    frag_idx = range(frags.shape[0])
+    # Number of bins to create
+    n_bins = np.unique(frags, axis=0).shape[0]
+    # Initialise output fragment list (post binning)
+    out_pos = np.zeros((n_bins, 1))
+    row = copy.copy(r.row)
+    col = copy.copy(r.col)
+    bin_No = 0
+    # Use (chr, bin) as grouping key (coord) and indices of fragments
+    # belonging to current bin (bin_frags)
+    for coords, bin_frags in itertools.groupby(
+        frag_idx, lambda x: tuple(frags[x, :])
+    ):
+        bin_frags = list(bin_frags)
+        first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
+        # Pool row/col number by bin
+        row[np.where((r.row >= first_frag) & (r.row < last_frag))] = bin_No
+        col[np.where((r.col >= first_frag) & (r.col < last_frag))] = bin_No
+        # Get bin position in basepair
+        out_pos[bin_No] = coords[1] * bin_len
+        bin_No += 1
+
     # Relies on default behaviour that duplicate i,j entries will be
     # summed when rebuilding sparse matrix
-    row = [indices[np.floor(i)] for i in r.row / bin_len]
-    col = [indices[np.floor(j)] for j in r.col / bin_len]
-    binned_indices = positions[
-        [i for i in range(n - 1) if np.ceil(units[i]) < np.ceil(units[i + 1])]
-    ]
-    return coo_matrix((r.data, (row, col))), binned_indices
+    return coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No)), out_pos
 
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):

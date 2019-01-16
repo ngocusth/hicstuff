@@ -25,7 +25,9 @@ duplicate=0
 clean_up=1
 threads=1
 minimap=0
+fig_path=""
 circular=""
+plot=""
 iterative=0
 filter_events=0
 prefix=""
@@ -59,6 +61,10 @@ while [[ $# -gt 0 ]]; do
   -o | --outdir)
     output_dir="$2"
     shift
+    shift
+    ;;
+  -p | --plot)
+    plot=" -p"
     shift
     ;;
   -q | --quality_min)
@@ -112,6 +118,7 @@ while [[ $# -gt 0 ]]; do
   -P | --prefix)
     prefix="$2"
     shift
+    shift
     ;;
   -h | --help)
     trigger_help=1
@@ -131,22 +138,27 @@ set -- "${arguments[@]}"
 
 # If no output dir specified, defaults to output dir
 if [ -z $tmp_dir ]; then
-    tmp_dir=$output_dir
+  tmp_dir="$output_dir"
 fi
 
+# Define plot output directory
+if [ ! -z $plot ]; then
+  plot_dir="$output_dir/plots"
+  mkdir -p "$plot_dir"
+fi
 # Initialize output folders
 mkdir -p "$output_dir"
 mkdir -p "$tmp_dir"
 
 # Initialize logfile:
-if  [ ! -z $prefix ]; then
-    logfile="${output_dir}/${prefix}.log"
+if [ ! -z $prefix ]; then
+  logfile="${output_dir}/${prefix}.log"
 else
-    logfile="${output_dir}/hicstuff.log"
+  logfile="${output_dir}/hicstuff.log"
 fi
 
 echo "LOGFILE: $logfile"
-cat << LOGHEAD > "$logfile"
+cat <<LOGHEAD >"$logfile"
 hicstuff v$(hicstuff --version) log file
 date: $(date)
 enzyme: $enzyme
@@ -189,13 +201,12 @@ done
 
 t=$((threads / 2 < 1 ? 1 : threads / 2))
 
-
-# Write fragments_list.txt info_contigs.txt
+# Write fragments_list.txt info_contigs.txt (optionally save plot)
 echo "Writing fragment information..."
-hicstuff digest $circular \
-                --enzyme "$enzyme" \
-                --outdir "$output_dir" \
-                --size "$size" "$fasta" 2>&1 | tee -a $logfile
+hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
+  --enzyme "$enzyme" \
+  --outdir "$output_dir" \
+  --size "$size" "$fasta" 2>&1 | tee -a $logfile
 
 # Remove adapters and PCR duplicates
 if [ $duplicate -eq 1 ]; then
@@ -258,9 +269,9 @@ wait
 
 # Add mapping statistics to log file
 # 4 line per reads per line
-n_pairs=$((zcat $reads_for 2> /dev/null || cat $reads_for) | wc -l | awk '{print $1/4}')
+n_pairs=$( (zcat "$reads_for" 2>/dev/null || cat "$reads_for") | wc -l | awk '{print $1/4}')
 echo "$n_pairs read pairs in fastq files." | tee -a "$logfile"
-n_reads=$((n_pairs*2))
+n_reads=$((n_pairs * 2))
 n_mapped=$(wc -l "$tmp_dir"/unsorted_contacts*.bed | tail -n 1 | awk '{print $1}')
 perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
 echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min (${n_mapped}/${n_reads})" | tee -a "$logfile"
@@ -316,9 +327,10 @@ if [ "$filter_events" -eq 1 ]; then
   if ! [ $clean_up -eq 1 ]; then
     # Keep unfiltered in case user wants it
     cp "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contact_intersect_sorted.unfiltered.bed"
-fi
-  hicstuff filter "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contact.filtered.bed" 2>&1 | \
-      tee -a "$logfile"
+  fi
+  hicstuff filter $plot ${plot:+-f $plot_dir} \
+    "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contact.filtered.bed" 2>&1 |
+    tee -a "$logfile"
   mv "$tmp_dir/contact.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
 fi
 
@@ -364,6 +376,6 @@ if [ $clean_up -eq 1 ]; then
   rm "$tmp_dir"/contact_intersect_sorted.bed
 fi
 
-echo "Contact map generated after $(($SECONDS/3600)):$((($SECONDS/60)%60)):$(($SECONDS%60)) (H:M:S)." |  tee -a "$logfile"
+echo "Contact map generated after $(($SECONDS / 3600)):$((($SECONDS / 60) % 60)):$(($SECONDS % 60)) (H:M:S)." | tee -a "$logfile"
 
 echo "Finito"
