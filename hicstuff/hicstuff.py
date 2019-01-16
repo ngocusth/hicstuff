@@ -28,12 +28,12 @@ import scipy
 import scipy.linalg
 
 
-def despeckle_simple(B, th2):
+def despeckle_simple(B, th2=2):
     """Single-chromosome despeckling
-    
+
     Simple speckle removing function on a single chromomsome. It also works
     for multiple chromosomes but trends may be disrupted.
-    
+
     Parameters
     ----------
     B : array_like
@@ -41,7 +41,7 @@ def despeckle_simple(B, th2):
     th2 : float
         The number of standard deviations above the mean beyond which
         despeckling should be performed
-    
+
     Returns
     -------
     array_like
@@ -66,7 +66,8 @@ def despeckle_simple(B, th2):
         if kp >= 0:
             if A[j, kp] > medians[nw] + th2 * stds[nw]:
                 A[j, kp] = medians[nw]
-    return A   
+    return A
+
 
 def despeckle_global(M, positions=None, stds=2):
     """Compute a trend by averaging all contacts of equal
