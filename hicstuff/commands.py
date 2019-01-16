@@ -77,7 +77,7 @@ class Digest(AbstractCommand):
     named "info_contigs.txt" and "fragments_list.txt"
 
     usage:
-        digest [--plot] [--circular] [--size=INT] [--outdir=DIR] --enzyme=ENZ <fasta>
+        digest [--plot] [--figdir=FILE] [--circular] [--size=INT] [--outdir=DIR] --enzyme=ENZ <fasta>
 
     arguments:
         fasta                     Fasta file to be digested
@@ -88,6 +88,7 @@ class Digest(AbstractCommand):
         -s INT, --size=INT       Minimum size threshold to keep fragments [default: 0]
         -o DIR, --outdir=DIR     Directory where the fragments and contigs files will be written. Defaults to current directory.
         -p, --plot               Show a histogram of fragment length distribution after digestion.
+        -f FILE, --figdir=FILE   Path to the directory of the output figure. By default, the figure is only shown but not saved.
 
     output:
         fragments_list.txt: information about restriction fragments (or chunks)
@@ -101,6 +102,8 @@ class Digest(AbstractCommand):
             self.args["--circular"] = False
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
+        if not self.args["--figdir"]:
+            self.args["--figdir"] = None
         write_frag_info(
             self.args["<fasta>"],
             self.args["--enzyme"],
@@ -109,7 +112,11 @@ class Digest(AbstractCommand):
             circular=self.args["--circular"],
         )
 
-        frag_len(output_dir=self.args["--outdir"], plot=self.args["--plot"])
+        frag_len(
+            output_dir=self.args["--outdir"],
+            plot=self.args["--plot"],
+            fig_path=os.path.join(self.args["--figdir"], "frags_hist.pdf"),
+        )
 
 
 class Filter(AbstractCommand):
@@ -119,7 +126,7 @@ class Filter(AbstractCommand):
     default. Can also plot 3C library statistics.
 
     usage:
-        filter [--interactive | --thresholds INT,INT] [--plot_summary] <input> <output>
+        filter [--interactive | --thresholds INT,INT] [--plot] [--figdir FILE] <input> <output>
 
     arguments:
         input       2D BED file containing coordinates of Hi-C interacting pairs,
@@ -129,28 +136,48 @@ class Filter(AbstractCommand):
     options:
         -i, --interactive                 Interactively shows plots and asks for thresholds.
         -t INT-INT, --thresholds=INT-INT  Manually defines integer values for the thresholds in the order [uncut, loop].
-        -p, --plot_summary                If set, a plot with library composition informations will be displayed.
+        -p, --plot                        Generates plots of library composition and 3C events abundance.
+        -f DIR, --figdir=DIR              Path to the output figure directory. By default, the figure is only shown but not saved.
     """
 
     def execute(self):
+        figpath = None
         output_handle = open(self.args["<output>"], "w")
         if self.args["--thresholds"]:
             # Thresholds supplied by user beforehand
             uncut_thr, loop_thr = self.args["--thresholds"].split("-")
+            try:
+                uncut_thr = int(uncut_thr)
+                loop_thr = int(loop_thr)
+            except ValueError:
+                print("You must provide integer numbers for the thresholds.")
         else:
             # Threshold defined at runtime
+            if self.args["--figdir"]:
+                figpath = os.path.join(
+                    self.args["--figdir"], "event_distance.pdf"
+                )
             with open(self.args["<input>"]) as handle_in:
                 uncut_thr, loop_thr = get_thresholds(
-                    handle_in, interactive=self.args["--interactive"]
+                    handle_in,
+                    interactive=self.args["--interactive"],
+                    plot_events=self.args["--plot"],
+                    fig_path=figpath,
                 )
         # Filter library and write to output file
+        figpath = None
+        if self.args["--figdir"]:
+            figpath = os.path.join(
+                self.args["--figdir"], "event_distribution.pdf"
+            )
         with open(self.args["<input>"]) as handle_in:
             filter_events(
                 handle_in,
                 output_handle,
                 uncut_thr,
                 loop_thr,
-                plot_events=self.args["--plot_summary"],
+                plot_events=self.args["--plot"],
+                fig_path=figpath,
             )
 
 
@@ -232,7 +259,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no_cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] --fasta=FILE <fq1> <fq2>
+                 [--enzyme=ENZ] [--plot] --fasta=FILE <fq1> <fq2>
 
     arguments:
         fq1:             Forward fastq file
@@ -242,10 +269,11 @@ class Pipeline(AbstractCommand):
         -e ENZ, --enzyme=ENZ       Restriction enzyme if a string, or chunk size (i.e. resolution) if a number. [default: 5000]
         -f FILE, --fasta=FILE      Reference genome to map against in FASTA format
         -o DIR, --outdir=DIR       Output directory. Defaults to the current directory.
+        -p, --plot                 Generates plots in the output directory at different steps of the pipeline.
         -P PREFIX, --prefix=PREFIX Overrides default GRAAL-compatible filenames and use a prefix with extensions instead.
         -q INT, --quality_min=INT  Minimum mapping quality for selecting contacts. [default: 30].
         -s INT, --size=INT         Minimum size threshold to consider contigs. Keep all contigs by default. [default: 0]
-        -n, --no_cleanup          If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
+        -n, --no_cleanup           If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
         -b, --bedgraph             If enabled, generates a sparse matrix in 2D Bedgraph format (cooler-compatible) instead of GRAAL-compatible format.
         -t INT, --threads=INT      Number of threads to allocate. [default: 1].
         -T DIR, --tmpdir=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
