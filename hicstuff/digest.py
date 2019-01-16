@@ -34,9 +34,33 @@ def write_frag_info(
     output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME,
     output_dir=None,
 ):
-    """Write the fragments_list.txt and info_contigs.txt that are necessary
-    for GRAAL to run.
+    """Digest and write fragment information
+
+    Write the fragments_list.txt and info_contigs.txt that are necessary for
+    instaGRAAL to run.
+
+    Parameters
+    ----------
+    fasta : pathlib.Path or str
+        The path to the reference genome
+    enzyme : str or int
+        If a string, must be the name of an enzyme (e.g. DpnII) and the genome
+        will be cut at the enzyme's restriction sites. If a number, the genome
+        will be cut uniformly into chunks with length equal to that number.
+    size : float, optional
+        Size below which shorter contigs are discarded. Default is 0, i.e. all
+        contigs are retained.
+    circular : bool, optional
+        Whether the genome is circular. Default is False.
+    output_contigs : str, optional
+        The name of the file with contig info. Default is info_contigs.txt
+    output_frags : str, optional
+        The name of the file with fragment info. Default is fragments_list.txt
+    output_dir : [type], optional
+        The path to the output directory, which will be created if not already
+        existing. Default is the current directory.
     """
+
     try:
         my_enzyme = RestrictionBatch([enzyme]).get(enzyme)
     except ValueError:
