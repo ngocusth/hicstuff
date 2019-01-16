@@ -1220,14 +1220,30 @@ def positions_to_contigs(positions):
     return contigs
 
 
-def distance_diagonal_law(matrix, positions=None):
+def simple_distance_diagonal_law(matrix, circular=False):
+    if not circular:
+        n = len(matrix)
+        return np.array([np.average(np.diagonal(matrix, j)) for j in range(n)])
+    else:
+        n = len(matrix)
+        return [
+            (
+                np.average(np.diagonal(matrix, j))
+                + np.average(np.diagonal(matrix, n - j))
+            )
+            / 2.0
+            for j in range(n)
+        ]
+
+
+def distance_diagonal_law(matrix, positions=None, circular=False):
     """Compute a distance law trend using the contact averages of equal distances.
     Specific positions can be supplied if needed.
     """
 
     n = min(matrix.shape)
     if positions is None:
-        return np.array([np.average(np.diagonal(matrix, j)) for j in range(n)])
+        return simple_distance_diagonal_law(matrix, circular=circular)
     else:
         contigs = positions_to_contigs(positions)
 
