@@ -29,13 +29,13 @@ load_raw_matrix = functools.partial(
 )
 
 
-def raw_cols_to_sparse(M):
+def raw_cols_to_sparse(M, dtype=np.float64):
     n = int(np.amax(M[:, :-1]) + 1)
 
     row = M[:, 0]
     col = M[:, 1]
     data = M[:, 2]
-    S = sparse.coo_matrix((data, (row, col)), shape=(n, n))
+    S = sparse.coo_matrix((data, (row, col)), shape=(n, n), dtype=dtype)
     return S
 
 

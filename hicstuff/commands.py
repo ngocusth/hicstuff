@@ -103,8 +103,10 @@ class Digest(AbstractCommand):
             self.args["--circular"] = False
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
-        if not self.args["--figdir"]:
-            self.args["--figdir"] = None
+        if self.args["--figdir"]:
+            figpath = os.path.join(self.args["--figdir"], "frags_hist.pdf")
+        else:
+            figpath = None
         write_frag_info(
             self.args["<fasta>"],
             self.args["--enzyme"],
@@ -116,7 +118,7 @@ class Digest(AbstractCommand):
         frag_len(
             output_dir=self.args["--outdir"],
             plot=self.args["--plot"],
-            fig_path=os.path.join(self.args["--figdir"], "frags_hist.pdf"),
+            fig_path=figpath,
         )
 
 
