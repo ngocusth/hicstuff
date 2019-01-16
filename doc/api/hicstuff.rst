@@ -20,18 +20,18 @@ hicstuff.compressed\_utils module
     :undoc-members:
     :show-inheritance:
 
-hicstuff.filter module
+hicstuff.digest module
 ----------------------
 
-.. automodule:: hicstuff.filter
+.. automodule:: hicstuff.digest
     :members:
     :undoc-members:
     :show-inheritance:
 
-hicstuff.fraglist module
-------------------------
+hicstuff.filter module
+----------------------
 
-.. automodule:: hicstuff.fraglist
+.. automodule:: hicstuff.filter
     :members:
     :undoc-members:
     :show-inheritance:
@@ -68,10 +68,10 @@ hicstuff.version module
     :undoc-members:
     :show-inheritance:
 
-hicstuff.vizmap module
-----------------------
+hicstuff.view module
+--------------------
 
-.. automodule:: hicstuff.vizmap
+.. automodule:: hicstuff.view
     :members:
     :undoc-members:
     :show-inheritance:
