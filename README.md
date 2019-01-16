@@ -161,10 +161,11 @@ All components of the hicstuff program can be used as python modules. See the do
 
 
 ```python
-import hicstuff.fraglist # Functions to work with fragments (digestion, matrix building)
+import hicstuff.digest # Functions to work with fragments (digestion, matrix building)
 import hicstuff.iteralign # Functions related to iterative alignment
 import hicstuff.hicstuff # Contains utilities to modify and operate on contact maps as numpy arrays
-import hicstuff.vizmap # Utilities to visualise contact maps
+import hicstuff.filter # Functions for filtering 3C events by type (uncut, loop)
+import hicstuff.view # Utilities to visualise contact maps
 ```
 
 ### Connecting the modules
