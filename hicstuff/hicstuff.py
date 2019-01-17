@@ -412,7 +412,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     r = M.tocoo()
     # Get fragments where new chromosome starts (positions reset)
     chromstart = np.where(positions == 0)[0]
-    chromend = np.append(chromstart[1:], r.shape[0] + 1)
+    chromend = np.append(chromstart[1:], len(positions))
     chromlen = chromend - chromstart
     # Assign a chromosome to each fragment
     chroms = np.repeat(range(len(chromlen)), chromlen)
@@ -454,6 +454,24 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     of standard deviations from the mean. Boolean variables
     s_min and s_max act as absolute fixed values which override
     such behaviour when specified.
+    Parameters
+    ----------    
+    M : 2D numpy array of floats
+        Dense Hi-C contact matrix
+    n_std : int
+        Minimum number of standard deviation by which a the sum of
+        contacts in a component vector must deviate from the mean
+        to be trimmed.
+    s_min : float
+        Fixed minimum value below which the component vectors will
+        be trimmed.
+    s_max : float
+        Fixed maximum value above which the component vectors will
+        be trimmed.
+    Returns
+    -------
+    numpy 2D array of floats :
+        The input matrix, stripped of outlier component vectors.
     """
 
     M = np.array(M)
@@ -473,6 +491,24 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
 
 def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     """Apply the trimming procedure to a sparse matrix.
+    Parameters
+    ----------    
+    M : scipy coo_matrix of floats
+        Sparse Hi-C contact matrix
+    n_std : int
+        Minimum number of standard deviation by which a the sum of
+        contacts in a component vector must deviate from the mean
+        to be trimmed.
+    s_min : float
+        Fixed minimum value below which the component vectors will
+        be trimmed.
+    s_max : float
+        Fixed maximum value above which the component vectors will
+        be trimmed.
+    Returns
+    -------
+     scipy coo_matrix of floats :
+        The input sparse matrix, stripped of outlier component vectors.
     """
 
     try:
@@ -503,6 +539,23 @@ def normalize_dense(M, norm="frag", order=1, iterations=3):
     """Apply one of the many normalization types to input dense
     matrix. Will also apply any callable norms such as a user-made
     or a lambda function.
+    Parameters
+    ----------
+    M : 2D numpy array of floats
+    norm : str
+        Normalization procedure to use. Can be one of "SCN",
+        "mirnylib", "frag" or "global". Can also be a user-
+        defined function.
+    order : int
+        Defines the type of vector norm to use. See numpy.linalg.norm
+        for details.
+    iterations : int
+        Iterations parameter when using an iterative normalization
+        procedure.
+    Returns
+    -------
+    2D numpy array of floats :
+        Normalized dense matrix.
     """
 
     s = np.array(M, np.float64)
