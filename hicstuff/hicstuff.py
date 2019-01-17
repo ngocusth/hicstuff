@@ -412,7 +412,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     r = M.tocoo()
     # Get fragments where new chromosome starts (positions reset)
     chromstart = np.where(positions == 0)[0]
-    chromend = np.append(chromstart[1:], M.shape[0])
+    chromend = np.append(chromstart[1:], r.shape[0] + 1)
     chromlen = chromend - chromstart
     # Assign a chromosome to each fragment
     chroms = np.repeat(range(len(chromlen)), chromlen)
@@ -1126,11 +1126,22 @@ def distance_to_contact(D, alpha=1):
 
 def distance_law(matrix, log_bins=False):
     """Compute distance law as a function of the genomic coordinate aka P(s).
-    Bin length increases exponentially with distance if log_bins is True.
+    Bin length increases exponentially with distance if log_bins is True. Works
+    on dense and sparse matrices.
+    Parameters
+    ----------
+    matrix : numpy array or scipy coo_matrix
+        Hi-C contact map of the chromosome on which the distance law is calculated.
+    log_bins : bool
+        Whether the distance law should be computed on exponentially larger bins.
+    Returns
+    -------
+    numpy array of floats:
+        The distance law computed per bin on the diagonal
     """
 
     D = np.array(
-        [np.average(np.diagonal(matrix, j)) for j in range(min(matrix.shape))]
+        [np.average(matrix.diagonal(j)) for j in range(min(matrix.shape))]
     )
     if not log_bins:
         return D
