@@ -1182,10 +1182,11 @@ def distance_to_contact(D, alpha=1):
     return M
 
 
-def distance_law(matrix, log_bins=False):
+def distance_law(matrix, log_bins=False, base=1.1):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance if log_bins is True. Works
     on dense and sparse matrices.
+    # TODO: Generalize function to work on multiple chromosomes (given a coordinates list)
     Parameters
     ----------
     matrix : numpy array or scipy coo_matrix
@@ -1205,11 +1206,19 @@ def distance_law(matrix, log_bins=False):
         return D
     else:
         n = min(matrix.shape)
-        n_bins = int(np.log(n) / np.log(2) + 1)
+        n_bins = int(np.log(n) / np.log(base) + 1)
+        logbin = np.unique(
+            np.logspace(0, n_bins - 1, num=n_bins, base=base, dtype=np.int)
+        )
+        logbin = np.insert(logbin, 0, 0)
+        logbin[-1] = min(n, logbin[-1])
+        if n < logbin.shape[0]:
+            print("Not enough bins. Increase logarithm base.")
+            return D
         logD = np.array(
             [
-                np.average(D[int(2 ** (i - 1)) : min(n, 2 ** i)])
-                for i in range(n_bins)
+                np.average(D[logbin[i - 1] : logbin[i]])
+                for i in range(1, len(logbin))
             ]
         )
         return logD
