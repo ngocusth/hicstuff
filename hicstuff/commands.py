@@ -6,6 +6,7 @@ from hicstuff.hicstuff import (
     normalize_sparse,
     bin_bp_sparse,
     trim_sparse,
+    trim_dense,
 )
 import re
 from hicstuff.iteralign import *
@@ -266,6 +267,9 @@ class View(AbstractCommand):
         else:
             binned_map = sparse_map
 
+        if self.args["--normalize"]:
+            binned_map = normalize_sparse(binned_map, norm="SCN")
+
         if self.args["--trim"]:
             try:
                 trim_std = float(self.args["--trim"])
@@ -274,10 +278,8 @@ class View(AbstractCommand):
                     "You must specify a number of standard deviations for trimming"
                 )
                 raise
+            print(trim_std)
             binned_map = trim_sparse(binned_map, n_std=trim_std)
-
-        if self.args["--normalize"]:
-            binned_map = normalize_sparse(binned_map, norm="SCN")
 
         try:
             dense_map = sparse_to_dense(binned_map)

@@ -526,10 +526,15 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     if s_max is None:
         s_max = mean + n_std * std
     f = (sparsity > s_min) * (sparsity < s_max)
-    indices = [u for u in range(len(r.data)) if f[r.row[u]] and f[r.col[u]]]
-    rows = np.array([r.row[i] for i in indices])
-    cols = np.array([r.col[j] for j in indices])
-    data = np.array([r.data[k] for k in indices])
+    miss_bins = np.cumsum(1 - f)
+    # Mapping pre- and post- trimming indices of bins
+    # Note: There is probably a more efficient way than a dictionary for that
+    miss_map = {old: old - offset for old, offset in enumerate(miss_bins)}
+    indices = np.where(f[r.row] & f[r.col])
+    # Remove sparse rows and shift indices accordingly
+    rows = [miss_map[i] for i in r.row[indices]]
+    cols = [miss_map[j] for j in r.col[indices]]
+    data = r.data[indices]
 
     N = coo_matrix((data, (rows, cols)))
     return N
