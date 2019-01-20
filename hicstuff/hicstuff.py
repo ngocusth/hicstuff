@@ -1195,15 +1195,17 @@ def distance_law(matrix, log_bins=False, base=1.1):
         Whether the distance law should be computed on exponentially larger bins.
     Returns
     -------
-    numpy array of floats:
+    numpy array of floats :
         The distance law computed per bin on the diagonal
+    numpy array of floats :
+        The start coordinate of each bin.
     """
 
     D = np.array(
         [np.average(matrix.diagonal(j)) for j in range(min(matrix.shape))]
     )
     if not log_bins:
-        return D
+        return D, np.array(range(len(D)))
     else:
         n = min(matrix.shape)
         n_bins = int(np.log(n) / np.log(base) + 1)
@@ -1214,14 +1216,14 @@ def distance_law(matrix, log_bins=False, base=1.1):
         logbin[-1] = min(n, logbin[-1])
         if n < logbin.shape[0]:
             print("Not enough bins. Increase logarithm base.")
-            return D
+            return D, np.array(range(len(D)))
         logD = np.array(
             [
                 np.average(D[logbin[i - 1] : logbin[i]])
                 for i in range(1, len(logbin))
             ]
         )
-        return logD
+        return logD, logbin
 
 
 def shortest_path_interpolation(matrix, alpha=1, strict=True):
