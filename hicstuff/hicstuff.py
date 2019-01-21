@@ -1223,7 +1223,7 @@ def distance_law(matrix, log_bins=False, base=1.1):
                 for i in range(1, len(logbin))
             ]
         )
-        return logD, logbin
+        return logD, logbin[:-1]
 
 
 def shortest_path_interpolation(matrix, alpha=1, strict=True):
