@@ -5,7 +5,6 @@ import numpy as np
 import functools
 from matplotlib import pyplot as plt
 from scipy import sparse
-import docopt
 
 SEABORN = False
 

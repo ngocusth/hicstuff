@@ -32,6 +32,7 @@ iterative=0
 filter_events=0
 prefix=""
 tmp_dir=""
+start_stage=1
 #Argument parsing
 while [[ $# -gt 0 ]]; do
 
@@ -39,12 +40,12 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
   -1 | --forward)
-    reads_for="$2"
+    input1="$2"
     shift
     shift
     ;;
   -2 | --reverse)
-    reads_rev="$2"
+    input2="$2"
     shift
     shift
     ;;
@@ -99,7 +100,7 @@ while [[ $# -gt 0 ]]; do
     duplicate=1
     shift
     ;;
-  -n | --no_cleanup)
+  -n | --no-cleanup)
     clean_up=0
     shift
     ;;
@@ -120,6 +121,11 @@ while [[ $# -gt 0 ]]; do
     shift
     shift
     ;;
+  -S | --start-stage)
+    start_stage="$2"
+    shift
+    shift
+    ;;
   -h | --help)
     trigger_help=1
     shift
@@ -135,247 +141,298 @@ set -e
 set -o pipefail
 
 set -- "${arguments[@]}"
-
-# If no output dir specified, defaults to output dir
-if [ -z $tmp_dir ]; then
-  tmp_dir="$output_dir"
-fi
-
-# Define plot output directory
-if [ ! -z $plot ]; then
-  plot_dir="$output_dir/plots"
-  mkdir -p "$plot_dir"
-fi
-# Initialize output folders
-mkdir -p "$output_dir"
-mkdir -p "$tmp_dir"
-
-# Initialize logfile:
-if [ ! -z $prefix ]; then
-  logfile="${output_dir}/${prefix}.log"
-else
-  logfile="${output_dir}/hicstuff.log"
-fi
-
-echo "LOGFILE: $logfile"
-cat <<LOGHEAD >"$logfile"
-hicstuff v$(hicstuff --version) log file
-date: $(date)
-enzyme: $enzyme
-input1: $reads_for
-input2: $reads_rev
-ref: $fasta
----
-LOGHEAD
-
 # Initiate timer
 SECONDS=0
 
-# Check everything's in place
-python3 -c "import Bio" >/dev/null 2>&1 || {
-  echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)" |
-    tee -a "$logfile"
-  exit 1
-}
+setup_yahcp00() {
 
-if [ $minimap -eq 0 ]; then
-  aligner=bowtie2
-else
-  aligner=minimap2
-fi
+  # If no output dir specified, defaults to output dir
+  if [ -z $tmp_dir ]; then
+    tmp_dir="$output_dir"
+  fi
 
-# If a restriction enzyme is specified, event filtering is meaningless
-if [[ "$enzyme" =~ "^[0-9]+$" ]] && [ "$filter_events" -eq 1 ]; then
-  echo "A restriction enzyme must be specified to filter 3C events." |
-    tee -a "$logfile"
-  exit 1
-fi
+  # Define plot output directory
+  if [ ! -z $plot ]; then
+    plot_dir="$output_dir/plots"
+    mkdir -p "$plot_dir"
+  fi
+  # Initialize output folders
+  mkdir -p "$output_dir"
+  mkdir -p "$tmp_dir"
 
-for tool in $aligner samtools bedtools; do
-  command -v $tool >/dev/null 2>&1 || {
-    echo "Error! $tool is needed and could not be found on your machine." |
-      tee -a "$logfile"
-    exit 1
-  }
-done
-
-t=$((threads / 2 < 1 ? 1 : threads / 2))
-
-# Write fragments_list.txt info_contigs.txt (optionally save plot)
-echo "Writing fragment information..."
-hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
-  --enzyme "$enzyme" \
-  --outdir "$output_dir" \
-  --size "$size" "$fasta" 2>&1 | tee -a $logfile
-
-# Remove adapters and PCR duplicates
-if [ $duplicate -eq 1 ]; then
-  echo "Removing adapters and PCR duplicates..."
-
-  command -v pcr_duplicates >/dev/null 2>&1 || {
-    echo "Error! pcr_duplicates is needed and could not be found on your machine." |
-      tee -a "$logfile"
-    exit 1
-  }
-
-  pcr_duplicates "$reads_for" "$reads_rev" "$reads_for".trimmed "$reads_rev".trimmed
-  reads_for=${reads_for}.trimmed
-  reads_rev=${reads_rev}.trimmed
-fi
-
-#Do the job:
-# 1/ bowtie2/minimap2 alignment
-# 2/ filter reads according to flag and mapping quality
-# 3/ convert to bed
-# 4/ keep relevant fields (chromosome/contig, starting position, end position, read name, orientation)
-# 5/ sort by chromosome/contig (#1 in dict order) then by position (#2 in numerical order)
-
-echo "Performing alignment and generating bed files..."
-# Map reads iteratively
-if [ $iterative -eq 1 ]; then
-  # Conditionaly append minimap option flag to command
-  [ $minimap -eq 1 ] && miniflag="-m"
-  map_cmd() { hicstuff iteralign -f "$fasta" -t $t -o "$2" -T "$tmp_dir" $miniflag "$1"; }
-else
-  if [ $minimap -eq 0 ]; then
-    #Build fasta index files if they don't exist
-    index=${fasta%.fa}
-    if [ ! -f "${index}".1.bt2 ]; then
-      echo "Building fasta index files..."
-      bowtie2-build --quiet "$fasta" "$index"
-    fi
-    map_cmd() { bowtie2 --very-sensitive-local -p $t -x "$index" -U "$1" >"$2"; }
+  # Initialize logfile:
+  if [ ! -z $prefix ]; then
+    logfile="${output_dir}/${prefix}.log"
   else
-    map_cmd() { minimap2 -2 -t $t -ax sr "$fasta" "$1" >"$2"; }
+    logfile="${output_dir}/hicstuff.log"
   fi
-fi
 
-sam_for="$tmp_dir/for.sam"
-sam_rev="$tmp_dir/rev.sam"
-map_cmd "$reads_for" "$sam_for"
-map_cmd "$reads_rev" "$sam_rev"
+  echo "LOGFILE: $logfile"
+  cat <<LOGHEAD >"$logfile"
+  hicstuff v$(hicstuff --version) log file
+  date: $(date)
+  enzyme: $enzyme
+  input1: $input1
+  input2: $input2
+  ref: $fasta
+  ---
+LOGHEAD
 
-samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_for" |
-  bedtools bamtobed -i - |
-  awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-    >"$tmp_dir"/unsorted_contacts_for.bed &
+  # Check everything's in place
+  python3 -c "import Bio" >/dev/null 2>&1 || {
+    echo "Error! Biopython is missing from your python libraries. Please install it (using either your package manager or pip)" |
+      tee -a "$logfile"
+    exit 1
+  }
 
-samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_rev" |
-  bedtools bamtobed -i - |
-  awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-    >"$tmp_dir"/unsorted_contacts_rev.bed &
-
-wait
-
-# Add mapping statistics to log file
-# 4 line per reads per line
-n_pairs=$( (zcat "$reads_for" 2>/dev/null || cat "$reads_for") | wc -l | awk '{print $1/4}')
-echo "$n_pairs read pairs in fastq files." | tee -a "$logfile"
-n_reads=$((n_pairs * 2))
-n_mapped=$(wc -l "$tmp_dir"/unsorted_contacts*.bed | tail -n 1 | awk '{print $1}')
-perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
-echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min (${n_mapped}/${n_reads})" | tee -a "$logfile"
-
-# Check if version of UNIX sort supports parallelization and add flag if it does
-sort_par=""
-par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
-                              if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23))
-                                  {print 1}
-                              else {print 0}}')
-[ "$par" -eq 1 ] && sort_par="--parallel=$threads"
-
-# Sort all forward and reverse reads by name into a single bed
-sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n \
-  "$tmp_dir"/unsorted_contacts_for.bed \
-  "$tmp_dir"/unsorted_contacts_rev.bed \
-  >"$tmp_dir"/total_contacts.bed
-
-# Make a bed out of fragments_list.txt with 0-based fragment index for GRAAL
-awk 'NR>1 { print $2"\t"$3"\t"$4"\t"(NR-2) }' \
-  "$output_dir"/fragments_list.txt >"$tmp_dir"/fragments_list.bed
-
-# Awk code that transforms input bed file *sorted on Rname* with fields:
-#     Rchr Rstart Rend Rname Rstrand Fchr Fstart Fend Fidx
-# where R=read and F=fragment
-# into a paired bed file with fields:
-#     F1chr F1start F1end F1idx R1strand F2chr F2start F2end F2idx R2strand
-# Where F1 and F2 are fragments of the reads R1 and R2 in a Hi-C pair
-bed2pairs='
-BEGIN{dir="for"; OFS="\t"}
-{
-  if(dir=="for") {
-    fw["name"]=$4; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; dir="rev" }
-  else {
-    if(fw["name"] == $4) {
-        print fw["coord"],$6,$7,$8,$9,$5; dir="for"}
-    else {
-        dir="rev"; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; fw["name"]=$4}
+  for tool in $aligner samtools bedtools; do
+    command -v $tool >/dev/null 2>&1 || {
+      echo "Error! $tool is needed and could not be found on your machine." |
+        tee -a "$logfile"
+      exit 1
     }
+  done
+
+  # Get number of threads to use per job when running two jobs at once
+  t=$((threads / 2 < 1 ? 1 : threads / 2))
 }
-'
 
-# Intersect fragment list with mapping data
-echo "Intersecting bed files..."
-bedtools intersect -a "$tmp_dir"/total_contacts.bed \
-  -b "$tmp_dir"/fragments_list.bed -wa -wb |
-  sort -k4d -S 2G ${sort_par} -T "$tmp_dir" |
-  awk "$bed2pairs" \
-    >"$tmp_dir"/contact_intersect_sorted.bed
-
-# Filter spurious (loops and uncuts) 3C events
-if [ "$filter_events" -eq 1 ]; then
-  if ! [ $clean_up -eq 1 ]; then
-    # Keep unfiltered in case user wants it
-    cp "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contact_intersect_sorted.unfiltered.bed"
+digest_align01() {
+  # FQ + FA -> SAM + FRAGS
+  # Digests the genome into restriction frags and align reads
+  if [ $minimap -eq 0 ]; then
+    aligner=bowtie2
+  else
+    aligner=minimap2
   fi
-  hicstuff filter $plot ${plot:+-f $plot_dir} \
-    "$tmp_dir/contact_intersect_sorted.bed" "$tmp_dir/contact.filtered.bed" 2>&1 |
+
+  # Remove adapters and PCR duplicates
+  if [ $duplicate -eq 1 ]; then
+    echo "Removing adapters and PCR duplicates..."
+
+    command -v pcr_duplicates >/dev/null 2>&1 || {
+      echo "Error! pcr_duplicates is needed and could not be found on your machine." |
+        tee -a "$logfile"
+      exit 1
+    }
+
+    pcr_duplicates "$reads_for" "$reads_rev" "$reads_for".trimmed "$reads_rev".trimmed
+    reads_for=${reads_for}.trimmed
+    reads_rev=${reads_rev}.trimmed
+  fi
+
+  # Write fragments_list.txt info_contigs.txt (optionally save plot)
+  echo "Writing fragment information..."
+  hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
+    --enzyme "$enzyme" \
+    --outdir "$output_dir" \
+    --size "$size" "$fasta" 2>&1 | tee -a $logfile
+
+  # Map reads iteratively
+  if [ $iterative -eq 1 ]; then
+    # Conditionaly append minimap option flag to command
+    [ $minimap -eq 1 ] && miniflag="-m"
+    map_cmd() { hicstuff iteralign -f "$fasta" -t $t -o "$2" -T "$tmp_dir" $miniflag "$1"; }
+  else
+    if [ $minimap -eq 0 ]; then
+      #Build fasta index files if they don't exist
+      index=${fasta%.fa}
+      if [ ! -f "${index}".1.bt2 ]; then
+        echo "Building fasta index files..."
+        bowtie2-build --quiet "$fasta" "$index"
+      fi
+      map_cmd() { bowtie2 --very-sensitive-local -p $t -x "$index" -U "$1" >"$2"; }
+    else
+      map_cmd() { minimap2 -2 -t $t -ax sr "$fasta" "$1" >"$2"; }
+    fi
+  fi
+
+  echo "Performing alignment and generating bed files..."
+  sam_for="$tmp_dir/for.sam"
+  sam_rev="$tmp_dir/rev.sam"
+  map_cmd "$reads_for" "$sam_for" &
+  map_cmd "$reads_rev" "$sam_rev" &
+  wait
+
+  # Add mapping statistics to log file
+  # 4 line per reads per line
+  n_pairs=$( (zcat "$reads_for" 2>/dev/null || cat "$reads_for") |
+    wc -l |
+    awk '{print $1/4}')
+  echo "$n_pairs read pairs in fastq files." |
     tee -a "$logfile"
-  mv "$tmp_dir/contact.filtered.bed" "$tmp_dir/contact_intersect_sorted.bed"
-fi
+  n_reads=$((n_pairs * 2))
+  n_mapped=$(
+    awk -v qmin=$quality_min '($2 == 0 || $2 == 16) &&
+                               $5 > qmin {print $0}' "$sam_for" "$sam_rev" |
+      wc -l |
+      tail -n 1 |
+      awk '{print $1}'
+  )
+  perc_mapped=$(python -c "print(round(100*$n_mapped/$n_reads, 2))")
+  echo "${perc_mapped}% single end reads uniquely mapped with MQ > $quality_min (${n_mapped}/${n_reads})" |
+    tee -a "$logfile"
 
-echo "$(wc -l $tmp_dir/contact_intersect_sorted.bed | awk '{print $1}') pairs used to build the contact map" | tee -a "$logfile"
+}
 
-echo "Generating contact map..."
-# Write GRAAL matrix out of intersecting bed file
-if [ "$bedgraph" -eq 0 ]; then
-  echo -e "id_fragment_a\tid_fragment_b\tn_contact" >"$output_dir/$matrix_out"
-  cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed" |
-    sort -S 2G ${sort_par} -T "$tmp_dir" -V |
-    uniq -c |
-    sed 's/^\s*//' |
-    tr ' ' '\t' |
-    awk -v OFS="\t" '{print $0,$1}' |
-    cut -f1 --complement >>"$output_dir/$matrix_out"
-  matext="tsv"
-# Write 2D bedgraph matrix
-else
-  cut -f4,5,9,10 --complement "$tmp_dir/contact_intersect_sorted.bed" |
-    sort -S 2G ${sort_par} -T "$tmp_dir" -V |
-    uniq -c |
-    sed 's/^\s*//' |
-    tr ' ' '\t' |
-    awk -v OFS="\t" '{print $0,$1}' |
-    cut -f1 --complement |
-    tr '\t' ' ' >"${output_dir}/${matrix_out}"
-  matext="2bg"
-fi
+attrib_pair_filter02() {
+  # Get data to BED format, attirbute frags to reads and optionally filters events
+  # BAM/SAM + FRAGS -> 2DBED
+  # If a restriction enzyme is specified, event filtering is meaningless
+  if [[ "$enzyme" =~ "^[0-9]+$" ]] && [ "$filter_events" -eq 1 ]; then
+    echo "A restriction enzyme must be specified to filter 3C events." |
+      tee -a "$logfile"
+    exit 1
+  fi
 
-if [ ! -z "$prefix" ]; then
-  mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
-  mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
-  mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
-fi
+  samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_for" |
+    bedtools bamtobed -i - |
+    awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
+      >"$tmp_dir"/unsorted_contacts_for.bed &
 
-if [ $clean_up -eq 1 ]; then
-  rm "$sam_for" "$sam_rev"
-  rm "$tmp_dir"/fragments_list.bed
-  rm "$tmp_dir"/unsorted_contacts_for.bed
-  rm "$tmp_dir"/unsorted_contacts_rev.bed
-  rm "$tmp_dir"/total_contacts.bed
-  rm "$tmp_dir"/contact_intersect_sorted.bed
-fi
+  samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_rev" |
+    bedtools bamtobed -i - |
+    awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
+      >"$tmp_dir"/unsorted_contacts_rev.bed &
 
-echo "Contact map generated after $(($SECONDS / 3600)):$((($SECONDS / 60) % 60)):$(($SECONDS % 60)) (H:M:S)." | tee -a "$logfile"
+  wait
+
+  # Check if version of UNIX sort supports parallelization and add flag if it does
+  sort_par=""
+  par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
+                                if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23))
+                                    {print 1}
+                                else {print 0}}')
+  [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
+
+  # Sort all forward and reverse reads by name into a single bed
+  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n \
+    "$tmp_dir"/unsorted_contacts_for.bed \
+    "$tmp_dir"/unsorted_contacts_rev.bed \
+    >"$tmp_dir"/total_contacts.bed
+
+  # Make a bed out of fragments_list.txt with 0-based fragment index for GRAAL
+  awk 'NR>1 { print $2"\t"$3"\t"$4"\t"(NR-2) }' \
+    "$output_dir"/fragments_list.txt >"$tmp_dir"/fragments_list.bed
+
+  # Awk code that transforms input bed file *sorted on Rname* with fields:
+  #     Rchr Rstart Rend Rname Rstrand Fchr Fstart Fend Fidx
+  # where R=read and F=fragment
+  # into a paired bed file with fields:
+  #     F1chr F1start F1end F1idx R1strand F2chr F2start F2end F2idx R2strand
+  # Where F1 and F2 are fragments of the reads R1 and R2 in a Hi-C pair
+  bed2pairs='
+    BEGIN{dir="for"; OFS="\t"}
+    {
+      if(dir=="for") {
+        fw["name"]=$4; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; dir="rev" }
+      else {
+        if(fw["name"] == $4) {
+            print fw["coord"],$6,$7,$8,$9,$5; dir="for"}
+        else {
+            dir="rev"; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; fw["name"]=$4}
+        }
+    }
+    '
+  pairs="$tmp_dir/contact_intersect_sorted.bed"
+  # Intersect fragment list with mapping data
+  echo "Intersecting bed files..."
+  bedtools intersect -a "$tmp_dir"/total_contacts.bed \
+    -b "$tmp_dir"/fragments_list.bed -wa -wb |
+    sort -k4d -S 2G ${sort_par} -T "$tmp_dir" |
+    awk "$bed2pairs" \
+      >"$pairs"
+
+  # Filter spurious (loops and uncuts) 3C events
+  if [ "$filter_events" -eq 1 ]; then
+    if ! [ $clean_up -eq 1 ]; then
+      # Keep unfiltered in case user wants it
+      cp "$pairs" "$tmp_dir/contact_intersect_sorted.unfiltered.bed"
+    fi
+    hicstuff filter $plot ${plot:+-f $plot_dir} \
+      "$pairs" "$tmp_dir/contact.filtered.bed" 2>&1 |
+      tee -a "$logfile"
+    mv "$tmp_dir/contact.filtered.bed" "$pairs"
+  fi
+
+}
+gen_matrix03() {
+  # Generates matrix from a sorted list of pairs
+  # 2DBED -> SPARSEMAT
+  echo "$(wc -l $pairs |
+    awk '{print $1}') pairs used to build the contact map" |
+    tee -a "$logfile"
+  echo "Generating contact map..."
+  # Write GRAAL matrix out of intersecting bed file
+  if [ "$bedgraph" -eq 0 ]; then
+    echo -e "id_fragment_a\tid_fragment_b\tn_contact" >"$output_dir/$matrix_out"
+    cut -f4,9 "$pairs" |
+      sort -S 2G ${sort_par} -T "$tmp_dir" -V |
+      uniq -c |
+      sed 's/^\s*//' |
+      tr ' ' '\t' |
+      awk -v OFS="\t" '{print $0,$1}' |
+      cut -f1 --complement >>"$output_dir/$matrix_out"
+    matext="tsv"
+  # Write 2D bedgraph matrix
+  else
+    cut -f4,5,9,10 --complement "$pairs" |
+      sort -S 2G ${sort_par} -T "$tmp_dir" -V |
+      uniq -c |
+      sed 's/^\s*//' |
+      tr ' ' '\t' |
+      awk -v OFS="\t" '{print $0,$1}' |
+      cut -f1 --complement |
+      tr '\t' ' ' >"${output_dir}/${matrix_out}"
+    matext="2bg"
+  fi
+}
+
+cleanup_files04() {
+  if [ ! -z "$prefix" ]; then
+    mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
+    mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
+    mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
+  fi
+
+  if [ $clean_up -eq 1 ]; then
+    rm "$sam_for" "$sam_rev"
+    rm "$tmp_dir"/fragments_list.bed
+    rm "$tmp_dir"/unsorted_contacts_for.bed
+    rm "$tmp_dir"/unsorted_contacts_rev.bed
+    rm "$tmp_dir"/total_contacts.bed
+    rm "$tmp_dir"/contact_intersect_sorted.bed
+  fi
+}
+
+# Define input files based on pipeline start point
+echo "START AT $start_stage"
+case "$start_stage" in
+"1")
+  reads_for=$input1
+  reads_rev=$input2
+  ;;
+"2")
+  sam_for=$input1
+  sam_rev=$input2
+  ;;
+"3")
+  pairs=$input1
+  ;;
+*)
+  echo "Wrong pipeline start stage."
+  exit 1
+  ;;
+esac
+
+# Execute portions of pipeline based on start point
+setup_yahcp00
+if [ $start_stage -le 1 ]; then digest_align01; fi
+if [ $start_stage -le 2 ]; then attrib_pair_filter02; fi
+if [ $start_stage -le 3 ]; then gen_matrix03; fi
+cleanup_files04
+echo "DO I CLEAN UP ? $clean_up"
+echo "Contact map generated after $(($SECONDS / 3600)):$((($SECONDS / 60) % 60)):$(($SECONDS % 60)) (H:M:S)." |
+  tee -a "$logfile"
 
 echo "Finito"

@@ -455,7 +455,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     s_min and s_max act as absolute fixed values which override
     such behaviour when specified.
     Parameters
-    ----------    
+    ----------
     M : 2D numpy array of floats
         Dense Hi-C contact matrix
     n_std : int
@@ -492,7 +492,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
 def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     """Apply the trimming procedure to a sparse matrix.
     Parameters
-    ----------    
+    ----------
     M : scipy coo_matrix of floats
         Sparse Hi-C contact matrix
     n_std : int
@@ -1632,7 +1632,7 @@ def trim_structure(struct, filtering="cube", n=2):
     return np.array([X[f], Y[f], Z[f]])
 
 
-def scalogram(M, circ=False):
+def scalogram(M, circ=False, max_range=False):
     """Computes so-called 'scalograms' used to easily
     visualize contacts at different distance scales.
     Edge cases have been painstakingly taken
@@ -1650,12 +1650,17 @@ def scalogram(M, circ=False):
         n = min(M.shape)
     except AttributeError:
         n = len(M)
-
     N = np.zeros(M.shape)
+    if not max_range:
+        max_range = M.shape[0] // 2
     for i in range(n):
-        for j in range(n):
+        for j in range(max_range):
             if i + j < n and i >= j:
                 N[i, j] = M[i, i - j : i + j + 1].sum()
+            elif not circ and i + j < n and i < j:
+                N[i, j] = M[i, i : i + j + 1].sum() * 2
+            elif not circ and i + j >= n:
+                N[i, j] = M[i, i - j : i + 1].sum() * 2
             elif circ and i + j < n and i < j:
                 N[i, j] = M[i, i - j :].sum() + M[i, : i + j + 1].sum()
             elif circ and i >= j and i + j >= n:
@@ -1666,7 +1671,6 @@ def scalogram(M, circ=False):
                     + M[i, :].sum()
                     + M[i, : i + j - n + 1].sum()
                 )
-
     return N
 
 
