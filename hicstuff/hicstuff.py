@@ -1833,3 +1833,34 @@ def positions_to_contigs(positions):
         contig_labels[i] = contig_index
 
     return contig_labels
+
+def contigs_to_positions(contigs, binning=10000):
+    """Build positions from contig labels
+
+    From a list of contig labels and a binning parameter,
+    build a list of positions that's essentially a
+    concatenation of linspaces with step equal to the
+    binning.
+
+    Parameters
+    ----------
+    contigs : list or array_like
+        The list of contig labels, must be sorted.
+    binning : int, optional
+        The step for the list of positions. Default is 10000.    
+    
+    Returns
+    -------
+    positions : numpy.ndarray
+        The piece-wise sorted list of positions
+    """
+
+    positions = np.zeros_like(contigs)
+
+    index = 0
+    for _, chunk in itertools.groubpy(contigs):
+        l = len(chunk)
+        positions[index : index + l] = np.arange(list(chunk)) * binning
+        index += l
+
+    return positions
