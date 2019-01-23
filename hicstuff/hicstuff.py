@@ -1864,3 +1864,24 @@ def contigs_to_positions(contigs, binning=10000):
         index += l
 
     return positions
+
+def split_matrix(M, contigs):
+    """Split multiple chromosome matrix 
+
+    Split a labeled matrix with multiple chromosomes
+    into unlabeled single-chromosome matrices. Inter chromosomal
+    contacts are discarded.
+
+    Parameters
+    ----------
+    M : array_like
+        The multiple chromosome matrix to be split
+    contigs : list or array_like
+        The list of contig labels
+    """
+
+    index = 0
+    for _, chunk in itertools.groubpy(contigs):
+        l = len(chunk)
+        yield M[index : index + l, index : index + l]
+        index += l
