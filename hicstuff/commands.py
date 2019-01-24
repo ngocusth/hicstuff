@@ -49,18 +49,24 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20] [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
+        iteralign [--minimap2] [--threads=1] [--min_len=20] [--tempdir DIR]
+                  --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
 
     options:
         -f FILE, --fasta=FILE   Fasta file on which to map the reads.
-        -t INT, --threads=INT  Number of parallel threads allocated for the alignment [default: 1].
-        -T DIR, --tempdir=DIR  Temporary directory. Defaults to current directory.
-        -m, --minimap2     If set, use minimap2 instead of bowtie2 for the alignment.
-        -l INT, --min_len=INT  Length to which the reads should be truncated [default: 20].
-        -o FILE, --out_sam=FILE Path where the alignment will be written in SAM format.
+        -t INT, --threads=INT   Number of parallel threads allocated for the
+                                alignment [default: 1].
+        -T DIR, --tempdir=DIR   Temporary directory. Defaults to current
+                                directory.
+        -m, --minimap2          If set, use minimap2 instead of bowtie2 for
+                                the alignment.
+        -l INT, --min_len=INT   Length to which the reads should be
+                                truncated [default: 20].
+        -o FILE, --out_sam=FILE Path where the alignment will be written in
+                                SAM format.
     """
 
     def execute(self):
@@ -88,18 +94,26 @@ class Digest(AbstractCommand):
     named "info_contigs.txt" and "fragments_list.txt"
 
     usage:
-        digest [--plot] [--figdir=FILE] [--circular] [--size=INT] [--outdir=DIR] --enzyme=ENZ <fasta>
+        digest [--plot] [--figdir=FILE] [--circular] [--size=INT]
+               [--outdir=DIR] --enzyme=ENZ <fasta>
 
     arguments:
         fasta                     Fasta file to be digested
 
     options:
         -c, --circular           Specify if the genome is circular.
-        -e ENZ, --enzyme=ENZ     A restriction enzyme or an integer representing chunk sizes (in bp)
-        -s INT, --size=INT       Minimum size threshold to keep fragments [default: 0]
-        -o DIR, --outdir=DIR     Directory where the fragments and contigs files will be written. Defaults to current directory.
-        -p, --plot               Show a histogram of fragment length distribution after digestion.
-        -f FILE, --figdir=FILE   Path to the directory of the output figure. By default, the figure is only shown but not saved.
+        -e ENZ, --enzyme=ENZ     A restriction enzyme or an integer
+                                 representing chunk sizes (in bp)
+        -s INT, --size=INT       Minimum size threshold to keep fragments
+                                 [default: 0]
+        -o DIR, --outdir=DIR     Directory where the fragments and contigs
+                                 files will be written. Defaults to current
+                                 directory.
+        -p, --plot               Show a histogram of fragment length
+                                 distribution after digestion.
+        -f FILE, --figdir=FILE   Path to the directory of the output figure.
+                                 By default, the figure is only shown but
+                                 not saved.
 
     output:
         fragments_list.txt: information about restriction fragments (or chunks)
@@ -139,18 +153,26 @@ class Filter(AbstractCommand):
     default. Can also plot 3C library statistics.
 
     usage:
-        filter [--interactive | --thresholds INT-INT] [--plot] [--figdir FILE] <input> <output>
+        filter [--interactive | --thresholds INT-INT] [--plot]
+               [--figdir FILE] <input> <output>
 
     arguments:
-        input       2D BED file containing coordinates of Hi-C interacting pairs,
-                    the index of their restriction fragment and their strands.
+        input       2D BED file containing coordinates of Hi-C interacting
+                    pairs, the index of their restriction fragment and their
+                    strands.
         output      Path to the filtered file, in the same format as the input.
 
     options:
-        -i, --interactive                 Interactively shows plots and asks for thresholds.
-        -t INT-INT, --thresholds=INT-INT  Manually defines integer values for the thresholds in the order [uncut, loop].
-        -p, --plot                        Generates plots of library composition and 3C events abundance.
-        -f DIR, --figdir=DIR              Path to the output figure directory. By default, the figure is only shown but not saved.
+        -i, --interactive                 Interactively shows plots and asks
+                                          for thresholds.
+        -t INT-INT, --thresholds=INT-INT  Manually defines integer values for
+                                          the thresholds in the order
+                                          [uncut, loop].
+        -p, --plot                        Shows plots of library composition
+                                          and 3C events abundance.
+        -f DIR, --figdir=DIR              Path to the output figure directory.
+                                          By default, the figure is only shown
+                                          but not saved.
     """
 
     def execute(self):
@@ -202,24 +224,40 @@ class View(AbstractCommand):
 
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
-             [--normalize] [--max=99] [--output=IMG] <contact_map> [<contact_map2>]
+             [--normalize] [--max=99] [--output=IMG] <contact_map> 
+             [<contact_map2>]
 
     arguments:
         contact_map             Sparse contact matrix in GRAAL format
-        contact_map2            Sparse contact matrix in GRAAL format, if given,
-                                the log ratio of contact_map/contact_map2 will
-                                be shown
+        contact_map2            Sparse contact matrix in GRAAL format,
+                                if given, the log ratio of 
+                                contact_map/contact_map2 will be shown
 
 
     options:
-        -b INT[bp|kb|Mb|Gb], --binning=INT[bp|kb|Mb]   Subsampling factor or fix value in basepairs to use for binning [default: 1].
-        -C, --circular                                 Use if the genome is circular.
-        -d, --despeckle                                Remove sharp increases in long range contact by averaging surrounding values.
-        -f FILE, --frags=FILE                          Required for bp binning. Tab-separated file with headers, containing fragments start position in the 3rd column, as generated by hicstuff pipeline.
-        -m INT, --max=INT                              Saturation threshold. Maximum pixel value is set to this percentile [default: 99].
-        -n, --normalize                                Should SCN normalization be performed before rendering the matrix ?
-        -o IMG, --output=IMG                           Path where the matrix will be stored in PNG format.
-        -t INT, --trim=INT                             Trims outlier rows/columns from the matrix if the sum of their contacts deviates from the mean by more than INT standard deviations.
+        -b, --binning=INT[bp|kb|Mb|Gb]   Subsampling factor or fix value in
+                                         basepairs to use for binning
+                                         [default: 1].
+        -C, --circular                   Use if the genome is circular.
+        -d, --despeckle                  Remove sharp increases in long range
+                                         contact by averaging surrounding
+                                         values.
+        -f FILE, --frags=FILE            Required for bp binning. Tab-separated
+                                         file with headers, containing
+                                         fragments start position in the 3rd
+                                         column, as generated by hicstuff
+                                         pipeline.
+        -m INT, --max=INT                Saturation threshold. Maximum pixel
+                                         value is set to this percentile
+                                         [default: 99].
+        -n, --normalize                  Should SCN normalization be performed
+                                         before rendering the matrix ?
+        -o IMG, --output=IMG             Path where the matrix will be stored
+                                         in PNG format.
+        -t INT, --trim=INT               Trims outlier rows/columns from the
+                                         matrix if the sum of their contacts
+                                         deviates from the mean by more than
+                                         INT standard deviations.
     """
 
     def execute(self):
@@ -312,7 +350,8 @@ class View(AbstractCommand):
 
 class Pipeline(AbstractCommand):
     """
-    Entire Pipeline to process fastq files into a Hi-C matrix. Uses all the individual components of hicstuff.
+    Entire Pipeline to process fastq files into a Hi-C matrix. Uses all the
+    individual components of hicstuff.
 
     usage:
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
@@ -324,30 +363,62 @@ class Pipeline(AbstractCommand):
     arguments:
         fq1:             Forward fastq file. Required by default.
         fq2:             Reverse fastq file. Required by default.
-        sam1:            Forward SAM file. Required if using --frag to skip mapping.
-        sam2:            Reverse SAM file. Required if using --frag to skip mapping.
-        bed2D:           Sorted 2D BED file of pairs. Required if using --matrix to only build matrix.
+        sam1:            Forward SAM file. Required if using --sam to skip
+                         mapping.
+        sam2:            Reverse SAM file. Required if using --sam to skip
+                         mapping.
+        bed2D:           Sorted 2D BED file of pairs. Required if using
+                         --pairs to only build matrix.
 
 
     options:
-        -b, --bedgraph                If enabled, generates a sparse matrix in 2D Bedgraph format (cooler-compatible) instead of GRAAL-compatible format.
+        -b, --bedgraph                If enabled, generates a sparse matrix in
+                                      2D Bedgraph format (cooler-compatible)
+                                      instead of GRAAL-compatible format.
         -C, --circular                Enable if the genome is circular.
-        -d, --duplicates:             If enabled, trims (10bp) adapters and remove PCR duplicates prior to mapping. Only works if reads start with a 10bp sequence. Not enabled by default.
-        -e ENZ, --enzyme=ENZ          Restriction enzyme if a string, or chunk size (i.e. resolution) if a number. [default: 5000]
-        -f FILE, --fasta=FILE         Reference genome to map against in FASTA format
-        -F, --filter                  Filter out spurious 3C events (loops and uncuts) using hicstuff filter. Requires -e to be a restriction enzyme, not a chunk size.
-        -S, --sam                     Skip the mapping and start pipeline from fragment attribution using SAM files.
-        -i, --iterative               Map reads iteratively using hicstuff iteralign, by truncating reads to 20bp and then repeatedly extending and aligning them.
-        -m, --minimap2                Use the minimap2 aligner instead of bowtie2. Not enabled by default.
-        -A, --pairs                   Start from the matrix building step using a sorted list of pairs in 2D BED format.
-        -n, --no-cleanup              If enabled, intermediary BED files will be kept after generating the contact map. Disabled by defaut.
-        -o DIR, --outdir=DIR          Output directory. Defaults to the current directory.
-        -p, --plot                    Generates plots in the output directory at different steps of the pipeline.
-        -P PREFIX, --prefix=PREFIX    Overrides default GRAAL-compatible filenames and use a prefix with extensions instead.
-        -q INT, --quality_min=INT     Minimum mapping quality for selecting contacts. [default: 30].
-        -s INT, --size=INT            Minimum size threshold to consider contigs. Keep all contigs by default. [default: 0]
-        -t INT, --threads=INT         Number of threads to allocate. [default: 1].
-        -T DIR, --tmpdir=DIR          Directory for storing intermediary BED files and temporary sort files. Defaults to the output directory.
+        -d, --duplicates:             If enabled, trims (10bp) adapters and
+                                      remove PCR duplicates prior to mapping.
+                                      Only works if reads start with a 10bp
+                                      sequence. Not enabled by default.
+        -e ENZ, --enzyme=ENZ          Restriction enzyme if a string, or chunk
+                                      size (i.e. resolution) if a number.
+                                      [default: 5000]
+        -f FILE, --fasta=FILE         Reference genome to map against in FASTA
+                                      format
+        -F, --filter                  Filter out spurious 3C events (loops and
+                                      uncuts) using hicstuff filter. Requires
+                                      -e to be a restriction enzyme, not a
+                                      chunk size.
+        -S, --sam                     Skip the mapping and start pipeline from
+                                      fragment attribution using SAM files.
+        -i, --iterative               Map reads iteratively using hicstuff
+                                      iteralign, by truncating reads to 20bp
+                                      and then repeatedly extending and
+                                      aligning them.
+        -m, --minimap2                Use the minimap2 aligner instead of
+                                      bowtie2. Not enabled by default.
+        -A, --pairs                   Start from the matrix building step using
+                                      a sorted list of pairs in 2D BED format.
+        -n, --no-cleanup              If enabled, intermediary BED files will
+                                      be kept after generating the contact map.
+                                      Disabled by defaut.
+        -o DIR, --outdir=DIR          Output directory. Defaults to the current
+                                      directory.
+        -p, --plot                    Generates plots in the output directory 
+                                      at different steps of the pipeline.
+        -P PREFIX, --prefix=PREFIX    Overrides default GRAAL-compatible
+                                      filenames and use a prefix with
+                                      extensions instead.
+        -q INT, --quality_min=INT     Minimum mapping quality for selecting
+                                      contacts. [default: 30].
+        -s INT, --size=INT            Minimum size threshold to consider
+                                      contigs. Keep all contigs by default.
+                                      [default: 0]
+        -t INT, --threads=INT         Number of threads to allocate.
+                                      [default: 1].
+        -T DIR, --tmpdir=DIR          Directory for storing intermediary BED
+                                      files and temporary sort files. Defaults
+                                      to the output directory.
 
     output:
         abs_fragments_contacts_weighted.txt: the sparse contact map
@@ -399,21 +470,32 @@ class Plot(AbstractCommand):
 
     usage:
         plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT | --frags=FILE]
-             [--type={scale|law}] [--output=FILE] [--max=INT] [--centro][--process]
-             <contact_map>
+             [--type={scale|law}] [--output=FILE] [--max=INT] [--centro]
+             [--process] <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
 
     options:
-        -c INT-INT, --coord INT-INT        The bins of the matrix to use for the plot (e.g. coordinates of a single chromosome).
-        -C NAME, --cmap NAME               The matplotlib colormap to use for the plot. [default: viridis]
-        -f FILE, --frags FILE              The path to the hicstuff fragments file.
-        -m INT, --max INT                  Saturation threshold in percentile of pixel values. [default: 99]
-        -o FILE, --output FILE             Output file where the plot should be saved. Plot is only displayed by default.
-        -p, --process                      Should the matrix be processed first ? (trim, normalize, despeckle)
-        -r INT-INT, --range INT-INT        The range of contact distance to look at. No limit by default.
-        -t {scale|law}, --type={scale|law} The type of plot to be generated. Either law for distance law, or scale for scaleogram. [default: law]
+        -c INT-INT, --coord INT-INT        The bins of the matrix to use for
+                                           the plot (e.g. coordinates of a
+                                           single chromosome).
+        -C NAME, --cmap NAME               The matplotlib colormap to use for
+                                           the plot. [default: viridis]
+        -f FILE, --frags FILE              The path to the hicstuff fragments
+                                           file.
+        -m INT, --max INT                  Saturation threshold in percentile
+                                           of pixel values. [default: 99]
+        -o FILE, --output FILE             Output file where the plot should be
+                                           saved. Plot is only displayed by
+                                           default.
+        -p, --process                      Process the matrix first (trim,
+                                           normalize, despeckle)
+        -r INT-INT, --range INT-INT        The range of contact distance to
+                                           look at. No limit by default.
+        -t {scale|law}, --type={scale|law} The type of plot to be generated.
+                                           Either law for distance law, or
+                                           scale for scaleogram. [default: law]
     """
 
     def execute(self):
