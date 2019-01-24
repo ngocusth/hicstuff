@@ -1729,3 +1729,159 @@ def compartments(M, normalize=True):
     pca = PCA(n_components=2)
     PC1, PC2 = pca.fit_transform(N).T
     return PC1, PC2
+
+def remove_intra(M, contigs):
+    """Remove intrachromosomal contacts
+
+    Given a contact map and a list attributing each position
+    to a given chromosome, set all contacts within each
+    chromosome or contig to zero. Useful to perform
+    calculations on interchromosomal contacts only.
+
+    Parameters
+    ----------
+    M : array_like
+        The initial contact map
+    contigs : list or array_like
+        A 1D array whose value at index i reflect the contig
+        label of the row i in the matrix M. The length of
+        the array must be equal to the (identical) shape
+        value of the matrix.
+
+    Returns
+    -------
+    N : numpy.ndarray
+        The output contact map with no intrachromosomal contacts    
+    """
+
+    N = np.copy(M)
+    n = len(N)
+
+    assert n == len(contigs)
+
+    # Naive implmentation for now
+    for (i, j) in itertools.product(range(n), range(n)):
+        if contigs[i] == contigs[j]:
+            N[i, j] = 0
+
+    return N
+
+
+def remove_inter(M, contigs):
+    """Remove interchromosomal contacts
+
+    Given a contact map and a list attributing each position
+    to a given chromosome, set all contacts between each
+    chromosome or contig to zero. Useful to perform
+    calculations on intrachromosomal contacts only.
+
+    Parameters
+    ----------
+    M : array_like
+        The initial contact map
+    contigs : list or array_like
+        A 1D array whose value at index i reflect the contig
+        label of the row i in the matrix M. The length of
+        the array must be equal to the (identical) shape
+        value of the matrix.
+
+    Returns
+    -------
+    N : numpy.ndarray
+        The output contact map with no interchromosomal contacts    
+    """
+
+    N = np.copy(M)
+    n = len(N)
+
+    assert n == len(contigs)
+
+    # Naive implmentation for now
+    for (i, j) in itertools.product(range(n), range(n)):
+        if contigs[i] != contigs[j]:
+            N[i, j] = 0
+
+    return N
+
+
+def positions_to_contigs(positions):
+    """Label contigs according to relative positions
+
+    Given a list of positions, return an ordered list
+    of labels reflecting where the positions array started
+    over (and presumably a new contig began).
+
+    Parameters
+    ----------
+    positions : list or array_like
+        A piece-wise ordered list of integers representing
+        positions
+
+    Returns
+    -------
+    contig_labels : numpy.ndarray
+        The list of contig labels
+
+    """
+
+    contig_labels = np.zeros_like(positions)
+
+    contig_index = 0
+    for i, p in enumerate(positions):
+        if p == 0:
+            contig_index += 1
+        contig_labels[i] = contig_index
+
+    return contig_labels
+
+def contigs_to_positions(contigs, binning=10000):
+    """Build positions from contig labels
+
+    From a list of contig labels and a binning parameter,
+    build a list of positions that's essentially a
+    concatenation of linspaces with step equal to the
+    binning.
+
+    Parameters
+    ----------
+    contigs : list or array_like
+        The list of contig labels, must be sorted.
+    binning : int, optional
+        The step for the list of positions. Default is 10000.    
+    
+    Returns
+    -------
+    positions : numpy.ndarray
+        The piece-wise sorted list of positions
+    """
+
+    positions = np.zeros_like(contigs)
+
+    index = 0
+    for _, chunk in itertools.groubpy(contigs):
+        l = len(chunk)
+        positions[index : index + l] = np.arange(list(chunk)) * binning
+        index += l
+
+    return positions
+
+def split_matrix(M, contigs):
+    """Split multiple chromosome matrix 
+
+    Split a labeled matrix with multiple chromosomes
+    into unlabeled single-chromosome matrices. Inter chromosomal
+    contacts are discarded.
+
+    Parameters
+    ----------
+    M : array_like
+        The multiple chromosome matrix to be split
+    contigs : list or array_like
+        The list of contig labels
+    """
+
+    index = 0
+    for _, chunk in itertools.groubpy(contigs):
+        l = len(chunk)
+        yield M[index : index + l, index : index + l]
+        index += l
