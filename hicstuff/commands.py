@@ -368,7 +368,7 @@ class Pipeline(AbstractCommand):
         sam2:            Reverse SAM file. Required if using --sam to skip
                          mapping.
         bed2D:           Sorted 2D BED file of pairs. Required if using
-                         --pairs to only build matrix.
+                         "--pairs" to only build matrix.
 
 
     options:
@@ -387,7 +387,7 @@ class Pipeline(AbstractCommand):
                                       format
         -F, --filter                  Filter out spurious 3C events (loops and
                                       uncuts) using hicstuff filter. Requires
-                                      -e to be a restriction enzyme, not a
+                                      "-e" to be a restriction enzyme, not a
                                       chunk size.
         -S, --sam                     Skip the mapping and start pipeline from
                                       fragment attribution using SAM files.
@@ -404,7 +404,7 @@ class Pipeline(AbstractCommand):
                                       Disabled by defaut.
         -o DIR, --outdir=DIR          Output directory. Defaults to the current
                                       directory.
-        -p, --plot                    Generates plots in the output directory 
+        -p, --plot                    Generates plots in the output directory
                                       at different steps of the pipeline.
         -P PREFIX, --prefix=PREFIX    Overrides default GRAAL-compatible
                                       filenames and use a prefix with
