@@ -197,7 +197,7 @@ LOGHEAD
   t=$((threads / 2 < 1 ? 1 : threads / 2))
 }
 
-digest_align01() {
+align01() {
   # FQ + FA -> SAM + FRAGS
   # Digests the genome into restriction frags and align reads
   if [ $minimap -eq 0 ]; then
@@ -221,12 +221,6 @@ digest_align01() {
     reads_rev=${reads_rev}.trimmed
   fi
 
-  # Write fragments_list.txt info_contigs.txt (optionally save plot)
-  echo "Writing fragment information..."
-  hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
-    --enzyme "$enzyme" \
-    --outdir "$output_dir" \
-    --size "$size" "$fasta" 2>&1 | tee -a $logfile
 
   # Map reads iteratively
   if [ $iterative -eq 1 ]; then
@@ -275,7 +269,7 @@ digest_align01() {
 
 }
 
-attrib_pair_filter02() {
+attrib_filter02() {
   # Get data to BED format, attirbute frags to reads and optionally filters events
   # BAM/SAM + FRAGS -> 2DBED
   # If a restriction enzyme is specified, event filtering is meaningless
@@ -284,6 +278,13 @@ attrib_pair_filter02() {
       tee -a "$logfile"
     exit 1
   fi
+
+  # Write fragments_list.txt info_contigs.txt (optionally save plot)
+  echo "Writing fragment information..."
+  hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
+    --enzyme "$enzyme" \
+    --outdir "$output_dir" \
+    --size "$size" "$fasta" 2>&1 | tee -a $logfile
 
   samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_for" |
     bedtools bamtobed -i - |
@@ -427,8 +428,8 @@ esac
 
 # Execute portions of pipeline based on start point
 setup_yahcp00
-if [ $start_stage -le 1 ]; then digest_align01; fi
-if [ $start_stage -le 2 ]; then attrib_pair_filter02; fi
+if [ $start_stage -le 1 ]; then align01; fi
+if [ $start_stage -le 2 ]; then attrib_filter02; fi
 if [ $start_stage -le 3 ]; then gen_matrix03; fi
 cleanup_files04
 echo "DO I CLEAN UP ? $clean_up"
