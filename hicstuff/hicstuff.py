@@ -1730,6 +1730,7 @@ def compartments(M, normalize=True):
     PC1, PC2 = pca.fit_transform(N).T
     return PC1, PC2
 
+
 def remove_intra(M, contigs):
     """Remove intrachromosomal contacts
 
@@ -1834,6 +1835,7 @@ def positions_to_contigs(positions):
 
     return contig_labels
 
+
 def contigs_to_positions(contigs, binning=10000):
     """Build positions from contig labels
 
@@ -1864,6 +1866,7 @@ def contigs_to_positions(contigs, binning=10000):
         index += l
 
     return positions
+
 
 def split_matrix(M, contigs):
     """Split multiple chromosome matrix 

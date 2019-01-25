@@ -19,7 +19,11 @@ def read_compressed(filename):
     """
 
     # Standard header bytes for diff compression formats
-    comp_bytes = {b"\x1f\x8b\x08": "gz", b"\x42\x5a\x68": "bz2", b"\x50\x4b\x03\x04": "zip"}
+    comp_bytes = {
+        b"\x1f\x8b\x08": "gz",
+        b"\x42\x5a\x68": "bz2",
+        b"\x50\x4b\x03\x04": "zip",
+    }
 
     max_len = max(len(x) for x in comp_bytes)
 
@@ -43,7 +47,9 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError("Only a single fastq file must be in the zip archive.")
+            raise IOError(
+                "Only a single fastq file must be in the zip archive."
+            )
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -67,7 +73,11 @@ def is_compressed(filename):
     """
 
     # Standard header bytes for diff compression formats
-    comp_bytes = {b"\x1f\x8b\x08": "gz", b"\x42\x5a\x68": "bz2", b"\x50\x4b\x03\x04": "zip"}
+    comp_bytes = {
+        b"\x1f\x8b\x08": "gz",
+        b"\x42\x5a\x68": "bz2",
+        b"\x50\x4b\x03\x04": "zip",
+    }
     max_len = max(len(x) for x in comp_bytes)
     with open(filename, "rb") as f:
         file_start = f.read(max_len)

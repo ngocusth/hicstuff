@@ -308,13 +308,17 @@ class View(AbstractCommand):
             raw_map2 = load_raw_matrix(self.args["<contact_map2>"])
             sparse_map2 = raw_cols_to_sparse(raw_map2)
             if sparse_map2.shape != sparse_map.shape:
-                print("Error: You cannot compute the ratio of matrices with "
-                      "different dimensions", file=sys.stderr)
+                print(
+                    "Error: You cannot compute the ratio of matrices with "
+                    "different dimensions",
+                    file=sys.stderr,
+                )
             # Note: Taking diff of logs instead of log of ratio because sparse
             # mat division yields dense matrix in current implementation.
             # Changing base to 2 afterwards.
-            sparse_map = (sparse_map.tocsr().log1p() -
-                          sparse_map2.tocsr().log1p()) / np.log1p(2)
+            sparse_map = (
+                sparse_map.tocsr().log1p() - sparse_map2.tocsr().log1p()
+            ) / np.log1p(2)
             sparse_map = sparse_map.tocoo()
             cmap = "coolwarm"
 
