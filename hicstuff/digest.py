@@ -6,7 +6,7 @@ Functions used to write GRAAL compatible sparse matrices.
 """
 
 from Bio import SeqIO, SeqUtils
-from Bio.Restriction import RestrictionBatch
+from Bio.Restriction import RestrictionBatch, Analysis
 import os, sys
 import collections
 import copy
@@ -43,10 +43,11 @@ def write_frag_info(
     ----------
     fasta : pathlib.Path or str
         The path to the reference genome
-    enzyme : str or int
+    enzyme : str, int or list of str
         If a string, must be the name of an enzyme (e.g. DpnII) and the genome
         will be cut at the enzyme's restriction sites. If a number, the genome
-        will be cut uniformly into chunks with length equal to that number.
+        will be cut uniformly into chunks with length equal to that number. A
+        list of enzymes can also be specified if using multiple enzymes.
     size : float, optional
         Size below which shorter contigs are discarded. Default is 0, i.e. all
         contigs are retained.
@@ -62,7 +63,8 @@ def write_frag_info(
     """
 
     try:
-        my_enzyme = RestrictionBatch([enzyme]).get(enzyme)
+        enz = [enzyme] if type(enzyme) is str else enzyme
+        my_enzyme = RestrictionBatch(enz)
     except ValueError:
         my_enzyme = max(int(enzyme), DEFAULT_MIN_CHUNK_SIZE)
 
@@ -91,12 +93,27 @@ def write_frag_info(
                 my_seq = record.seq
                 contig_name = record.id
                 contig_length = len(my_seq)
+                n = len(my_seq)
                 if contig_length < int(size):
                     continue
                 try:
-                    my_frags = my_enzyme.catalyze(my_seq, linear=not circular)
+                    # Find sites of all restriction enzymes given
+                    ana = Analysis(my_enzyme, my_seq, linear=not circular)
+                    sites = ana.full()
+                    # Gets all sites into a single flat list with 0-based index
+                    sites = [
+                        site - 1 for enz in sites.values() for site in enz
+                    ]
+                    # Sort by position and allow first add start and end of seq
+                    sites.sort()
+                    sites.insert(0, 0)
+                    sites.append(n)
+                    my_frags = (
+                        my_seq[sites[i] : sites[i + 1]]
+                        for i in range(len(sites) - 1)
+                    )
+
                 except AttributeError:
-                    n = len(my_seq)
                     my_frags = (
                         my_seq[i : min(i + my_enzyme, n)]
                         for i in range(0, len(my_seq), my_enzyme)

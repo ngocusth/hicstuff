@@ -407,7 +407,6 @@ cleanup_files04() {
 }
 
 # Define input files based on pipeline start point
-echo "START AT $start_stage"
 case "$start_stage" in
 "1")
   reads_for=$input1
@@ -432,7 +431,6 @@ if [ $start_stage -le 1 ]; then align01; fi
 if [ $start_stage -le 2 ]; then attrib_filter02; fi
 if [ $start_stage -le 3 ]; then gen_matrix03; fi
 cleanup_files04
-echo "DO I CLEAN UP ? $clean_up"
 echo "Contact map generated after $(($SECONDS / 3600)):$((($SECONDS / 60) % 60)):$(($SECONDS % 60)) (H:M:S)." |
   tee -a "$logfile"
 

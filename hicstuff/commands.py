@@ -101,19 +101,21 @@ class Digest(AbstractCommand):
         fasta                     Fasta file to be digested
 
     options:
-        -c, --circular           Specify if the genome is circular.
-        -e ENZ, --enzyme=ENZ     A restriction enzyme or an integer
-                                 representing chunk sizes (in bp)
-        -s INT, --size=INT       Minimum size threshold to keep fragments
-                                 [default: 0]
-        -o DIR, --outdir=DIR     Directory where the fragments and contigs
-                                 files will be written. Defaults to current
-                                 directory.
-        -p, --plot               Show a histogram of fragment length
-                                 distribution after digestion.
-        -f FILE, --figdir=FILE   Path to the directory of the output figure.
-                                 By default, the figure is only shown but
-                                 not saved.
+        -c, --circular                  Specify if the genome is circular.
+        -e, --enzyme=ENZ[,ENZ2,...]     A restriction enzyme or an integer
+                                        representing fixed chunk sizes (in bp).
+                                        Multiple comma-separated enzymes can
+                                        be given.
+        -s INT, --size=INT              Minimum size threshold to keep
+                                        fragments. [default: 0]
+        -o DIR, --outdir=DIR            Directory where the fragments and
+                                        contigs files will be written.
+                                        Defaults to current directory.
+        -p, --plot                      Show a histogram of fragment length
+                                        distribution after digestion.
+        -f FILE, --figdir=FILE          Path to directory of the output figure.
+                                        By default, the figure is only shown
+                                        but not saved.
 
     output:
         fragments_list.txt: information about restriction fragments (or chunks)
@@ -131,9 +133,14 @@ class Digest(AbstractCommand):
             figpath = os.path.join(self.args["--figdir"], "frags_hist.pdf")
         else:
             figpath = None
+        # Split into a list if multiple enzymes given
+        enzyme = self.args["--enzyme"]
+        if re.search(r",", enzyme):
+            enzyme = enzyme.split(",")
+
         write_frag_info(
             self.args["<fasta>"],
-            self.args["--enzyme"],
+            enzyme,
             self.args["--size"],
             output_dir=self.args["--outdir"],
             circular=self.args["--circular"],
@@ -381,7 +388,8 @@ class Pipeline(AbstractCommand):
                                       Only works if reads start with a 10bp
                                       sequence. Not enabled by default.
         -e ENZ, --enzyme=ENZ          Restriction enzyme if a string, or chunk
-                                      size (i.e. resolution) if a number.
+                                      size (i.e. resolution) if a number. Can
+                                      also be multiple comma-separated enzymes.
                                       [default: 5000]
         -f FILE, --fasta=FILE         Reference genome to map against in FASTA
                                       format
