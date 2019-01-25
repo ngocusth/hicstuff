@@ -6,22 +6,21 @@ from hicstuff.hicstuff import (
     normalize_sparse,
     bin_bp_sparse,
     trim_sparse,
-    trim_dense,
     despeckle_local,
     scalogram,
     distance_law,
 )
 import re
 from hicstuff.iteralign import *
-from hicstuff.digest import write_frag_info, write_sparse_matrix, frag_len
-from hicstuff.filter import get_thresholds, filter_events, process_read_pair
+from hicstuff.digest import write_frag_info, frag_len
+from hicstuff.filter import get_thresholds, filter_events
 from hicstuff.view import (
     load_raw_matrix,
     raw_cols_to_sparse,
     sparse_to_dense,
     plot_matrix,
 )
-import sys, os, subprocess, shutil, logging
+import sys, os, subprocess, shutil
 from matplotlib import pyplot as plt
 from docopt import docopt
 import numpy as np
@@ -234,13 +233,13 @@ class View(AbstractCommand):
 
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
-             [--normalize] [--max=99] [--output=IMG] <contact_map> 
+             [--normalize] [--max=99] [--output=IMG] <contact_map>
              [<contact_map2>]
 
     arguments:
         contact_map             Sparse contact matrix in GRAAL format
         contact_map2            Sparse contact matrix in GRAAL format,
-                                if given, the log ratio of 
+                                if given, the log ratio of
                                 contact_map/contact_map2 will be shown
 
 
@@ -318,7 +317,19 @@ class View(AbstractCommand):
         if self.args["<contact_map2>"]:
             raw_map2 = load_raw_matrix(self.args["<contact_map2>"])
             sparse_map2 = raw_cols_to_sparse(raw_map2)
-            sparse_map = np.log2(sparse_map / sparse_map2)
+            if sparse_map2.shape != sparse_map.shape:
+                print(
+                    "Error: You cannot compute the ratio of matrices with "
+                    "different dimensions",
+                    file=sys.stderr,
+                )
+            # Note: Taking diff of logs instead of log of ratio because sparse
+            # mat division yields dense matrix in current implementation.
+            # Changing base to 2 afterwards.
+            sparse_map = (
+                sparse_map.tocsr().log1p() - sparse_map2.tocsr().log1p()
+            ) / np.log1p(2)
+            sparse_map = sparse_map.tocoo()
             cmap = "coolwarm"
 
         if binning > 1:
@@ -342,7 +353,8 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for trimming"
+                    "You must specify a number of standard deviations for "
+                    "trimming"
                 )
                 raise
             print(trim_std)

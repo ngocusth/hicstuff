@@ -52,7 +52,9 @@ def generate_temp_dir(path):
     return full_path
 
 
-def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20):
+def iterative_align(
+    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
+):
     """
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
     truncated to the 20 first nucleotides and unmapped reads are extended by 20
@@ -121,7 +123,9 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
         # Generate a temporary input fastq file with the n first nucleotids
         # of the reads.
         print("Generating truncated reads")
-        truncated_reads = truncate_reads(tmp_dir, uncomp_path, remaining_reads, n, min_len)
+        truncated_reads = truncate_reads(
+            tmp_dir, uncomp_path, remaining_reads, n, min_len
+        )
 
         # Align the truncated reads on reference genome
         print("Aligning reads")
@@ -134,7 +138,9 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
+                **map_args
+            )
         else:
             cmd = "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3 --quiet --very-sensitive -S {sam} {fq}".format(
                 **map_args
@@ -152,7 +158,9 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
     # one last round without trimming
     print("\n" + "-" * 10 + "\nn = {0}".format(size))
     print("Generating truncated reads")
-    truncated_reads = truncate_reads(tmp_dir, uncomp_path, remaining_reads, size, min_len)
+    truncated_reads = truncate_reads(
+        tmp_dir, uncomp_path, remaining_reads, size, min_len
+    )
     print("Aligning reads")
     if minimap2:
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(

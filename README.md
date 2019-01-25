@@ -30,6 +30,12 @@ or, for the latest version:
     pip3 install -e git+https://github.com/koszullab/hicstuff.git@master#egg=hicstuff
 ```
 
+If you want to upgrade hicstuff, you can use:
+
+```sh
+ pip3 install --upgrade hicstuff
+```
+
 ## Usage
 
 ### Full pipeline
