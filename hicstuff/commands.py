@@ -129,6 +129,9 @@ class Digest(AbstractCommand):
             self.args["--circular"] = False
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
+        # Create output directory if it does not exist
+        if not os.path.exists(self.args["--outdir"]):
+            os.makedirs(self.args["--outdir"])
         if self.args["--figdir"]:
             figpath = os.path.join(self.args["--figdir"], "frags_hist.pdf")
         else:
