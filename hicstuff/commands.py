@@ -233,8 +233,8 @@ class View(AbstractCommand):
 
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
-             [--normalize] [--max=99] [--output=IMG] <contact_map>
-             [<contact_map2>]
+             [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP]
+             <contact_map> [<contact_map2>]
 
     arguments:
         contact_map             Sparse contact matrix in GRAAL format
@@ -247,6 +247,8 @@ class View(AbstractCommand):
         -b, --binning=INT[bp|kb|Mb|Gb]   Subsampling factor or fix value in
                                          basepairs to use for binning
                                          [default: 1].
+        -c, --cmap=CMAP                  The name of a matplotlib colormap to
+                                         use for the matrix. [default: Reds]
         -C, --circular                   Use if the genome is circular.
         -d, --despeckle                  Remove sharp increases in long range
                                          contact by averaging surrounding
@@ -272,7 +274,7 @@ class View(AbstractCommand):
     def execute(self):
 
         input_map = self.args["<contact_map>"]
-        cmap = "Reds"
+        cmap = self.args["--cmap"]
         bp_unit = False
         binsuffix = {"B": 1, "K": 1000, "M": 10e6, "G": 10e9}
         bin_str = self.args["--binning"].upper()
@@ -357,7 +359,6 @@ class View(AbstractCommand):
                     "trimming"
                 )
                 raise
-            print(trim_std)
             binned_map = trim_sparse(binned_map, n_std=trim_std)
 
         try:
