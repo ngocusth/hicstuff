@@ -339,8 +339,8 @@ def bin_bp_dense(M, positions, bin_len=10000):
         bin_attr[first_frag:last_frag, bin_No] = 1
         bin_No += 1
     # Perform binning (sum of contacts in each bin) using dot products
-    D = M @ bin_attr
-    out_M = bin_attr.T @ D
+    D = M.dot(bin_attr)
+    out_M = bin_attr.T.dot(D)
     return out_M, out_pos
 
 
