@@ -391,8 +391,10 @@ gen_matrix03() {
 
 cleanup_files04() {
   if [ ! -z "$prefix" ]; then
+    if [[ -f "${output_dir}/${contig_out}" &&  -f "${output_dir}/${frag_out}" ]]; then
     mv "${output_dir}/${contig_out}" "${output_dir}/${prefix}.chr.tsv"
     mv "${output_dir}/${frag_out}" "${output_dir}/${prefix}.frag.tsv"
+    fi
     mv "${output_dir}/${matrix_out}" "${output_dir}/${prefix}.mat.${matext}"
   fi
 
