@@ -370,9 +370,9 @@ gen_matrix03() {
     cut -f4,9 "$pairs" |
       sort -S 2G ${sort_par} -T "$tmp_dir" -V |
       uniq -c |
-      sed 's/^\s*//' |
+      sed 's/^ *//' |
       tr ' ' '\t' |
-      awk -v OFS="\t" '{print $0,$1}' |
+      gawk -v OFS="\t" '{print $0,$1}' |
       cut -f1 --complement >>"$output_dir/$matrix_out"
     matext="tsv"
   # Write 2D bedgraph matrix
@@ -380,9 +380,9 @@ gen_matrix03() {
     cut -f4,5,9,10 --complement "$pairs" |
       sort -S 2G ${sort_par} -T "$tmp_dir" -V |
       uniq -c |
-      sed 's/^\s*//' |
+      sed 's/^ *//' |
       tr ' ' '\t' |
-      awk -v OFS="\t" '{print $0,$1}' |
+      gawk -v OFS="\t" '{print $0,$1}' |
       cut -f1 --complement |
       tr '\t' ' ' >"${output_dir}/${matrix_out}"
     matext="2bg"

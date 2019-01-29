@@ -35,6 +35,7 @@ If you want to upgrade hicstuff, you can use:
 ```sh
  pip3 install --upgrade hicstuff
 ```
+Note for OSX and BSD users: `hicstuff pipeline` relies on the GNU coreutils. If you want to use it, you should use these as your default. [Here](https://www.topbug.net/blog/2013/04/14/install-and-use-gnu-command-line-tools-in-mac-os-x/) is a tutorial to set the gnu coreutils as default commands on OSX. 
 
 ## Usage
 
