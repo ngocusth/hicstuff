@@ -674,6 +674,7 @@ def parse_ucsc(ucsc_str, bins):
         start, end = parse_bin_str(start), parse_bin_str(end)
     bins["id"] = bins.index
     chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
+    start = max([start, 1])
     start = max(chrombins.id[chrombins.iloc[:, 1] // start == 0])
     end = max(chrombins.id[chrombins.iloc[:, 1] // end == 0])
     return (start, end)
