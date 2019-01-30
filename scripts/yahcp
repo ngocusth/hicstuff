@@ -297,7 +297,6 @@ attrib_filter02() {
       >"$tmp_dir"/unsorted_contacts_rev.bed &
 
   wait
-
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
   par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
@@ -350,13 +349,14 @@ attrib_filter02() {
       # Keep unfiltered in case user wants it
       cp "$pairs" "$tmp_dir/contact_intersect_sorted.unfiltered.bed"
     fi
-    hicstuff filter $plot ${plot:+-f $plot_dir} \
-      "$pairs" "$tmp_dir/contact.filtered.bed" 2>&1 |
+    hicstuff filter $plot ${plot:+-f $plot_dir} ${prefix:+-P $prefix} \
+            "$pairs" "$tmp_dir/contact.filtered.bed" 2>&1 |
       tee -a "$logfile"
     mv "$tmp_dir/contact.filtered.bed" "$pairs"
   fi
 
 }
+
 gen_matrix03() {
   # Generates matrix from a sorted list of pairs
   # 2DBED -> SPARSEMAT

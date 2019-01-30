@@ -164,7 +164,7 @@ class Filter(AbstractCommand):
 
     usage:
         filter [--interactive | --thresholds INT-INT] [--plot]
-               [--figdir FILE] <input> <output>
+               [--figdir FILE] [--prefix STR] <input> <output>
 
     arguments:
         input       2D BED file containing coordinates of Hi-C interacting
@@ -173,16 +173,18 @@ class Filter(AbstractCommand):
         output      Path to the filtered file, in the same format as the input.
 
     options:
-        -i, --interactive                 Interactively shows plots and asks
-                                          for thresholds.
-        -t INT-INT, --thresholds=INT-INT  Manually defines integer values for
-                                          the thresholds in the order
-                                          [uncut, loop].
-        -p, --plot                        Shows plots of library composition
-                                          and 3C events abundance.
         -f DIR, --figdir=DIR              Path to the output figure directory.
                                           By default, the figure is only shown
                                           but not saved.
+        -i, --interactive                 Interactively shows plots and asks
+                                          for thresholds.
+        -p, --plot                        Shows plots of library composition
+                                          and 3C events abundance.
+        -P STR, --prefix STR              If the library has a name, it will
+                                          be shown on the figures.
+        -t INT-INT, --thresholds=INT-INT  Manually defines integer values for
+                                          the thresholds in the order
+                                          [uncut, loop].
     """
 
     def execute(self):
@@ -202,12 +204,15 @@ class Filter(AbstractCommand):
                 figpath = os.path.join(
                     self.args["--figdir"], "event_distance.pdf"
                 )
+                if not os.path.exists(self.args["--figdir"]):
+                    os.makedirs(self.args["--figdir"])
             with open(self.args["<input>"]) as handle_in:
                 uncut_thr, loop_thr = get_thresholds(
                     handle_in,
                     interactive=self.args["--interactive"],
                     plot_events=self.args["--plot"],
                     fig_path=figpath,
+                    prefix=self.args["--prefix"],
                 )
         # Filter library and write to output file
         figpath = None
@@ -215,6 +220,7 @@ class Filter(AbstractCommand):
             figpath = os.path.join(
                 self.args["--figdir"], "event_distribution.pdf"
             )
+
         with open(self.args["<input>"]) as handle_in:
             filter_events(
                 handle_in,
@@ -223,6 +229,7 @@ class Filter(AbstractCommand):
                 loop_thr,
                 plot_events=self.args["--plot"],
                 fig_path=figpath,
+                prefix=self.args["--prefix"],
             )
 
 

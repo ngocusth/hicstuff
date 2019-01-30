@@ -93,7 +93,7 @@ def process_read_pair(line):
 
 
 def get_thresholds(
-    in_dat, interactive=False, plot_events=False, fig_path=None
+    in_dat, interactive=False, plot_events=False, fig_path=None, prefix=None
 ):
     """
     Analyse the events in the first million of Hi-C pairs in the library, plot
@@ -109,6 +109,8 @@ def get_thresholds(
         If True, plots are diplayed and thresholds are required interactively.
     plot_events : bool
         Whether to show the plot
+    prefix : str
+        If the library has a name, it will be shown on plots.
     Returns
     -------
     dictionary
@@ -241,6 +243,11 @@ def get_thresholds(
                     plt.legend()
                     plt.axvline(x=thr_loop, color="r")
                     plt.axvline(x=thr_uncut, color="g")
+                    if prefix:
+                        plt.title(
+                            "Library events by distance in {}".format(prefix)
+                        )
+                    plt.tight_layout()
                     if fig_path:
                         plt.savefig(fig_path)
                     else:
@@ -258,7 +265,13 @@ def get_thresholds(
 
 
 def filter_events(
-    in_dat, out_filtered, thr_uncut, thr_loop, plot_events=False, fig_path=None
+    in_dat,
+    out_filtered,
+    thr_uncut,
+    thr_loop,
+    plot_events=False,
+    fig_path=None,
+    prefix=None,
 ):
     """
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
@@ -280,6 +293,8 @@ def filter_events(
     plot_events : bool
         If True, a plot showing the proportion of each type of event will be
         shown after filtering.
+    prefix : str
+        If the library has a name, it will be shown on plots.
     """
     n_uncuts = 0
     n_loops = 0
@@ -287,7 +302,6 @@ def filter_events(
     lrange_intra = 0
     lrange_inter = 0
 
-    i = 0
     # open the files for reading and writing
     for line in in_dat:  # iterate over each line
         p = process_read_pair(line)
@@ -357,6 +371,7 @@ def filter_events(
     # Dump quick summary of operation results into stderr
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
+    total = kept + discarded
     print(
         "Proportion of inter contacts: {0}% (intra: {1}, "
         "inter: {2}".format(ratio_inter, lrange_intra, lrange_inter),
@@ -383,25 +398,16 @@ def filter_events(
             # The slices will be ordered and plotted counter-clockwise.
             labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
-            colors = [
-                "salmon",
-                "lightskyblue",
-                "lightcoral",
-                "palegreen",
-                "plum",
-            ]
-            plt.pie(
-                fracs,
-                labels=labels,
-                colors=colors,
-                autopct="%1.1f%%",
-                shadow=True,
-                startangle=90,
+            colors = ["salmon", "lightskyblue", "yellow", "palegreen", "plum"]
+            patches, texts, a = plt.pie(
+                fracs, colors=colors, autopct="%1.1f%%", startangle=90
             )
-            plt.title(
-                "Distribution of library events",
-                bbox={"facecolor": "1.0", "pad": 5},
-            )
+            plt.legend(patches, labels, loc="best")
+            if prefix:
+                plt.title(
+                    "Distribution of library events in {}".format(prefix),
+                    bbox={"facecolor": "1.0", "pad": 5},
+                )
             plt.text(
                 0.3,
                 1.15,
@@ -420,7 +426,7 @@ def filter_events(
             plt.text(
                 -1.5,
                 -1.2,
-                "Total number of reads =" + str(i),
+                "Total number of reads =" + str(total),
                 fontdict=None,
                 withdash=False,
             )
@@ -435,15 +441,18 @@ def filter_events(
                 -1.5,
                 -1.4,
                 "selected reads = {0}%".format(
-                    100
-                    * float(lrange_inter + lrange_intra)
-                    / (
-                        n_loops
-                        + n_uncuts
-                        + n_weirds
-                        + lrange_inter
-                        + lrange_intra
-                    )
+                    round(
+                        100
+                        * float(lrange_inter + lrange_intra)
+                        / (
+                            n_loops
+                            + n_uncuts
+                            + n_weirds
+                            + lrange_inter
+                            + lrange_intra
+                        )
+                    ),
+                    4,
                 ),
                 fontdict=None,
                 withdash=False,
