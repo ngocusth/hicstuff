@@ -122,7 +122,9 @@ named "info_contigs.txt" and "fragments_list.txt"
     output:
         -fragments_list.txt: information about restriction fragments (or chunks)
         -info_contigs.txt: information about contigs or chromosomes
+For example, to digest the yeast genome with MaeII and HinfI and show histogram of fragment lengths:
 
+`hicstuff digest -p -o output_dir -e MaeII,HinfI Sc_ref.fa`
 
 #### Filtering of 3C events
 
