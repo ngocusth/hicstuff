@@ -113,7 +113,7 @@ def write_frag_info(
                         for i in range(len(sites) - 1)
                     )
 
-                except AttributeError:
+                except TypeError:
                     my_frags = (
                         my_seq[i : min(i + my_enzyme, n)]
                         for i in range(0, len(my_seq), my_enzyme)
