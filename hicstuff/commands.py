@@ -150,9 +150,7 @@ class Digest(AbstractCommand):
         )
 
         frag_len(
-            output_dir=self.args["--outdir"],
-            plot=self.args["--plot"],
-            fig_path=figpath,
+            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
         )
 
 
@@ -201,9 +199,7 @@ class Filter(AbstractCommand):
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
-                figpath = os.path.join(
-                    self.args["--figdir"], "event_distance.pdf"
-                )
+                figpath = os.path.join(self.args["--figdir"], "event_distance.pdf")
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
             with open(self.args["<input>"]) as handle_in:
@@ -217,9 +213,7 @@ class Filter(AbstractCommand):
         # Filter library and write to output file
         figpath = None
         if self.args["--figdir"]:
-            figpath = os.path.join(
-                self.args["--figdir"], "event_distribution.pdf"
-            )
+            figpath = os.path.join(self.args["--figdir"], "event_distribution.pdf")
 
         with open(self.args["<input>"]) as handle_in:
             filter_events(
@@ -287,15 +281,89 @@ class View(AbstractCommand):
                                          INT standard deviations.
     """
 
+    def process_matrix(self, sparse_map):
+        """
+        Performs any combination of binning, normalisation, log transformation,
+        trimming and subsetting based on the attributes of the instance class.
+        """
+        ### BINNING ###
+        if self.binning > 1:
+            if self.bp_unit:
+                binned_map, binned_frags = bin_bp_sparse(
+                    M=sparse_map, positions=self.pos, bin_len=self.binning
+                )
+
+            else:
+                binned_map = bin_sparse(M=sparse_map, subsampling_factor=self.binning)
+        else:
+            binned_map = sparse_map
+
+        ### NORMALIZATION ###
+        if self.args["--normalize"]:
+            binned_map = normalize_sparse(binned_map, norm="SCN")
+
+        ### LOG VALUES ###
+        if self.args["--log"]:
+            binned_map = binned_map.log1p()
+
+        ### ZOOM REGION ###
+        if self.args["--region"]:
+            if not self.args["--frags"]:
+                print(
+                    "Error: A fragment file must be provided to subset "
+                    "genomic regions. See hicstuff view --help",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            # Load positions from fragments list
+            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
+            # Readjust bin coords post binning
+            if self.binning:
+                if self.bp_unit:
+                    binned_start = np.append(
+                        np.where(binned_frags == 0)[0], binned_frags.shape[0]
+                    )
+                    num_binned = binned_start[1:] - binned_start[:-1]
+                    chr_names = np.unique(reg_pos.iloc[:, 0])
+                    binned_chrom = np.repeat(chr_names, num_binned)
+                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                else:
+                    reg_pos = reg_pos.iloc[:: self.binning, :]
+
+            region = self.args["--region"]
+            if ";" in region:
+                reg1, reg2 = region.split(";")
+                reg1 = parse_ucsc(reg1, reg_pos)
+                reg2 = parse_ucsc(reg2, reg_pos)
+            else:
+                region = parse_ucsc(region, reg_pos)
+                reg1 = reg2 = region
+            binned_map = binned_map.tocsr()
+            binned_map = binned_map[reg1[0] : reg1[1], reg2[0] : reg2[1]]
+            binned_map = binned_map.tocoo()
+
+        ### TRIMMING ###
+        if self.args["--trim"]:
+            try:
+                trim_std = float(self.args["--trim"])
+            except ValueError:
+                print(
+                    "You must specify a number of standard deviations for " "trimming"
+                )
+                raise
+            binned_map = trim_sparse(binned_map, n_std=trim_std)
+
+        return binned_map
+
     def execute(self):
 
         input_map = self.args["<contact_map>"]
         cmap = self.args["--cmap"]
-        bp_unit = False
+        self.bp_unit = False
         bin_str = self.args["--binning"].upper()
         try:
             # Subsample binning
-            binning = int(bin_str)
+            self.binning = int(bin_str)
         except ValueError:
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
@@ -306,15 +374,15 @@ class View(AbstractCommand):
                     )
                     sys.exit(1)
                 # Load positions from fragments list
-                pos = np.genfromtxt(
+                self.pos = np.genfromtxt(
                     self.args["--frags"],
                     delimiter="\t",
                     usecols=(2,),
                     skip_header=1,
                     dtype=np.int64,
                 )
-                binning = parse_bin_str(bin_str)
-                bp_unit = True
+                self.binning = parse_bin_str(bin_str)
+                self.bp_unit = True
             else:
                 print(
                     "Please provide an integer or basepair value for binning.",
@@ -326,108 +394,41 @@ class View(AbstractCommand):
         output_file = self.args["--output"]
         raw_map = load_raw_matrix(input_map)
         sparse_map = raw_cols_to_sparse(raw_map)
-
+        processed_map = self.process_matrix(sparse_map)
         # If 2 matrices given compute log ratio
         if self.args["<contact_map2>"]:
             raw_map2 = load_raw_matrix(self.args["<contact_map2>"])
             sparse_map2 = raw_cols_to_sparse(raw_map2)
+            processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
                 print(
                     "Error: You cannot compute the ratio of matrices with "
                     "different dimensions",
                     file=sys.stderr,
                 )
+            # Get log of values for both maps
+            processed_map.data = np.log2(processed_map.data)
+            processed_map2.data = np.log2(processed_map2.data)
             # Note: Taking diff of logs instead of log of ratio because sparse
             # mat division yields dense matrix in current implementation.
             # Changing base to 2 afterwards.
-            sparse_map = (
-                sparse_map.tocsr().log1p() - sparse_map2.tocsr().log1p()
-            ) / np.log1p(2)
-            sparse_map = sparse_map.tocoo()
+            processed_map = processed_map.tocsr() - processed_map2.tocsr()
+            processed_map = processed_map.tocoo()
             cmap = "coolwarm"
 
-        if binning > 1:
-            if bp_unit:
-                binned_map, binned_frags = bin_bp_sparse(
-                    M=sparse_map, positions=pos, bin_len=binning
-                )
-
-            else:
-                binned_map = bin_sparse(
-                    M=sparse_map, subsampling_factor=binning
-                )
-        else:
-            binned_map = sparse_map
-
-        if self.args["--normalize"]:
-            binned_map = normalize_sparse(binned_map, norm="SCN")
-
-        if self.args["--log"]:
-            binned_map = binned_map.log1p()
-
-        vmax = np.percentile(binned_map.data, vmax)
-        # Zoom on a region if requested
-        if self.args["--region"]:
-            if not self.args["--frags"]:
-                print(
-                    "Error: A fragment file must be provided to subset "
-                    "genomic regions. See hicstuff view --help",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            # Load positions from fragments list
-            reg_pos = pd.read_csv(
-                self.args["--frags"], delimiter="\t", usecols=(1, 2)
-            )
-            # Readjust bin coords post binning
-            if binning:
-                if bp_unit:
-                    binned_start = np.append(
-                        np.where(binned_frags == 0)[0], binned_frags.shape[0]
-                    )
-                    num_binned = binned_start[1:] - binned_start[:-1]
-                    chr_names = np.unique(reg_pos.iloc[:, 0])
-                    binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame(
-                        {0: binned_chrom, 1: binned_frags[:, 0]}
-                    )
-                else:
-                    reg_pos = reg_pos.iloc[::binning, :]
-
-            region = self.args["--region"]
-            if ";" in region:
-                reg1, reg2 = region.split(";")
-                reg1 = parse_ucsc(reg1, reg_pos)
-                reg2 = parse_ucsc(reg2, reg_pos)
-            else:
-                region = parse_ucsc(region, reg_pos)
-                reg1 = reg2 = region
-            binned_map = binned_map.tocsr()
-            binned_map = binned_map[reg1[0]: reg1[1], reg2[0]: reg2[1]]
-            binned_map = binned_map.tocoo()
-
-        if self.args["--trim"]:
-            try:
-                trim_std = float(self.args["--trim"])
-            except ValueError:
-                print(
-                    "You must specify a number of standard deviations for "
-                    "trimming"
-                )
-                raise
-            binned_map = trim_sparse(binned_map, n_std=trim_std)
-
+        vmax = np.percentile(processed_map.data, vmax)
         try:
-            dense_map = sparse_to_dense(binned_map)
+            dense_map = sparse_to_dense(processed_map)
             if self.args["--despeckle"]:
                 dense_map = despeckle_local(dense_map)
             vmin = 0
-            if self.args['<contact_map2>']:
+            if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
-            plot_matrix(dense_map, filename=output_file, vmin=vmin,
-                        vmax=vmax, cmap=cmap)
-        except MemoryError:
-            print("Contact map is too large to load, try binning more")
+            plot_matrix(
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
+            )
+        except memoryerror:
+            print("contact map is too large to load, try binning more")
 
 
 class Pipeline(AbstractCommand):
