@@ -446,8 +446,9 @@ def frag_len(
         n, bins, patches = ax.hist(frags["size"], bins=nbins)
 
         ax.set_xlabel("Fragment length [bp]")
-        ax.set_ylabel("Number of fragments")
+        ax.set_ylabel("Log10 number of fragments")
         ax.set_title("Distribution of restriction fragment length")
+        ax.set_yscale("log", basey=10)
         ax.annotate(
             "Total fragments: {}".format(nfrags),
             xy=(0.95, 0.95),

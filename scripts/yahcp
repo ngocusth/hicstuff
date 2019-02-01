@@ -161,10 +161,11 @@ setup_yahcp00() {
   mkdir -p "$tmp_dir"
 
   # Initialize logfile:
+  now=$(date "+%Y%m%d%H%M%S")
   if [ ! -z $prefix ]; then
-    logfile="${output_dir}/${prefix}.log"
+    logfile="${output_dir}/${prefix}_${now}.log"
   else
-    logfile="${output_dir}/hicstuff.log"
+    logfile="${output_dir}/hicstuff_${now}.log"
   fi
 
   echo "LOGFILE: $logfile"
