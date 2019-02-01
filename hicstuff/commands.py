@@ -403,7 +403,7 @@ class View(AbstractCommand):
                 region = parse_ucsc(region, reg_pos)
                 reg1 = reg2 = region
             binned_map = binned_map.tocsr()
-            binned_map = binned_map[reg1[0] : reg1[1], reg2[0] : reg2[1]]
+            binned_map = binned_map[reg1[0]: reg1[1], reg2[0]: reg2[1]]
             binned_map = binned_map.tocoo()
 
         if self.args["--trim"]:
@@ -421,7 +421,11 @@ class View(AbstractCommand):
             dense_map = sparse_to_dense(binned_map)
             if self.args["--despeckle"]:
                 dense_map = despeckle_local(dense_map)
-            plot_matrix(dense_map, filename=output_file, vmax=vmax, cmap=cmap)
+            vmin = 0
+            if self.args['<contact_map2>']:
+                vmin, vmax = -2, 2
+            plot_matrix(dense_map, filename=output_file, vmin=vmin,
+                        vmax=vmax, cmap=cmap)
         except MemoryError:
             print("Contact map is too large to load, try binning more")
 
