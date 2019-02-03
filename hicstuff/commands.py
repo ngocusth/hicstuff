@@ -6,7 +6,7 @@ from hicstuff.hicstuff import (
     normalize_sparse,
     bin_bp_sparse,
     trim_sparse,
-    despeckle_local,
+    despeckle_simple,
     scalogram,
     distance_law,
 )
@@ -20,6 +20,7 @@ from hicstuff.view import (
     sparse_to_dense,
     plot_matrix,
 )
+from scipy.sparse import csr_matrix, lil_matrix, coo_matrix
 import sys, os, subprocess, shutil
 from matplotlib import pyplot as plt
 from docopt import docopt
@@ -553,9 +554,9 @@ class Plot(AbstractCommand):
     Generate the specified type of plot.
 
     usage:
-        plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT | --frags=FILE]
-             [--type={scale|law}] [--output=FILE] [--max=INT] [--centro]
-             [--process] <contact_map>
+        plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT] [--threads=INT]
+             [--output=FILE] [--max=INT] [--centro] [--process] [--despeckle]
+             (--scalogram | --distance_law) <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
@@ -566,24 +567,26 @@ class Plot(AbstractCommand):
                                            single chromosome).
         -C NAME, --cmap NAME               The matplotlib colormap to use for
                                            the plot. [default: viridis]
+        -d, --despeckle                    Remove speckles (small intense spots)
+                                           from the matrix.
         -f FILE, --frags FILE              The path to the hicstuff fragments
                                            file.
+        -l, --distance_law                 Plot the distance law of the matrix.
         -m INT, --max INT                  Saturation threshold in percentile
                                            of pixel values. [default: 99]
         -o FILE, --output FILE             Output file where the plot should be
                                            saved. Plot is only displayed by
                                            default.
         -p, --process                      Process the matrix first (trim,
-                                           normalize, despeckle)
+                                           normalize)
         -r INT-INT, --range INT-INT        The range of contact distance to
                                            look at. No limit by default.
-        -t {scale|law}, --type={scale|law} The type of plot to be generated.
-                                           Either law for distance law, or
-                                           scale for scaleogram. [default: law]
+        -s, --scalogram                    Plot the scalogram of the contact map.
+        -t INT, --threads=Inter            Number of processes to run in
+                                           parallel for despeckling. [default: 1]
     """
 
     def execute(self):
-
         try:
             if self.args["--range"]:
                 lower, upper = self.args["--range"].split("-")
@@ -599,17 +602,12 @@ class Plot(AbstractCommand):
                 "E.g: 1-100.",
             )
         input_map = self.args["<contact_map>"]
-        pos = np.genfromtxt(
-            self.args["--frags"],
-            delimiter="\t",
-            usecols=(2,),
-            skip_header=1,
-            dtype=np.int64,
-        )
+
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
         S = load_raw_matrix(input_map)
         S = raw_cols_to_sparse(S)
+        S = csr_matrix(S)
         if not self.args["--range"]:
             lower = 0
             upper = S.shape[0]
@@ -617,17 +615,17 @@ class Plot(AbstractCommand):
         if self.args["--process"]:
             S = trim_sparse(S, n_std=3)
             S = normalize_sparse(S, norm="SCN")
-            D = sparse_to_dense(S)
-            D = despeckle_local(D)
-        else:
-            D = sparse_to_dense(S)
+        if self.args["--despeckle"]:
+            S = despeckle_simple(S, threads=self.args["--threads"])
+
         if self.args["--coord"]:
-            D = D[start:end, start:end]
-        if self.args["--type"] in ("s", "scale"):
+            S = S[start:end, start:end]
+        if self.args["--scalogram"]:
+            D = S.todense()
             D = np.fliplr(np.rot90(scalogram(D), k=-1))
             plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
-        elif self.args["--type"] in ("l", "law"):
-            subp, tmpidx = distance_law(D, log_bins=True)
+        elif self.args["--distance_law"]:
+            subp, tmpidx = distance_law(S, log_bins=True)
             plt.plot(tmpidx[2:], subp[2:])
             plt.xscale("log")
             plt.yscale("log")

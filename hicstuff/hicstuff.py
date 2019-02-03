@@ -26,10 +26,13 @@ import itertools
 import warnings
 import scipy
 import scipy.linalg
+from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 import copy
+import time
+import multiprocessing as mp
 
 
-def despeckle_simple(B, th2=2):
+def despeckle_simple(B, th2=2, threads=1):
     """Single-chromosome despeckling
 
     Simple speckle removing function on a single chromomsome. It also works
@@ -37,36 +40,55 @@ def despeckle_simple(B, th2=2):
 
     Parameters
     ----------
-    B : array_like
-        The input matrix to despeckle
+    B : scipy.sparse.csr
+        The input matrix to despeckle, in sparse (csr) format.
     th2 : float
         The number of standard deviations above the mean beyond which
         despeckling should be performed
+    threads : int
+        The number of CPU processes on which the function can run in parallel.
 
     Returns
     -------
     array_like
-        The despeckled matrix
+        The despeckled matrix, in the same format it was given.
     """
+    try:
+        if B.getformat() != "csr":
+            B = csr_matrix(B)
+    except AttributeError:
+        print("Error: You must provide a sparse matrix in csr format.")
+        raise
 
-    A = np.copy(B)
+    A = copy.copy(B)
     n1 = A.shape[0]
-    dist = {u: A.diagonal(u) for u in range(n1)}
+    medians = np.zeros(n1)
+    stds = np.zeros(n1)
+    # Faster structure for editing values
+    A = lil_matrix(A)
 
-    medians, stds = {}, {}
-    medians = [np.median(dist[u]) for u in dist]
-    stds = [np.std(dist[u]) for u in dist]
+    # only global functions can be used with Pool.map
+    global diagstats
 
-    for nw, j in itertools.product(range(n1), range(n1)):
-        lp = j + nw
-        kp = j - nw
-        if lp < n1:
-            if A[j, lp] > medians[nw] + th2 * stds[nw]:
-                A[j, lp] = medians[nw]
-        if kp >= 0:
-            if A[j, kp] > medians[nw] + th2 * stds[nw]:
-                A[j, kp] = medians[nw]
-    return A
+    def _diagstats(u):
+        """Computes median and standard deviation for each diagonal"""
+        diag = B.diagonal(u)
+        medians[u] = np.median(diag)
+        stds[u] = np.median(diag)
+
+    global speck2med
+
+    def _speck2med(nw):
+        """Sets outlier values back to the median of their diagonal"""
+        diag = A.diagonal(nw)
+        diag[diag > medians[nw] + th2 * stds[nw]] = medians[nw]
+        A.setdiag(diag, nw)
+
+    pool = mp.Pool(threads)
+    pool.map(_diagstats, range(n1))
+    pool.map(_speck2med, range(n1))
+
+    return csr_matrix(A)
 
 
 def despeckle_global(M, positions=None, stds=2):
@@ -417,7 +439,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         out_pos[bin_No] = coords[1] * bin_len
         bin_No += 1
 
-    # Relies on default behaviour that duplicate i,j entries will be
+    # Relies on default behaviour causing duplicate i,j entries to be
     # summed when rebuilding sparse matrix
     return coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No)), out_pos
 
@@ -510,8 +532,8 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     rows = [miss_map[i] for i in r.row[indices]]
     cols = [miss_map[j] for j in r.col[indices]]
     data = r.data[indices]
-
-    N = coo_matrix((data, (rows, cols)))
+    size = max(max(rows), max(cols)) + 1
+    N = coo_matrix((data, (rows, cols)), shape=(size, size))
     return N
 
 
