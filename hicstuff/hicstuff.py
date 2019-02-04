@@ -68,7 +68,7 @@ def despeckle_simple(B, th2=2, threads=1):
     A = lil_matrix(A)
 
     # only global functions can be used with Pool.map
-    global diagstats
+    global _diagstats
 
     def _diagstats(u):
         """Computes median and standard deviation for each diagonal"""
@@ -76,7 +76,7 @@ def despeckle_simple(B, th2=2, threads=1):
         medians[u] = np.median(diag)
         stds[u] = np.median(diag)
 
-    global speck2med
+    global _speck2med
 
     def _speck2med(nw):
         """Sets outlier values back to the median of their diagonal"""
