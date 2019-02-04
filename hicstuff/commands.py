@@ -50,24 +50,24 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20] [--tempdir DIR]
-                  --out_sam=FILE --fasta=FILE <reads.fq>
+        iteralign [--minimap2] [--threads=1] [--min_len=20] 
+                  [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
 
     options:
-        -f FILE, --fasta=FILE   Fasta file on which to map the reads.
-        -t INT, --threads=INT   Number of parallel threads allocated for the
-                                alignment [default: 1].
-        -T DIR, --tempdir=DIR   Temporary directory. Defaults to current
-                                directory.
-        -m, --minimap2          If set, use minimap2 instead of bowtie2 for
-                                the alignment.
-        -l INT, --min_len=INT   Length to which the reads should be
-                                truncated [default: 20].
-        -o FILE, --out_sam=FILE Path where the alignment will be written in
-                                SAM format.
+        -f FILE, --fasta=FILE    The fasta file on which to map the reads.
+        -t INT, --threads=INT    Number of parallel threads allocated for the
+                                 alignment [default: 1].
+        -T DIR, --tempdir=DIR    Temporary directory. Defaults to current
+                                 directory.
+        -m, --minimap2           If set, use minimap2 instead of bowtie2 for
+                                 the alignment.
+        -l INT, --min_len=INT    Length to which the reads should be
+                                 truncated [default: 20].
+        -o FILE, --out_sam=FILE  Path where the alignment will be written in
+                                 SAM format.
     """
 
     def execute(self):
@@ -78,7 +78,7 @@ class Iteralign(AbstractCommand):
         temp_directory = generate_temp_dir(self.args["--tempdir"])
         iterative_align(
             self.args["<reads.fq>"],
-            self.args["--tempdir"],
+            temp_directory,
             self.args["--fasta"],
             self.args["--threads"],
             self.args["--out_sam"],
@@ -441,8 +441,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] --fasta=FILE
-                 (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
+                 [--enzyme=ENZ] [--plot] --fasta=FILE (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
 
     arguments:
         fq1:             Forward fastq file. Required by default.
