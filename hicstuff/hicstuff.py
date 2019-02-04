@@ -1291,7 +1291,7 @@ def noise(matrix):
     return np.random.poisson(lam=D)
 
 
-def positions_to_contigs(positions):
+def flatten_positions_to_contigs(positions):
     """Flattens and converts a positions array to a contigs array, if applicable.
     """
 
