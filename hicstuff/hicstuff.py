@@ -1881,7 +1881,7 @@ def contigs_to_positions(contigs, binning=10000):
     positions = np.zeros_like(contigs)
 
     index = 0
-    for _, chunk in itertools.groubpy(contigs):
+    for _, chunk in itertools.groupby(contigs):
         l = len(chunk)
         positions[index : index + l] = np.arange(list(chunk)) * binning
         index += l
@@ -1905,7 +1905,7 @@ def split_matrix(M, contigs):
     """
 
     index = 0
-    for _, chunk in itertools.groubpy(contigs):
+    for _, chunk in itertools.groupby(contigs):
         l = len(chunk)
         yield M[index : index + l, index : index + l]
         index += l

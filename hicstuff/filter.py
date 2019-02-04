@@ -437,23 +437,15 @@ def filter_events(
                 fontdict=None,
                 withdash=False,
             )
+            percentage = round(
+                100
+                * float(lrange_inter + lrange_intra)
+                / (n_loops + n_uncuts + n_weirds + lrange_inter + lrange_intra)
+            )
             plt.text(
                 -1.5,
                 -1.4,
-                "selected reads = {0}%".format(
-                    round(
-                        100
-                        * float(lrange_inter + lrange_intra)
-                        / (
-                            n_loops
-                            + n_uncuts
-                            + n_weirds
-                            + lrange_inter
-                            + lrange_intra
-                        )
-                    ),
-                    4,
-                ),
+                "selected reads = {0}%".format(percentage),
                 fontdict=None,
                 withdash=False,
             )

@@ -9,6 +9,7 @@ from hicstuff.hicstuff import (
     despeckle_simple,
     scalogram,
     distance_law,
+    despeckle_local,
 )
 import re
 from hicstuff.iteralign import *
@@ -445,7 +446,7 @@ class View(AbstractCommand):
                 vmax=vmax,
                 cmap=cmap,
             )
-        except memoryerror:
+        except MemoryError:
             print("contact map is too large to load, try binning more")
 
 
