@@ -21,11 +21,12 @@ A lightweight library that generates and handles Hi-C contact maps in either CSV
 
 ## Installation
 
+To install a stable version:
 ```sh
    pip3 install hicstuff
 ```
 
-or, for the latest version:
+or, for the latest development version:
 
 ```sh
     pip3 install -e git+https://github.com/koszullab/hicstuff.git@master#egg=hicstuff

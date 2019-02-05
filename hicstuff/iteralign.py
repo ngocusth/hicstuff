@@ -178,8 +178,8 @@ def iterative_align(
 
     # Report unaligned reads as well
     iter_out += [os.path.join(tmp_dir, "unaligned.sam")]
-    temp_sam = ps.AlignmentFile(temp_alignment, "r")
-    unmapped = ps.AlignmentFile(iter_out[-1], "w", template=temp_sam)
+    temp_sam = ps.AlignmentFile(temp_alignment, "r") # pylint: disable=no-member
+    unmapped = ps.AlignmentFile(iter_out[-1], "w", template=temp_sam) # pylint: disable=no-member
     for r in temp_sam:
         # Do not write supplementary alignments (keeping 1 alignment/read)
         if r.query_name in remaining_reads and not r.is_supplementary:
@@ -188,7 +188,7 @@ def iterative_align(
     temp_sam.close()
 
     # Merge all aligned reads and unmapped reads into a single sam
-    ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out)
+    ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out) # pylint: disable=no-member
     print(
         "{0} reads aligned / {1} total reads.".format(
             total_reads - len(remaining_reads), total_reads
@@ -218,7 +218,7 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
     """
 
     outfile = "{0}/truncated.fastq".format(tmp_dir)
-    with ps.FastxFile(infile, "r") as inf, open(outfile, "w") as outf:
+    with ps.FastxFile(infile, "r") as inf, open(outfile, "w") as outf: # pylint: disable=no-member
         for entry in inf:
             if entry.name in unaligned_set or n == min_len:
                 entry.sequence = entry.sequence[:n]
@@ -248,8 +248,8 @@ def filter_samfile(temp_alignment, filtered_out):
     # Keep those that do not map unambiguously for the next round.
 
     unaligned = set()
-    temp_sam = ps.AlignmentFile(temp_alignment, "r")
-    outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam)
+    temp_sam = ps.AlignmentFile(temp_alignment, "r") # pylint: disable=no-member
+    outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam) # pylint: disable=no-member
     for r in temp_sam:
         if r.flag in [0, 16] and r.mapping_quality >= 30:
             outf.write(r)
