@@ -9,7 +9,6 @@ from hicstuff.hicstuff import (
     despeckle_simple,
     scalogram,
     distance_law,
-    despeckle_local,
 )
 import re
 from hicstuff.iteralign import *
@@ -51,7 +50,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20] 
+        iteralign [--minimap2] [--threads=1] [--min_len=20]
                   [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
@@ -152,9 +151,7 @@ class Digest(AbstractCommand):
         )
 
         frag_len(
-            output_dir=self.args["--outdir"],
-            plot=self.args["--plot"],
-            fig_path=figpath,
+            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
         )
 
 
@@ -203,9 +200,7 @@ class Filter(AbstractCommand):
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
-                figpath = os.path.join(
-                    self.args["--figdir"], "event_distance.pdf"
-                )
+                figpath = os.path.join(self.args["--figdir"], "event_distance.pdf")
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
             with open(self.args["<input>"]) as handle_in:
@@ -219,9 +214,7 @@ class Filter(AbstractCommand):
         # Filter library and write to output file
         figpath = None
         if self.args["--figdir"]:
-            figpath = os.path.join(
-                self.args["--figdir"], "event_distribution.pdf"
-            )
+            figpath = os.path.join(self.args["--figdir"], "event_distribution.pdf")
 
         with open(self.args["<input>"]) as handle_in:
             filter_events(
@@ -302,9 +295,7 @@ class View(AbstractCommand):
                 )
 
             else:
-                binned_map = bin_sparse(
-                    M=sparse_map, subsampling_factor=self.binning
-                )
+                binned_map = bin_sparse(M=sparse_map, subsampling_factor=self.binning)
         else:
             binned_map = sparse_map
 
@@ -326,9 +317,7 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(
-                self.args["--frags"], delimiter="\t", usecols=(1, 2)
-            )
+            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -338,9 +327,7 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame(
-                        {0: binned_chrom, 1: binned_frags[:, 0]}
-                    )
+                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -362,8 +349,7 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for "
-                    "trimming"
+                    "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
             binned_map = trim_sparse(binned_map, n_std=trim_std)
@@ -435,16 +421,12 @@ class View(AbstractCommand):
         try:
             dense_map = sparse_to_dense(processed_map)
             if self.args["--despeckle"]:
-                dense_map = despeckle_local(dense_map)
+                dense_map = despeckle_simple(dense_map)
             vmin = 0
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             plot_matrix(
-                dense_map,
-                filename=output_file,
-                vmin=vmin,
-                vmax=vmax,
-                cmap=cmap,
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
