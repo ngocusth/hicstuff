@@ -355,7 +355,7 @@ BEGIN{dir="for"; OFS="\t"}
     }
 }
 '
-awk "$bed2pairs" > contact_intersect_sorted.bed2D
+awk "$bed2pairs" contact_intersect_sorted.bed > contact_intersect_sorted.bed2D
 ```
 The resulting 2D BED file can then be filtered by the `hicstuff filter` module if needed, otherwise, the matrix can be built directly from it. To generate a GRAAL-compatible sparse matrix from the 2D bed file:
 
