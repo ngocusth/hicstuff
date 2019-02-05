@@ -16,13 +16,13 @@ The subcommands are:
     iteralign   iteratively aligns reads to a reference genome
     digest      digest genome into a list of fragments
     filter      filters Hi-C pairs to exclude spurious events
+    rebin       bin the matrix and regenerate files accordingly
     view        visualize a Hi-C matrix
     pipeline    Hi-C pipeline to generate contact matrix from fastq files
 """
 
 from docopt import docopt
 from docopt import DocoptExit
-import pdb
 import hicstuff.commands as commands
 from hicstuff.version import __version__
 
