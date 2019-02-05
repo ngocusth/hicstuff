@@ -203,6 +203,11 @@ align01() {
   # Digests the genome into restriction frags and align reads
   if [ $minimap -eq 0 ]; then
     aligner=bowtie2
+    if [ ! -f "${index}".1.bt2 ]; then
+    echo "Building bowtie2 index..."
+    #Build fasta index files if they don't exist
+    index=${fasta%.fa}
+    bowtie2-build --quiet "$fasta" "$index"
   else
     aligner=minimap2
   fi
@@ -230,12 +235,6 @@ align01() {
     map_cmd() { hicstuff iteralign -f "$fasta" -t $t -o "$2" -T "$tmp_dir" $miniflag "$1"; }
   else
     if [ $minimap -eq 0 ]; then
-      #Build fasta index files if they don't exist
-      index=${fasta%.fa}
-      if [ ! -f "${index}".1.bt2 ]; then
-        echo "Building fasta index files..."
-        bowtie2-build --quiet "$fasta" "$index"
-      fi
       map_cmd() { bowtie2 --very-sensitive-local -p $t -x "$index" -U "$1" >"$2"; }
     else
       map_cmd() { minimap2 -2 -t $t -ax sr "$fasta" "$1" >"$2"; }
