@@ -18,4 +18,4 @@ def test_scn(matrix_size):
     M = np.random.random((matrix_size, matrix_size))
     M += M.T
     N = hcs.normalize_dense(M, "SCN")
-    assert np.isclose(N.sum(axis=1), np.ones(matrix_size)).all()
+    assert np.isclose(N.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
