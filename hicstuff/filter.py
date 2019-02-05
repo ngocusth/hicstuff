@@ -42,10 +42,21 @@ def process_read_pair(line):
 
     Example
     -------
-        >>> process_read_pair("a 1 3 0 - b 2 4 1 -")
-        {'chr1': 'a', 'start1': 1, 'end1': '3', 'indice1': 0, 'strand1': '-', \
-        'chr2': 'b', 'start2': 2, 'end2': 4, 'indice2': 1, 'strand2': '-', \
-        'nsites': 1, 'type': 'inter'}
+        >>> d = process_read_pair("a 1 3 0 - b 2 4 1 -")
+        >>> for u in sorted(d.items()):
+                print(u)
+            ('chr1', 'a')
+            ('chr2', 'b')
+            ('end1', 3)
+            ('end2', 4)
+            ('indice1', 0)
+            ('indice2', 1)
+            ('nsites', 1)
+            ('start1', 1)
+            ('start2', 2)
+            ('strand1', '-')
+            ('strand2', '-')
+            ('type', 'inter')
     """
     # Split line by whitespace
     p = line.split()
