@@ -205,7 +205,7 @@ align01() {
     aligner=bowtie2
     index=${fasta%.fa}
     if [ ! -f "${index}".1.bt2 ]; then
-      echo "Building bowtie2 index..."
+      echo "Building bowtie2 index $index of $fasta"
       #Build fasta index files if they don't exist
       bowtie2-build --quiet "$fasta" "$index"
     fi

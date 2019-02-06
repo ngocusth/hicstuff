@@ -101,9 +101,9 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
     else:
         uncomp_path = fq_in
 
-    # Index genome if using bowtie2 and index does not exist
+    # throw error if index does not exist
     index = os.path.splitext(ref)[0]
-    if not minimap2 and not os.path.isfile(index):
+    if not minimap2 and not os.path.isfile(index + ".1.bt2"):
         print(
             "Error: Reference index is missing, please build the bowtie2 "
             "index first."
