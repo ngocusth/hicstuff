@@ -20,6 +20,7 @@ as-is implementations of procedures described in Hi-C papers.
 """
 
 import numpy as np
+import pandas as pd
 import string
 import collections
 import itertools
@@ -218,8 +219,13 @@ def bin_sparse(M, subsampling_factor=3):
     binned_row[binned_row >= binned_n] -= n % subsampling_factor
     binned_col[binned_col >= binned_m] -= m % subsampling_factor
 
-    result = coo_matrix((data, (binned_row, binned_col)), shape=(binned_n, binned_m))
-    return result
+    # Sum data over duplicate entries
+    binned = pd.DataFrame({"row": binned_row, "col": binned_col, "dat": data})
+    binned = binned.groupby(["row", "col"]).sum().reset_index()
+
+    return coo_matrix(
+        (binned.dat, (binned.row, binned.col)), shape=(binned_n, binned_m)
+    )
 
 
 def bin_matrix(M, subsampling_factor=3):
@@ -395,12 +401,6 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         The new bin start positions.
     """
 
-    try:
-        from scipy.sparse import coo_matrix
-    except ImportError as e:
-        print(str(e))
-        print("Peforming dense binning by default.")
-        return bin_bp_dense(M.todense(), positions=positions, bin_len=bin_len)
     r = M.tocoo()
     # Get fragments where new chromosome starts (positions reset)
     chromstart = np.where(positions == 0)[0]
@@ -432,9 +432,14 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         out_pos[bin_No] = coords[1] * bin_len
         bin_No += 1
 
-    # Relies on default behaviour causing duplicate i,j entries to be
-    # summed when rebuilding sparse matrix
-    return coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No)), out_pos
+    # Sum data of duplicate row/col pairs
+    # TODO: Eventually use a faster numpy implementation (diff, where, reduceat)
+    binned = pd.DataFrame({"row": row, "col": col, "data": r.data})
+    binned = binned.groupby(["row", "col"]).sum().reset_index()
+    return (
+        coo_matrix((binned.data, (binned.row, binned.col)), shape=(bin_No, bin_No)),
+        out_pos,
+    )
 
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):
