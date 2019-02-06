@@ -204,10 +204,11 @@ align01() {
   if [ $minimap -eq 0 ]; then
     aligner=bowtie2
     if [ ! -f "${index}".1.bt2 ]; then
-    echo "Building bowtie2 index..."
-    #Build fasta index files if they don't exist
-    index=${fasta%.fa}
-    bowtie2-build --quiet "$fasta" "$index"
+      echo "Building bowtie2 index..."
+      #Build fasta index files if they don't exist
+      index=${fasta%.fa}
+      bowtie2-build --quiet "$fasta" "$index"
+    fi
   else
     aligner=minimap2
   fi
