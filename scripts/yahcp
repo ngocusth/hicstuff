@@ -203,10 +203,10 @@ align01() {
   # Digests the genome into restriction frags and align reads
   if [ $minimap -eq 0 ]; then
     aligner=bowtie2
+    index=${fasta%.fa}
     if [ ! -f "${index}".1.bt2 ]; then
       echo "Building bowtie2 index..."
       #Build fasta index files if they don't exist
-      index=${fasta%.fa}
       bowtie2-build --quiet "$fasta" "$index"
     fi
   else
