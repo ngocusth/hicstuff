@@ -739,7 +739,12 @@ class Rebin(AbstractCommand):
         # Write 3 binned output files
         sparse_array = np.vstack([hic_map.row, hic_map.col, hic_map.data]).T
         np.savetxt(
-            join(outdir, basename(map_path)), sparse_array, fmt="%i", delimiter="\t"
+            join(outdir, basename(map_path)),
+            sparse_array,
+            header="id_fragment_a\tid_fragment_b\tn_contact",
+            comments="",
+            fmt="%i",
+            delimiter="\t",
         )
         frags.to_csv(
             join(outdir, basename(self.args["--frags"])), index=False, sep="\t"

@@ -20,16 +20,12 @@ as-is implementations of procedures described in Hi-C papers.
 """
 
 import numpy as np
-import pandas as pd
 import string
 import collections
 import itertools
 import warnings
-import scipy
-import scipy.linalg
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 import copy
-import time
 import multiprocessing as mp
 
 
@@ -433,13 +429,9 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         bin_No += 1
 
     # Sum data of duplicate row/col pairs
-    # TODO: Eventually use a faster numpy implementation (diff, where, reduceat)
-    binned = pd.DataFrame({"row": row, "col": col, "data": r.data})
-    binned = binned.groupby(["row", "col"]).sum().reset_index()
-    return (
-        coo_matrix((binned.data, (binned.row, binned.col)), shape=(bin_No, bin_No)),
-        out_pos,
-    )
+    binned = coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No))
+    binned.sum_duplicates()
+    return (binned, out_pos)
 
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):
