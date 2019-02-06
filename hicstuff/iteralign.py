@@ -71,6 +71,8 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
         Path where the final alignment should be written in SAM format.
     minimap2 : bool
         If True, use minimap2 instead of bowtie2 for the alignment.
+    min_len : int
+        The initial length of the fragments to align. 
     """
     # initial length of the fragments to align
     n = min_len
