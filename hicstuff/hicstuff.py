@@ -27,6 +27,7 @@ import warnings
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 import copy
 import multiprocessing as mp
+import pandas as pd
 
 
 def despeckle_simple(B, th2=2, threads=1):
