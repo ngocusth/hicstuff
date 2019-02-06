@@ -83,7 +83,12 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
     # If there is already a file with the same name as the output file,
     # remove it. Otherwise, ignore.
     with contextlib.suppress(FileNotFoundError):
-        os.remove(sam_out)
+        try:
+            os.remove(sam_out)
+        except IsADirectoryError:
+            print("You need to give the SAM output file, not a folder.")
+            raise
+
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
     if not minimap2 and ct.is_compressed(fq_in):
