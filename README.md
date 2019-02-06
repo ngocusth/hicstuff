@@ -363,7 +363,7 @@ The resulting 2D BED file can then be filtered by the `hicstuff filter` module i
 # Remove strand information, sort by fragment combination,
 # Count occurrences of each fragment combination and format into csv.
 echo -e "id_fragment_a\tid_fragment_b\tn_contact" > matrix.tsv
-cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed" |
+cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed2D" |
   sort -V |
   uniq -c |
   sed 's/^ *//' |
