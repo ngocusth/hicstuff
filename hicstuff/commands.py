@@ -717,6 +717,8 @@ class Rebin(AbstractCommand):
             hic_map = bin_sparse(hic_map, binning)
             # Use index for binning, but keep 1-indexed
             frags.id = (frags.id // binning) + 1
+        # Save original columns order
+        col_ordered = list(frags.columns)
         # Get new start and end position for each bin
         frags = frags.groupby(["chrom", "id"])
         positions = frags.agg({"start_pos": "min", "end_pos": "max"})
@@ -746,6 +748,8 @@ class Rebin(AbstractCommand):
             fmt="%i",
             delimiter="\t",
         )
+        # Keep original column order
+        frags = frags.reindex(columns=col_ordered)
         frags.to_csv(
             join(outdir, basename(self.args["--frags"])), index=False, sep="\t"
         )
@@ -801,6 +805,7 @@ def parse_ucsc(ucsc_str, bins):
         start, end = int(start), int(end)
     except ValueError:
         start, end = parse_bin_str(start), parse_bin_str(end)
+    # Make absolute bin index (independent of chrom)
     bins["id"] = bins.index
     chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
     start = max([start, 1])
