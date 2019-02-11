@@ -18,13 +18,14 @@ A bunch of handy functions for processing Hi-C data
 These functions are meant to be simple and relatively quick
 as-is implementations of procedures described in Hi-C papers.
 """
-
+from numpy import linalg
 import numpy as np
 import string
 import collections
 import itertools
 import warnings
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
+from scipy.sparse.linalg import eigsh
 import copy
 import multiprocessing as mp
 import pandas as pd
@@ -1147,7 +1148,7 @@ def distance_to_contact(D, alpha=1):
     return M
 
 
-def distance_law(matrix, log_bins=False, base=1.1):
+def distance_law(matrix, indices=None, log_bins=False, base=1.1):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance if log_bins is True. Works
     on dense and sparse matrices.
@@ -1156,6 +1157,9 @@ def distance_law(matrix, log_bins=False, base=1.1):
     ----------
     matrix : numpy array or scipy coo_matrix
         Hi-C contact map of the chromosome on which the distance law is calculated.
+    indices : None or numpy array
+        List of indices on which to compute the distance law. For example compartments or
+        expressed genes.
     log_bins : bool
         Whether the distance law should be computed on exponentially larger bins.
     Returns
@@ -1166,11 +1170,17 @@ def distance_law(matrix, log_bins=False, base=1.1):
         The start coordinate of each bin.
     """
 
-    D = np.array([np.average(matrix.diagonal(j)) for j in range(min(matrix.shape))])
+    n = min(matrix.shape)
+    included_bins = np.zeros(n, dtype=bool)
+    if indices:
+        included_bins[indices] = 1
+    else:
+        included_bins[:] = 1
+
+    D = np.array([np.average(matrix.diagonal(j)[included_bins[: n - j]]) for j in range(n)])
     if not log_bins:
         return D, np.array(range(len(D)))
     else:
-        n = min(matrix.shape)
         n_bins = int(np.log(n) / np.log(base) + 1)
         logbin = np.unique(
             np.logspace(0, n_bins - 1, num=n_bins, base=base, dtype=np.int)
@@ -1664,8 +1674,38 @@ def compartments(M, normalize=True):
     PC1, PC2 = pca.fit_transform(N).T
     return PC1, PC2
 
+def compartments_sparse(M, normalize=True, n_components=2):
+    """A/B compartment analysis
 
-def remove_intra(M, contigs):
+    Perform a PCA-based A/B compartment analysis on a sparse, normalized, single
+    chromosome contact map. The results are two vectors whose values (negative
+    or positive) should presumably correlate with the presence of 'active'
+    vs. 'inert' chromatin.
+
+    Parameters
+    ----------
+    M : array_like
+        The input, normalized contact map. Must be a single chromosome.
+    normalize : bool
+        Whether to normalize the matrix beforehand.
+    mask : array of bool
+        An optional boolean mask indicating which bins should be used
+    Returns
+    -------
+
+    pr_comp : numpy.ndarray
+        An array containing the N first principal component
+    """
+    if normalize:
+        N = normalize_sparse(M, norm="SCN")
+    else:
+        N = copy.copy(M)
+    N = (N - np.mean(N.T, axis=1)).T
+    covN = np.dot(N, N.T)
+    [eigen_vals, pr_comp] = eigsh(covN, n_components)
+    return np.transpose(pr_comp[:, ::-1]) 
+
+def remove_intra(M, contigs, mask):
     """Remove intrachromosomal contacts
 
     Given a contact map and a list attributing each position
