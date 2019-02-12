@@ -1157,15 +1157,10 @@ def distance_law(matrix, indices=None, log_bins=False, base=1.1):
     Parameters
     ----------
     matrix : numpy array or scipy coo_matrix
-<<<<<<< HEAD
-        Hi-C contact map of the chromosome on which the distance law is
-        calculated.
-=======
         Hi-C contact map of the chromosome on which the distance law is calculated.
     indices : None or numpy array
         List of indices on which to compute the distance law. For example compartments or
         expressed genes.
->>>>>>> 36c4d0be62a3f1cd2e3f2c76b3245c470d689b65
     log_bins : bool
         Whether the distance law should be computed on exponentially larger
         bins.
