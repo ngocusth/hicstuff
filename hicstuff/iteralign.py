@@ -7,7 +7,7 @@ Aligns iteratively reads from a 3C fastq file
 """
 
 import argparse
-import os
+import os, sys
 import subprocess as sp
 import pysam as ps
 import shutil as st
@@ -52,9 +52,7 @@ def generate_temp_dir(path):
     return full_path
 
 
-def iterative_align(
-    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
-):
+def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20):
     """
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
     truncated to the 20 first nucleotides and unmapped reads are extended by 20
@@ -73,6 +71,8 @@ def iterative_align(
         Path where the final alignment should be written in SAM format.
     minimap2 : bool
         If True, use minimap2 instead of bowtie2 for the alignment.
+    min_len : int
+        The initial length of the fragments to align. 
     """
     # initial length of the fragments to align
     n = min_len
@@ -85,7 +85,12 @@ def iterative_align(
     # If there is already a file with the same name as the output file,
     # remove it. Otherwise, ignore.
     with contextlib.suppress(FileNotFoundError):
-        os.remove(sam_out)
+        try:
+            os.remove(sam_out)
+        except IsADirectoryError:
+            print("You need to give the SAM output file, not a folder.")
+            raise
+
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
     if not minimap2 and ct.is_compressed(fq_in):
@@ -96,15 +101,18 @@ def iterative_align(
     else:
         uncomp_path = fq_in
 
-    # Index genome if using bowtie2 and index does not exist
+    # throw error if index does not exist
     index = os.path.splitext(ref)[0]
-    if not minimap2 and not os.path.isfile(index):
-        cmd = "bowtie2-build {0} {1}".format(ref, index)
-        sp.call(cmd, shell=True)
+    if not minimap2 and not os.path.isfile(index + ".1.bt2"):
+        print(
+            "Error: Reference index is missing, please build the bowtie2 "
+            "index first."
+        )
+        sys.exit(1)
 
     # Counting reads
     with ct.read_compressed(uncomp_path) as inf:
-        for line in inf:
+        for _ in inf:
             total_reads += 1
     total_reads /= 4
 
@@ -138,9 +146,7 @@ def iterative_align(
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
-                **map_args
-            )
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
         else:
             cmd = "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3 --quiet --very-sensitive -S {sam} {fq}".format(
                 **map_args
@@ -178,8 +184,10 @@ def iterative_align(
 
     # Report unaligned reads as well
     iter_out += [os.path.join(tmp_dir, "unaligned.sam")]
-    temp_sam = ps.AlignmentFile(temp_alignment, "r") # pylint: disable=no-member
-    unmapped = ps.AlignmentFile(iter_out[-1], "w", template=temp_sam) # pylint: disable=no-member
+    temp_sam = ps.AlignmentFile(temp_alignment, "r")  # pylint: disable=no-member
+    unmapped = ps.AlignmentFile( # pylint: disable=no-member
+        iter_out[-1], "w", template=temp_sam
+    )
     for r in temp_sam:
         # Do not write supplementary alignments (keeping 1 alignment/read)
         if r.query_name in remaining_reads and not r.is_supplementary:
@@ -188,7 +196,9 @@ def iterative_align(
     temp_sam.close()
 
     # Merge all aligned reads and unmapped reads into a single sam
-    ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out) # pylint: disable=no-member
+    ps.merge( # pylint: disable=no-member
+        "-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out
+    )
     print(
         "{0} reads aligned / {1} total reads.".format(
             total_reads - len(remaining_reads), total_reads
@@ -218,7 +228,9 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
     """
 
     outfile = "{0}/truncated.fastq".format(tmp_dir)
-    with ps.FastxFile(infile, "r") as inf, open(outfile, "w") as outf: # pylint: disable=no-member
+    with ps.FastxFile(infile, "r") as inf, open( # pylint: disable=no-member
+        outfile, "w"
+    ) as outf:
         for entry in inf:
             if entry.name in unaligned_set or n == min_len:
                 entry.sequence = entry.sequence[:n]
@@ -248,8 +260,10 @@ def filter_samfile(temp_alignment, filtered_out):
     # Keep those that do not map unambiguously for the next round.
 
     unaligned = set()
-    temp_sam = ps.AlignmentFile(temp_alignment, "r") # pylint: disable=no-member
-    outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam) # pylint: disable=no-member
+    temp_sam = ps.AlignmentFile(temp_alignment, "r")  # pylint: disable=no-member
+    outf = ps.AlignmentFile( # pylint: disable=no-member
+        filtered_out, "w", template=temp_sam
+    )
     for r in temp_sam:
         if r.flag in [0, 16] and r.mapping_quality >= 30:
             outf.write(r)

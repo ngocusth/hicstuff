@@ -9,7 +9,6 @@ from hicstuff.hicstuff import (
     despeckle_simple,
     scalogram,
     distance_law,
-    despeckle_local,
 )
 import re
 from hicstuff.iteralign import *
@@ -23,6 +22,7 @@ from hicstuff.view import (
 )
 from scipy.sparse import csr_matrix, lil_matrix, coo_matrix
 import sys, os, subprocess, shutil
+from os.path import join, basename
 from matplotlib import pyplot as plt
 from docopt import docopt
 import pandas as pd
@@ -51,7 +51,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20] 
+        iteralign [--minimap2] [--threads=1] [--min_len=20]
                   [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
@@ -135,7 +135,7 @@ class Digest(AbstractCommand):
         if not os.path.exists(self.args["--outdir"]):
             os.makedirs(self.args["--outdir"])
         if self.args["--figdir"]:
-            figpath = os.path.join(self.args["--figdir"], "frags_hist.pdf")
+            figpath = join(self.args["--figdir"], "frags_hist.pdf")
         else:
             figpath = None
         # Split into a list if multiple enzymes given
@@ -152,9 +152,7 @@ class Digest(AbstractCommand):
         )
 
         frag_len(
-            output_dir=self.args["--outdir"],
-            plot=self.args["--plot"],
-            fig_path=figpath,
+            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
         )
 
 
@@ -203,9 +201,7 @@ class Filter(AbstractCommand):
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
-                figpath = os.path.join(
-                    self.args["--figdir"], "event_distance.pdf"
-                )
+                figpath = join(self.args["--figdir"], "event_distance.pdf")
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
             with open(self.args["<input>"]) as handle_in:
@@ -219,9 +215,7 @@ class Filter(AbstractCommand):
         # Filter library and write to output file
         figpath = None
         if self.args["--figdir"]:
-            figpath = os.path.join(
-                self.args["--figdir"], "event_distribution.pdf"
-            )
+            figpath = join(self.args["--figdir"], "event_distribution.pdf")
 
         with open(self.args["<input>"]) as handle_in:
             filter_events(
@@ -302,9 +296,7 @@ class View(AbstractCommand):
                 )
 
             else:
-                binned_map = bin_sparse(
-                    M=sparse_map, subsampling_factor=self.binning
-                )
+                binned_map = bin_sparse(M=sparse_map, subsampling_factor=self.binning)
         else:
             binned_map = sparse_map
 
@@ -326,9 +318,7 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(
-                self.args["--frags"], delimiter="\t", usecols=(1, 2)
-            )
+            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -338,9 +328,7 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame(
-                        {0: binned_chrom, 1: binned_frags[:, 0]}
-                    )
+                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -362,8 +350,7 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for "
-                    "trimming"
+                    "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
             binned_map = trim_sparse(binned_map, n_std=trim_std)
@@ -431,20 +418,16 @@ class View(AbstractCommand):
             processed_map = processed_map.tocoo()
             cmap = "coolwarm"
 
+        if self.args["--despeckle"]:
+            processed_map = despeckle_simple(processed_map)
         vmax = np.percentile(processed_map.data, vmax)
         try:
             dense_map = sparse_to_dense(processed_map)
-            if self.args["--despeckle"]:
-                dense_map = despeckle_local(dense_map)
             vmin = 0
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             plot_matrix(
-                dense_map,
-                filename=output_file,
-                vmin=vmin,
-                vmax=vmax,
-                cmap=cmap,
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
@@ -652,6 +635,129 @@ class Plot(AbstractCommand):
             plt.show()
 
 
+class Rebin(AbstractCommand):
+    """
+    Rebins a Hi-C matrix and modifies its fragment and chrom files accordingly.
+    Output files are given the same name as the input files, in the target
+    directory.
+    usage:
+        rebin [--binning=1] --frags=FILE --chrom=FILE --outdir=DIR
+               <contact_map>
+
+    arguments:
+        contact_map             Sparse contact matrix in GRAAL format
+
+    options:
+        -b, --binning=INT[bp|kb|Mb|Gb]   Subsampling factor or fix value in
+                                         basepairs to use for binning
+                                         [default: 1].
+        -f FILE, --frags=FILE            Tab-separated file with headers,
+                                         containing fragments start position in
+                                         the 3rd column, as generated by
+                                         hicstuff pipeline.
+        -c, --chrom=file                 Tab-separated with headers, containing
+                                         chromosome names, size, number of
+                                         restriction fragments.
+        -o DIR, --outdir=DIR             Directory where the new binned files
+                                         will be written.
+    """
+
+    def execute(self):
+        bin_str = self.args["--binning"].upper()
+        # Load positions from fragments list and chromosomes from chrom file
+        frags = pd.read_csv(self.args["--frags"], sep="\t")
+        chromlist = pd.read_csv(self.args["--chrom"], sep="\t")
+        outdir = self.args["--outdir"]
+        # Create output directory if it does not exist
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        bp_unit = False
+        try:
+            # Subsample binning
+            binning = int(bin_str)
+        except ValueError:
+            # Basepair binning
+            if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
+                if not self.args["--frags"]:
+                    print(
+                        "Error: A fragment file must be provided to perform "
+                        "basepair binning. See hicstuff rebin --help",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                binning = parse_bin_str(bin_str)
+                bp_unit = True
+            else:
+                print(
+                    "Please provide an integer or basepair value for binning.",
+                    file=sys.stderr,
+                )
+                raise
+        map_path = self.args["<contact_map>"]
+        hic_map = load_raw_matrix(map_path)
+        hic_map = raw_cols_to_sparse(hic_map)
+        chromnames = np.unique(frags.chrom)
+        if bp_unit:
+            # Basepair binning
+            hic_map, _ = bin_bp_sparse(hic_map, frags.start_pos, binning)
+            for chrom in chromnames:
+                # For all chromosomes, get new bin start positions
+                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
+                frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
+                bin_ends = binning * bin_id + binning
+                # Do not allow bin ends to be larger than chrom size
+                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
+                # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
+                bin_ends[bin_ends > chromsize] = chromsize
+                frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
+
+        else:
+            # Subsample binning
+            hic_map = bin_sparse(hic_map, binning)
+            # Use index for binning, but keep 1-indexed
+            frags.id = (frags.id // binning) + 1
+        # Save original columns order
+        col_ordered = list(frags.columns)
+        # Get new start and end position for each bin
+        frags = frags.groupby(["chrom", "id"])
+        positions = frags.agg({"start_pos": "min", "end_pos": "max"})
+        positions.reset_index(inplace=True)
+        # Compute mean for all added features in each index bin
+        # Normally only other feature is GC content
+        features = frags.agg("mean")
+        features.reset_index(inplace=True)
+        # set new bins positions
+        frags = features
+        frags.loc[:, positions.columns] = positions
+        frags["size"] = frags.end_pos - frags.start_pos
+        cumul_bins = 0
+        for chrom in chromnames:
+            n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
+            chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
+            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
+            cumul_bins += n_bins
+
+        # Write 3 binned output files
+        sparse_array = np.vstack([hic_map.row, hic_map.col, hic_map.data]).T
+        np.savetxt(
+            join(outdir, basename(map_path)),
+            sparse_array,
+            header="id_fragment_a\tid_fragment_b\tn_contact",
+            comments="",
+            fmt="%i",
+            delimiter="\t",
+        )
+        # Keep original column order
+        frags = frags.reindex(columns=col_ordered)
+        frags.to_csv(
+            join(outdir, basename(self.args["--frags"])), index=False, sep="\t"
+        )
+        chromlist.to_csv(
+            join(outdir, basename(self.args["--chrom"])), index=False, sep="\t"
+        )
+
+
 def parse_bin_str(bin_str):
     """
     Take a basepair binning string as input and converts it into
@@ -699,6 +805,7 @@ def parse_ucsc(ucsc_str, bins):
         start, end = int(start), int(end)
     except ValueError:
         start, end = parse_bin_str(start), parse_bin_str(end)
+    # Make absolute bin index (independent of chrom)
     bins["id"] = bins.index
     chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
     start = max([start, 1])

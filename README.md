@@ -21,11 +21,12 @@ A lightweight library that generates and handles Hi-C contact maps in either CSV
 
 ## Installation
 
+To install a stable version:
 ```sh
    pip3 install -U hicstuff
 ```
 
-or, for the latest version:
+or, for the latest development version:
 
 ```sh
     pip3 install -e git+https://github.com/koszullab/hicstuff.git@master#egg=hicstuff
@@ -348,7 +349,7 @@ BEGIN{dir="for"; OFS="\t"}
     }
 }
 '
-awk "$bed2pairs" > contact_intersect_sorted.bed2D
+awk "$bed2pairs" contact_intersect_sorted.bed > contact_intersect_sorted.bed2D
 ```
 
 The resulting 2D BED file can then be filtered by the `hicstuff filter` module if needed, otherwise, the matrix can be built directly from it. To generate a GRAAL-compatible sparse matrix from the 2D bed file:
@@ -357,7 +358,7 @@ The resulting 2D BED file can then be filtered by the `hicstuff filter` module i
 # Remove strand information, sort by fragment combination,
 # Count occurrences of each fragment combination and format into csv.
 echo -e "id_fragment_a\tid_fragment_b\tn_contact" > matrix.tsv
-cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed" |
+cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed2D" |
   sort -V |
   uniq -c |
   sed 's/^ *//' |

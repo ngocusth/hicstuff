@@ -17,5 +17,5 @@ SIZE_PARAMETERS = ("matrix_size", [5, 10, 20, 50, 100])
 def test_scn(matrix_size):
     M = np.random.random((matrix_size, matrix_size))
     M += M.T
-    N = hcs.normalize_dense(M, "SCN")
-    assert np.isclose(N.sum(axis=1), np.ones(matrix_size))
+    N = hcs.normalize_dense(M, "SCN", iterations=50)
+    assert np.isclose(N.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
