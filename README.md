@@ -22,7 +22,7 @@ A lightweight library that generates and handles Hi-C contact maps in either CSV
 ## Installation
 
 ```sh
-   pip3 install hicstuff
+   pip3 install -U hicstuff
 ```
 
 or, for the latest version:
@@ -31,11 +31,6 @@ or, for the latest version:
     pip3 install -e git+https://github.com/koszullab/hicstuff.git@master#egg=hicstuff
 ```
 
-If you want to upgrade hicstuff, you can use:
-
-```sh
- pip3 install --upgrade hicstuff
-```
 Note for OSX and BSD users: `hicstuff pipeline` relies on the GNU coreutils. If you want to use it, you should use these as your default. [Here](https://www.topbug.net/blog/2013/04/14/install-and-use-gnu-command-line-tools-in-mac-os-x/) is a tutorial to set the gnu coreutils as default commands on OSX. 
 
 ## Usage
@@ -122,6 +117,7 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
 For more advanced usage, different scripts can be used independently on the command line to perform individual parts of the pipeline.
 
 #### Iterative alignment
+
 Truncate reads from a fastq file to 20 basepairs and iteratively extend and re-align the unmapped reads to optimize the proportion of uniquely aligned reads in a 3C library.
 
     usage:
@@ -137,7 +133,6 @@ Truncate reads from a fastq file to 20 basepairs and iteratively extend and re-a
         -m, --minimap2     If set, use minimap2 instead of bowtie2 for the alignment.
         -l INT, --min_len=INT  Length to which the reads should be truncated [default: 20].
         -o FILE, --out_sam=FILE Path where the alignment will be written in SAM format.
-
 
 #### Digestion of the genome
 
@@ -176,7 +171,7 @@ named "info_contigs.txt" and "fragments_list.txt"
     output:
         fragments_list.txt: information about restriction fragments (or chunks)
         info_contigs.txt: information about contigs or chromosomes
-        
+
  For example, to digest the yeast genome with MaeII and HinfI and show histogram of fragment lengths:
 
 `hicstuff digest -p -o output_dir -e MaeII,HinfI Sc_ref.fa`
@@ -207,7 +202,6 @@ on a minimum distance threshold automatically estimated from the library by defa
         -f DIR, --figdir=DIR              Path to the output figure directory.
                                           By default, the figure is only shown
                                           but not saved.
-
 
 #### Viewing the contact map
 
@@ -260,15 +254,14 @@ Visualize a Hi-C matrix file as a heatmap of contact frequencies. Allows to tune
                                          deviates from the mean by more than
                                          INT standard deviations.
 
-
 For example, to view a 1Mb region of chromosome 1 from a full genome Hi-C matrix rebinned at 10kb:
 
-`hicstuff view -n -b 10kb -r chr1:10,000,000-11,000,000 -f fragments_list.txt contact_map.tsv`
-
+```sh
+    hicstuff view -n -b 10kb -r chr1:10,000,000-11,000,000 -f fragments_list.txt contact_map.tsv
+```
 ### Library
 
 All components of the hicstuff program can be used as python modules. See the documentation on [reathedocs](https://hicstuff.readthedocs.io). The expected contact map format for the library is a simple CSV file, and the objects handled by the library are simple ```numpy``` arrays. The various submodules of hicstuff contain various utilities.
-
 
 ```python
 import hicstuff.digest # Functions to work with fragments (digestion, matrix building)
@@ -283,6 +276,7 @@ import hicstuff.view # Utilities to visualise contact maps
 All the steps described here are handled automatically when running the `hicstuff pipeline`. But if you want to connect the different modules manually, the intermediate input and output files must be processed using light bash scripting.
 
 #### Extracting contacts from the alignment
+
 The output from iteralign is a SAM file. In order to retrieve Hi-C pairs, you need to run iteralign separately on the two fastq files and process the resulting alignment files processed as follows using bedtools and some bash commands.
 
 1. Convert the SAM files into BED format
@@ -331,8 +325,8 @@ bedtools intersect -a total_contacts.bed \
   -b fragments_list.bed -wa -wb |
   sort -k4d  \
   > contact_intersect_sorted.bed
-
 ```
+
 4. Get reads into a paired BED file (1 pair per line)
 
 ```bash
@@ -356,6 +350,7 @@ BEGIN{dir="for"; OFS="\t"}
 '
 awk "$bed2pairs" > contact_intersect_sorted.bed2D
 ```
+
 The resulting 2D BED file can then be filtered by the `hicstuff filter` module if needed, otherwise, the matrix can be built directly from it. To generate a GRAAL-compatible sparse matrix from the 2D bed file:
 
 ```bash

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
+"""Common Hi-C functions
+
 A bunch of handy functions for processing Hi-C data
 (mainly in the form of matrices):
 
@@ -1211,9 +1212,11 @@ def distance_law(matrix, log_bins=False, base=1.1):
     Parameters
     ----------
     matrix : numpy array or scipy coo_matrix
-        Hi-C contact map of the chromosome on which the distance law is calculated.
+        Hi-C contact map of the chromosome on which the distance law is
+        calculated.
     log_bins : bool
-        Whether the distance law should be computed on exponentially larger bins.
+        Whether the distance law should be computed on exponentially larger
+        bins.
     Returns
     -------
     numpy array of floats :
@@ -1253,6 +1256,8 @@ def shortest_path_interpolation(matrix, alpha=1, strict=True):
     shortest-path based counts and may have the additional effect of 'blurring'
     the matrix somewhat. If strict is set to True, only zeroes are replaced
     this way.
+
+    Also known as Boost-Hi-C (https://www.ncbi.nlm.nih.gov/pubmed/30615061)
     """
     matrix = np.array(matrix, np.float64)
     contacts = distance_to_contact(
@@ -1292,7 +1297,8 @@ def noise(matrix):
 
 
 def flatten_positions_to_contigs(positions):
-    """Flattens and converts a positions array to a contigs array, if applicable.
+    """Flattens and converts a positions array to a contigs array, if
+    applicable.
     """
 
     if isinstance(positions, np.ndarray):
@@ -1338,8 +1344,8 @@ def simple_distance_diagonal_law(matrix, circular=False):
 
 
 def distance_diagonal_law(matrix, positions=None, circular=False):
-    """Compute a distance law trend using the contact averages of equal distances.
-    Specific positions can be supplied if needed.
+    """Compute a distance law trend using the contact averages of equal
+    distances. Specific positions can be supplied if needed.
     """
 
     n = min(matrix.shape)
@@ -1658,6 +1664,27 @@ def scalogram(M, circ=False, max_range=False):
     visualize contacts at different distance scales.
     Edge cases have been painstakingly taken
     care of.
+
+    Parameters
+    ----------
+    M1 : array_like
+        The input contact map
+    circ : bool
+        Whether the contact map's reference genome is
+        circular. Default is False.
+    max_range : bool or int
+        The maximum scale to be computed on the matrix.
+        Default is False, which means the maximum possible
+        range (len(M) // 2) will be taken.
+
+    Returns
+    -------
+
+    N : array_like
+        The output scalogram. Values that can't be computed
+        due to edge issues, or being beyond max_range will
+        be zero. In a non-circular matrix, this will result
+        with a 'cone-shaped' contact map.
     """
 
     # Sanity checks
@@ -1701,6 +1728,19 @@ def asd(M1, M2):
 
     Inspired from Galiez et al., 2015
     (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4535829/)
+
+    Parameters
+    ----------
+    M1 : array_like
+        The first (normalized) input matrix.
+    M2 : array_like
+        The second (normalized) input matrix
+
+    Returns
+    -------
+
+    asd : numpy.float64
+        The matrix distance
     """
 
     from scipy.fftpack import fft2
