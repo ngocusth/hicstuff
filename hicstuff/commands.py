@@ -844,7 +844,7 @@ def parse_bin_str(bin_str):
         The number of basepair corresponding to the binning string.
     """
     bin_str = bin_str.upper()
-    binsuffix = {"B": 1, "K": 1000, "M": 10e6, "G": 10e9}
+    binsuffix = {"B": 1, "K": 1000, "M": 1e6, "G": 1e9}
     unit_pos = re.search(r"[KMG]?B[P]?$", bin_str).start()
     bp_unit = bin_str[unit_pos:]
     # Extract unit and multiply accordingly for fixed bp binning
