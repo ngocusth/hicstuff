@@ -76,8 +76,6 @@ def iterative_align(
     min_len : int
         The initial length of the fragments to align. 
     """
-    # initial length of the fragments to align
-    n = min_len
     # set with the name of the unaligned reads :
     remaining_reads = set()
     total_reads = 0
@@ -123,6 +121,9 @@ def iterative_align(
         # Stripping newline.
         size = len(inf.readline().rstrip())
 
+    # initial length of the fragments to align
+    # In case reads are shorter than provided min_len
+    n = min(size, min_len)
     print("{0} reads to parse".format(total_reads))
 
     # iterative alignment per se

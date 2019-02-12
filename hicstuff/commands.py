@@ -89,7 +89,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20]
+        iteralign [--minimap2] [--threads=1] [--min_len=40]
                   [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
@@ -104,7 +104,7 @@ class Iteralign(AbstractCommand):
         -m, --minimap2           If set, use minimap2 instead of bowtie2 for
                                  the alignment.
         -l INT, --min_len=INT    Length to which the reads should be
-                                 truncated [default: 20].
+                                 truncated [default: 40].
         -o FILE, --out_sam=FILE  Path where the alignment will be written in
                                  SAM format.
     """
@@ -122,6 +122,7 @@ class Iteralign(AbstractCommand):
             self.args["--threads"],
             self.args["--out_sam"],
             self.args["--minimap2"],
+            min_len=int(self.args["--min_len"]),
         )
         # Deletes the temporary folder
         shutil.rmtree(temp_directory)
