@@ -848,7 +848,7 @@ def parse_bin_str(bin_str):
     unit_pos = re.search(r"[KMG]?B[P]?$", bin_str).start()
     bp_unit = bin_str[unit_pos:]
     # Extract unit and multiply accordingly for fixed bp binning
-    binning = int(bin_str[:unit_pos] * binsuffix[bp_unit[0]])
+    binning = int(float(bin_str[:unit_pos]) * binsuffix[bp_unit[0]])
 
     return binning
 
