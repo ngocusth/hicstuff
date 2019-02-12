@@ -17,7 +17,7 @@ install:
   fi
 - python setup.py install
 script:
-- pytest --pylint --pylint-error-types=EF --doctest-modules hicstuff
+- pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules hicstuff
 - |
   if [[ $TRAVIS_TAG ]]; then
     python setup.py sdist;
