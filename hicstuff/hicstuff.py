@@ -20,7 +20,6 @@ These functions are meant to be simple and relatively quick
 as-is implementations of procedures described in Hi-C papers.
 """
 
-from numpy import linalg
 import numpy as np
 import string
 import collections
@@ -1798,10 +1797,10 @@ def compartments(M, normalize=True):
 def compartments_sparse(M, normalize=True, n_components=2):
     """A/B compartment analysis
 
-    Perform a PCA-based A/B compartment analysis on a sparse, normalized, single
-    chromosome contact map. The results are two vectors whose values (negative
-    or positive) should presumably correlate with the presence of 'active'
-    vs. 'inert' chromatin.
+    Perform a PCA-based A/B compartment analysis on a sparse, normalized,
+    single chromosome contact map. The results are two vectors whose values
+    (negative or positive) should presumably correlate with the presence of
+    'active' vs. 'inert' chromatin.
 
     Parameters
     ----------

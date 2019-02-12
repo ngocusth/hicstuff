@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+"""Hi-C event filtering
+
 Analyse the contents of a 3C library and filters spurious events such as loops
 and uncuts to improve the overall signal. Filtering consists in excluding +-
 and -+ Hi-C pairs if their reads are closer than a threshold in minimum number
@@ -24,10 +25,12 @@ import sys
 
 
 def process_read_pair(line):
-    """
+    """Process and order 2D BED based read pairs
+
     Takes a read pair (line) from a 2D BED file as input, reorders the pair
     so that read 1 in intrachromosomal pairs always has the smallest genomic
     coordinate.
+
     Parameters
     ----------
     line : str
@@ -106,7 +109,8 @@ def process_read_pair(line):
 def get_thresholds(
     in_dat, interactive=False, plot_events=False, fig_path=None, prefix=None
 ):
-    """
+    """Guess distance threshold for event filtering
+
     Analyse the events in the first million of Hi-C pairs in the library, plot
     the occurrences of each event type according to number of restriction
     fragments, and ask user interactively for the minimum threshold for uncuts
@@ -266,9 +270,9 @@ def get_thresholds(
 
             except Exception:
                 print(
-                    "Unable to show plots. Perhaps there is no Xserver running ? "
-                    "(might be due to windows environment). Try running without "
-                    "the plot option.",
+                    "Unable to show plots. Is an X server running?"
+                    "(might be due to windows environment)."
+                    "Try running without the plot option.",
                     file=sys.stderr,
                 )
                 raise
@@ -284,11 +288,13 @@ def filter_events(
     fig_path=None,
     prefix=None,
 ):
-    """
+    """Filter events (loops, uncuts and weirds)
+
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
     with reads closer than the uncut threshold and -+ pairs with reads closer
     than the loop thresholds are excluded from the ouput file. All others are
     written.
+
     Parameters
     ----------
     in_dat : file object
@@ -410,7 +416,7 @@ def filter_events(
             labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
             colors = ["salmon", "lightskyblue", "yellow", "palegreen", "plum"]
-            patches, texts, a = plt.pie(
+            patches, _, _ = plt.pie(
                 fracs, colors=colors, autopct="%1.1f%%", startangle=90
             )
             plt.legend(patches, labels, loc="best")

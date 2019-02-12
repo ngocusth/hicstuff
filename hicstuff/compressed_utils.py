@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import gzip, zipfile, bz2, io
+import gzip
+import zipfile
+import bz2
+import io
 
 
 def read_compressed(filename):
-    """
+    """Read compressed file
+
     Opens the file in read mode with appropriate decompression algorithm.
 
     Parameters
@@ -28,7 +32,8 @@ def read_compressed(filename):
     max_len = max(len(x) for x in comp_bytes)
 
     def file_type(filename):
-        """
+        """Guess file type
+
         Compare header bytes with those in the file and return type.
         """
         with open(filename, "rb") as f:
@@ -59,13 +64,15 @@ def read_compressed(filename):
 
 
 def is_compressed(filename):
-    """
+    """Check compression status
+
     Check if the input file is compressed from the first bytes.
 
     Parameters
     ----------
     filename : str
         The path to the input file
+
     Returns
     -------
     bool

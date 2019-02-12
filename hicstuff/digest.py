@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""
-Functions used to write GRAAL compatible sparse matrices.
+"""Genome digestion
+
+Functions used to write auxiliary instaGRAAL compatible
+sparse matrices.
 """
 
 from Bio import SeqIO, SeqUtils
 from Bio.Restriction import RestrictionBatch, Analysis
-import os, sys
+import os
+import sys
 import collections
 import copy
 import matplotlib.pyplot as plt
@@ -266,7 +269,7 @@ def write_sparse_matrix(
                     # move on with the current line
                     # print("Read name {} does not match successor {}, "
                     # "reads are not properly interleaved".format(name_forward,
-                    #                                             name_reverse))
+                    #                                            name_reverse))
                     read_forward = copy.deepcopy(read_reverse)
                     is_forward = False
     print("Done.")

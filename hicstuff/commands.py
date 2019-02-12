@@ -1,6 +1,38 @@
-# Structure based on Rémy Greinhofer (rgreinho) tutorial on subcommands in
-# docopt : https://github.com/rgreinho/docopt-subcommands-example
-# cmdoret, 20181412
+#!/usr/bin/env python3
+# coding: utf-8
+
+"""Abstract command classes for hicstuff
+
+This module contains all classes related to hicstuff
+commands:
+
+    -iteralign (iterative mapping)
+    -digest (genome chunking)
+    -filter (Hi-C 'event' sorting: loops, uncuts, weird
+     and 'true contacts')
+    -view (map visualization)
+    -pipeline (whole contact map generation)
+
+Running 'pipeline' implies running 'digest', but not
+iteralign or filter unless specified, because they can
+take up a lot of time for dimnishing returns.
+
+Note
+----
+Structure based on Rémy Greinhofer (rgreinho) tutorial on subcommands in
+docopt : https://github.com/rgreinho/docopt-subcommands-example
+cmdoret, 20181412
+
+Raises
+------
+NotImplementedError
+    Will be raised if AbstractCommand is called for
+    some reason instead of one of its children.
+ValueError
+    Will be raised if an incorrect chunking method (e.g.
+    not an enzyme or number or invalid range view is
+    specified.
+"""
 from hicstuff.hicstuff import (
     bin_sparse,
     normalize_sparse,
@@ -20,8 +52,11 @@ from hicstuff.view import (
     sparse_to_dense,
     plot_matrix,
 )
-from scipy.sparse import csr_matrix, lil_matrix, coo_matrix
-import sys, os, subprocess, shutil
+from scipy.sparse import csr_matrix
+import sys
+import os
+import subprocess
+import shutil
 from os.path import join, basename
 from matplotlib import pyplot as plt
 from docopt import docopt
@@ -30,8 +65,10 @@ import numpy as np
 
 
 class AbstractCommand:
-    """
-    Base class for the commands
+    """Abstract base command class
+
+    Base class for the commands from which
+    other hicstuff commadns derive.
     """
 
     def __init__(self, command_args, global_args):
@@ -45,7 +82,8 @@ class AbstractCommand:
 
 
 class Iteralign(AbstractCommand):
-    """
+    """Iterative mapping command
+
     Truncate reads from a fastq file to 20 basepairs and iteratively extend and
     re-align the unmapped reads to optimize the proportion of uniquely aligned
     reads in a 3C library.
@@ -90,7 +128,8 @@ class Iteralign(AbstractCommand):
 
 
 class Digest(AbstractCommand):
-    """
+    """Genome chunking command
+
     Digests a fasta file into fragments based on a restriction enzyme or a
     fixed chunk size. Generates two output files into the target directory
     named "info_contigs.txt" and "fragments_list.txt"
@@ -159,7 +198,8 @@ class Digest(AbstractCommand):
 
 
 class Filter(AbstractCommand):
-    """
+    """Mapping event filtering command
+
     Filters spurious 3C events such as loops and uncuts from the library based
     on a minimum distance threshold automatically estimated from the library by
     default. Can also plot 3C library statistics.
@@ -232,7 +272,8 @@ class Filter(AbstractCommand):
 
 
 class View(AbstractCommand):
-    """
+    """Contact map visualization command
+
     Visualize a Hi-C matrix file as a heatmap of contact frequencies. Allows to
     tune visualisation by binning and normalizing the matrix, and to save the
     output image to disk. If no output is specified, the output is displayed.
@@ -290,7 +331,7 @@ class View(AbstractCommand):
         Performs any combination of binning, normalisation, log transformation,
         trimming and subsetting based on the attributes of the instance class.
         """
-        ### BINNING ###
+        # BINNING
         if self.binning > 1:
             if self.bp_unit:
                 binned_map, binned_frags = bin_bp_sparse(
@@ -304,15 +345,15 @@ class View(AbstractCommand):
         else:
             binned_map = sparse_map
 
-        ### NORMALIZATION ###
+        # NORMALIZATION
         if self.args["--normalize"]:
             binned_map = normalize_sparse(binned_map, norm="SCN")
 
-        ### LOG VALUES ###
+        # LOG VALUES
         if self.args["--log"]:
             binned_map = binned_map.log1p()
 
-        ### ZOOM REGION ###
+        # ZOOM REGION
         if self.args["--region"]:
             if not self.args["--frags"]:
                 print(
@@ -352,7 +393,7 @@ class View(AbstractCommand):
             binned_map = binned_map[reg1[0] : reg1[1], reg2[0] : reg2[1]]
             binned_map = binned_map.tocoo()
 
-        ### TRIMMING ###
+        # TRIMMING
         if self.args["--trim"]:
             try:
                 trim_std = float(self.args["--trim"])
@@ -447,7 +488,8 @@ class View(AbstractCommand):
 
 
 class Pipeline(AbstractCommand):
-    """
+    """Whole (end-to-end) contact map generation command
+
     Entire Pipeline to process fastq files into a Hi-C matrix. Uses all the
     individual components of hicstuff.
 
@@ -580,7 +622,7 @@ class Plot(AbstractCommand):
                                            single chromosome).
         -C NAME, --cmap NAME               The matplotlib colormap to use for
                                            the plot. [default: viridis]
-        -d, --despeckle                    Remove speckles (small intense spots)
+        -d, --despeckle                    Remove speckles (artifactual spots)
                                            from the matrix.
         -f FILE, --frags FILE              The path to the hicstuff fragments
                                            file.
@@ -593,10 +635,10 @@ class Plot(AbstractCommand):
         -p, --process                      Process the matrix first (trim,
                                            normalize)
         -r INT-INT, --range INT-INT        The range of contact distance to
-                                           look at. No limit by default.
-        -s, --scalogram                    Plot the scalogram of the contact map.
-        -t INT, --threads=Inter            Number of processes to run in
-                                           parallel for despeckling. [default: 1]
+                                           look at. No limit by default. Plot
+                                           the scalogram of the contact map.
+        -t INT, --threads=Inter            Parallel processes to run in for
+                                           despeckling. [default: 1]
     """
 
     def execute(self):
@@ -610,7 +652,7 @@ class Plot(AbstractCommand):
                 start = int(start)
                 end = int(end)
         except ValueError:
-            print(
+            raise ValueError(
                 "Range must be provided using two integers separated by '-'.",
                 "E.g: 1-100.",
             )
@@ -642,8 +684,8 @@ class Plot(AbstractCommand):
             plt.plot(tmpidx[2:], subp[2:])
             plt.xscale("log")
             plt.yscale("log")
-        if self.args["--output"]:
-            plt.savefig(self.args["--output"])
+        if output_file:
+            plt.savefig(output_file)
         else:
             plt.show()
 
@@ -778,16 +820,27 @@ class Rebin(AbstractCommand):
 
 
 def parse_bin_str(bin_str):
-    """
+    """Bin string parsing
+
     Take a basepair binning string as input and converts it into
     corresponding basepair values.
+
     Parameters
     ----------
     bin_str : str
         A basepair region (e.g. 150KB). Unit can be BP, KB, MB, GB.
+
+    Example
+    -------
+
+        >>> parse_bin_str("150KB")
+        150000
+        >>> parse_bin_str("0.1mb")
+        100000
+
     Returns
     -------
-    int :
+    binning : int
         The number of basepair corresponding to the binning string.
     """
     bin_str = bin_str.upper()
@@ -795,7 +848,7 @@ def parse_bin_str(bin_str):
     unit_pos = re.search(r"[KMG]?B[P]?$", bin_str).start()
     bp_unit = bin_str[unit_pos:]
     # Extract unit and multiply accordingly for fixed bp binning
-    binning = int(bin_str[:unit_pos]) * binsuffix[bp_unit[0]]
+    binning = int(bin_str[:unit_pos] * binsuffix[bp_unit[0]])
 
     return binning
 
@@ -804,6 +857,7 @@ def parse_ucsc(ucsc_str, bins):
     """
     Take a UCSC region in UCSC notation and a list of bin chromosomes and
     positions (in basepair) and converts it to range of bins.
+
     Parameters
     ----------
     ucsc_str : str
@@ -811,11 +865,11 @@ def parse_ucsc(ucsc_str, bins):
     bins : pandas.DataFrame
         Dataframe of two columns containing the chromosome and start
         position of each bin. Each row must be one bin.
+
     Returns
     -------
-    tuple :
+    coord : tuple
         A tuple containing the bin range containing in the requested region.
-
     """
     chrom, bp = ucsc_str.split(":")
     bp = bp.replace(",", "").upper()
@@ -830,4 +884,5 @@ def parse_ucsc(ucsc_str, bins):
     start = max([start, 1])
     start = max(chrombins.id[chrombins.iloc[:, 1] // start == 0])
     end = max(chrombins.id[chrombins.iloc[:, 1] // end == 0])
-    return (start, end)
+    coord = (start, end)
+    return coord

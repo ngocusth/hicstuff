@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 # coding: utf-8
-"""
-Created on Jan 26 2018
+"""Iterative alignment
+
+Aligns iteratively reads from a 3C fastq file: reads
+are trimmed with a range-sweeping number of basepairs
+and each read set generated this way is mapped onto
+the reference genome. This may result in a small
+increase of properly mapped reads.
+
 @author: Remi Montagne & cmdoret
-Aligns iteratively reads from a 3C fastq file
 """
 
-import argparse
-import os, sys
+import os
+import sys
 import subprocess as sp
 import pysam as ps
 import shutil as st
@@ -15,16 +20,10 @@ from random import getrandbits
 import hicstuff.compressed_utils as ct
 import contextlib
 
-##############################
-#        ARGUMENTS
-##############################
 
-
-##############################
-#        FUNCTIONS
-##############################
 def generate_temp_dir(path):
-    """
+    """Temporary directory generation
+
     Generates a temporary file with a random name at the input path.
     Parameters
     ----------
@@ -55,7 +54,8 @@ def generate_temp_dir(path):
 def iterative_align(
     fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
 ):
-    """
+    """Iterative alignment
+
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
     truncated to the 20 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
@@ -151,9 +151,10 @@ def iterative_align(
                 **map_args
             )
         else:
-            cmd = "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3 --quiet --very-sensitive -S {sam} {fq}".format(
-                **map_args
-            )
+            cmd = (
+                "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
+                " --quiet --very-sensitive -S {sam} {fq}"
+            ).format(**map_args)
         sp.call(cmd, shell=True)
 
         # filter the reads: the reads whose truncated end was aligned are written
@@ -176,9 +177,10 @@ def iterative_align(
             ref, n_cpu, temp_alignment, truncated_reads
         )
     else:
-        cmd = "bowtie2 -x {0} -p {1} --rdg 500,3 --rfg 500,3 --quiet --very-sensitive -S {2} {3}".format(
-            index, n_cpu, temp_alignment, truncated_reads
-        )
+        cmd = (
+            "bowtie2 -x {0} -p {1} --rdg 500,3 --rfg 500,3 --quiet "
+            "--very-sensitive -S {2} {3}"
+        ).format(index, n_cpu, temp_alignment, truncated_reads)
     sp.call(cmd, shell=True)
     print("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
@@ -208,7 +210,8 @@ def iterative_align(
 
 
 def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
-    """
+    """Trim read ends
+
     Writes the n first nucleotids of each sequence in infile to an auxialiary.
     file in the temporary folder.
     Parameters
@@ -237,7 +240,8 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
 
 
 def filter_samfile(temp_alignment, filtered_out):
-    """
+    """Filter alignment SAM files
+
     Reads all the reads in the input SAM alignment file.
     Write reads to the output file if they are aligned with a good
     quality, otherwise add their name in a set to stage them for the next round

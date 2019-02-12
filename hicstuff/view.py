@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+"""Hi-C visualization
+
+A lightweight library for quickly parsing, loading and
+viewing contact maps in instaGRAAL or csv format.
+"""
+
+
 import numpy as np
 import functools
 from matplotlib import pyplot as plt
@@ -81,10 +88,10 @@ def plot_matrix(
 
 
 def load_sparse_matrix(M, binning=1):
-    """Load a sparse matrix
-    
+    """Load sparse matrix
+
     Load a text file matrix into a sparse matrix object.
-    
+
     Parameters
     ----------
     M : file, str or pathlib.Path
@@ -92,7 +99,7 @@ def load_sparse_matrix(M, binning=1):
     binning : int or "auto"
         The binning to perform. If "auto", binning will
         be automatically inferred so that the matrix size
-        will not go beyond (10000, 10000) in shape. That 
+        will not go beyond (10000, 10000) in shape. That
         can be changed by modifying the DEFAULT_MAX_MATRIX_SHAPE
         value. Default is 1, i.e. no binning is performed
 
