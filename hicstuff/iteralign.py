@@ -186,7 +186,6 @@ def iterative_align(
     print("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
     remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
-    n_remaining = len(remaining_reads)
 
     # Report unaligned reads as well
     iter_out += [os.path.join(tmp_dir, "unaligned.sam")]

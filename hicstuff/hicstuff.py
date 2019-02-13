@@ -523,14 +523,8 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
         The input sparse matrix, stripped of outlier component vectors.
     """
 
-    try:
-        from scipy.sparse import coo_matrix
-    except ImportError as e:
-        print(str(e))
-        print("I am peforming dense normalization by default.")
-        return trim_dense(M.todense())
     r = M.tocoo()
-    sparsity = np.array(r.sum(axis=1)).flatten()
+    sparsity = np.array(r.sum(axis=1, dtype=np.float)).flatten()
     mean = np.mean(sparsity)
     std = np.std(sparsity)
     if s_min is None:
@@ -654,6 +648,9 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
             col_sums = np.array(r.sum(axis=0)).flatten()
             row_indices, col_indices = r.nonzero()
             r.data /= row_sums[row_indices] * col_sums[col_indices]
+        row_sums = np.array(r.sum(axis=1)).flatten()
+        # Scale to 1
+        r.data = r.data * (1 / np.mean(row_sums))
 
     elif norm == "global":
         try:
@@ -674,7 +671,7 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     return r
 
 
-def GC_partial(portion):
+def GC_partial(portion: str):
     """Manually compute GC content percentage in a DNA string, taking
     ambiguous values into account (according to standard IUPAC notation).
     Parameters
@@ -697,7 +694,7 @@ def GC_partial(portion):
     return 0 or 100 * gc
 
 
-def GC_wide(genome, window=1000):
+def GC_wide(genome: str, window=1000):
     """Compute GC across a window of given length.
     :note: Requires Biopython
     Parameters
