@@ -498,7 +498,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
                  [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] --fasta=FILE (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
+                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
 
     arguments:
         fq1:             Forward fastq file. Required by default.
@@ -565,6 +565,7 @@ class Pipeline(AbstractCommand):
         abs_fragments_contacts_weighted.txt: the sparse contact map
         fragments_list.txt: information about restriction fragments (or chunks)
         info_contigs.txt: information about contigs or chromosomes
+        hicstuff.log: details and statistics about the run.
     """
 
     def execute(self):

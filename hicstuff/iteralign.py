@@ -52,12 +52,12 @@ def generate_temp_dir(path):
 
 
 def iterative_align(
-    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
+    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=40
 ):
     """Iterative alignment
 
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
-    truncated to the 20 first nucleotides and unmapped reads are extended by 20
+    truncated to the 40 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
     Parameters
     ----------
@@ -74,7 +74,7 @@ def iterative_align(
     minimap2 : bool
         If True, use minimap2 instead of bowtie2 for the alignment.
     min_len : int
-        The initial length of the fragments to align. 
+        The initial length of the fragments to align.
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()

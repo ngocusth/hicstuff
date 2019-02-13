@@ -2,7 +2,7 @@ environment:
   # Need this to set up compilation on Windows.
   CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
   
-  PROJECT_NAME: serpentine
+  PROJECT_NAME: hicstuff
 
   - PIP3: "%PYTHON_VERSION%\\Scripts\\pip"
 

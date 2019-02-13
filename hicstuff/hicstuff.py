@@ -552,7 +552,7 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     return N
 
 
-def normalize_dense(M, norm="frag", order=1, iterations=3):
+def normalize_dense(M, norm="SCN", order=1, iterations=3):
     """Apply one of the many normalization types to input dense
     matrix. Will also apply any callable norms such as a user-made
     or a lambda function.
@@ -626,16 +626,27 @@ def normalize_dense(M, norm="frag", order=1, iterations=3):
     return (s + s.T) / 2
 
 
-def normalize_sparse(M, norm="frag", order=1, iterations=3):
+def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     """Applies a normalization type to a sparse matrix.
+    Parameters
+    ----------
+    M : scipy.sparse.csr_matrix of floats
+    norm : str
+        Normalization procedure to use. Can be one of "SCN",
+        "mirnylib", "frag" or "global". Can also be a user-
+        defined function.
+    order : int
+        Defines the type of vector norm to use. See numpy.linalg.norm
+        for details.
+    iterations : int
+        Iterations parameter when using an iterative normalization
+        procedure.
+    Returns
+    -------
+    scipy.sparse.csr_matrix of floats :
+        Normalized sparse matrix.
     """
 
-    try:
-        from scipy.sparse import csr_matrix
-    except ImportError as e:
-        print(str(e))
-        print("I am peforming dense normalization by default.")
-        return normalize_dense(M.todense())
     r = csr_matrix(M)
     if norm == "SCN":
         for _ in range(1, iterations):
@@ -666,6 +677,14 @@ def normalize_sparse(M, norm="frag", order=1, iterations=3):
 def GC_partial(portion):
     """Manually compute GC content percentage in a DNA string, taking
     ambiguous values into account (according to standard IUPAC notation).
+    Parameters
+    ----------
+    portion : str
+        DNA sequence on which GC content is computed.
+    Returns
+    -------
+    float :
+        The percentage of GC in the input string.
     """
 
     sequence_count = collections.Counter(portion)
@@ -680,8 +699,17 @@ def GC_partial(portion):
 
 def GC_wide(genome, window=1000):
     """Compute GC across a window of given length.
-
     :note: Requires Biopython
+    Parameters
+    ----------
+    genome : str
+        The genome on which GC content will be computed.
+    window : int
+        The window size in which GC content is measured.
+    Returns
+    -------
+    list :
+        A list of floats, each being the GC percent in a window.
     """
 
     GC = []
