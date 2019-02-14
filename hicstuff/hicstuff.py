@@ -28,6 +28,7 @@ import warnings
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 from scipy.sparse.linalg import eigsh
 import copy
+import random
 import multiprocessing as mp
 import pandas as pd
 
@@ -1226,7 +1227,7 @@ def distance_law(matrix, indices=None, log_bins=False, base=1.1):
     # TODO: Generalize function to work on multiple chromosomes (given a coordinates list)
     Parameters
     ----------
-    matrix : numpy array or scipy coo_matrix
+    matrix : numpy.array or scipy.sparse.coo_matrix
         Hi-C contact map of the chromosome on which the distance law is
         calculated.
     indices : None or numpy array
@@ -1275,6 +1276,49 @@ def distance_law(matrix, indices=None, log_bins=False, base=1.1):
             ]
         )
         return logD, logbin[:-1]
+
+
+def subsample_contacts(M, prop):
+    """
+    Bootstrap sampling of contacts in a sparse Hi-C map.
+    Parameters
+    ----------
+    M : scipy.sparse.csr_matrix
+        The input Hi-C contact map in sparse format.
+    prop : float
+        The proportion of contacts to sample.
+    Returns
+    -------
+    scipy.sparse.csr_matrix
+        A new matrix with a fraction of the original contacts.
+    """
+    # NOTE: RAM usage vs speed could be balanced by flushing
+    # dictionary and recomputing cumsum a given number of times.
+
+    if prop > 1 or prop < 0:
+        raise ValueError(
+            "The proportion of contacts to sample must be between 0 and 1."
+        )
+    # Only work with non-zero data of matrices
+    O = csr_matrix(M).data
+    S = O.copy()
+    # Match cell idx to cumulative number of contacts
+    cum_sum = np.cumsum(O)
+    # Total number of contacts to remove
+    tot_contacts = int(max(cum_sum))
+    n_remove = int((1 - prop) * tot_contacts)
+    # Store contacts that have already been removed
+    removed = {}
+
+    for _ in range(n_remove):
+        to_remove = np.random.randint(tot_contacts)
+        while to_remove in removed:
+            to_remove = np.random.randint(tot_contacts)
+        # Find idx of cell to deplete and deplete it
+        removed[to_remove] = np.searchsorted(cum_sum, to_remove)
+        S[removed[to_remove]] -= 1
+
+    return csr_matrix((S, (M.row, M.col)), shape=(M.shape[0], M.shape[1]))
 
 
 def shortest_path_interpolation(matrix, alpha=1, strict=True):

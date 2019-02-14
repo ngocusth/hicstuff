@@ -41,6 +41,7 @@ from hicstuff.hicstuff import (
     despeckle_simple,
     scalogram,
     distance_law,
+    subsample_contacts,
 )
 import re
 from hicstuff.iteralign import *
@@ -49,6 +50,7 @@ from hicstuff.filter import get_thresholds, filter_events
 from hicstuff.view import (
     load_raw_matrix,
     raw_cols_to_sparse,
+    load_sparse_matrix,
     sparse_to_dense,
     plot_matrix,
 )
@@ -818,6 +820,42 @@ class Rebin(AbstractCommand):
         )
         chromlist.to_csv(
             join(outdir, basename(self.args["--chrom"])), index=False, sep="\t"
+        )
+
+
+class Subsample(AbstractCommand):
+    """
+    Subsample contacts from a Hi-C matrix. Probability of sampling is proportional
+    to the intensity of the bin.
+    usage:
+        subsample  [--prop=FLOAT] <contact_map> <subsampled_map>
+
+    arguments:
+        contact_map             Sparse contact matrix in GRAAL format
+        subsampled_map          Output map containing only a fraction of the
+                                contacts
+
+    options:
+        -p FLOAT, --prop=FLOAT           Proportion of contacts to sample from
+                                         the input matrix. Given as a value
+                                         between 0 and 1. [default: 0.1]
+    """
+
+    def execute(self):
+        map_in = load_sparse_matrix(self.args["<contact_map>"])
+        map_out = self.args["<subsampled_map>"]
+        subsampled = subsample_contacts(map_in, float(self.args["--prop"]))
+        subsampled = subsampled.tocoo()
+        sparse_array = np.vstack(
+            [subsampled.row, subsampled.col, subsampled.data]
+        ).T
+        np.savetxt(
+            map_out,
+            sparse_array,
+            header="id_fragment_a\tid_fragment_b\tn_contact",
+            comments="",
+            fmt="%i",
+            delimiter="\t",
         )
 
 
