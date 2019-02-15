@@ -85,9 +85,10 @@ def despeckle_simple(B, th2=2, threads=1):
         diag[diag > medians[nw] + th2 * stds[nw]] = medians[nw]
         A.setdiag(diag, nw)
 
-    pool = mp.Pool(threads)
+    pool = mp.Pool(threads, maxtasksperchild=1000)
     pool.map(_diagstats, range(n1))
     pool.map(_speck2med, range(n1))
+    pool.close()
 
     return csr_matrix(A)
 
