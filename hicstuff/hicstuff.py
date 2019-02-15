@@ -895,21 +895,38 @@ def domainogram(M, window=None, circ=False, extrapolate=True):
 
 
 def from_dade_matrix(filename, header=False):
-    """ Loads a numpy array from a Dade matrix instance,
-    e.g.: A matrix containing the following (or equivalent in numpy)
-        [['RST','chr1~0','chr1~10','chr2~0','chr2~30'],
-        ['chr1~0','5', '10', '11', '2'],
-        ['chr1~10',   '8', '3', '5'],
-        ['chr2~0',         '3', '5'],
-        ['chr2~30',             '5']]
+    """Load a DADE matrix
 
-    will return:
-       [['5', '10', '11', '2'],
-        ['10', '8', '3', '5'],
-        [11', '3', '3', '5'],
-        ['2', '5', '5', '5']], [chr1~0','chr1~10','chr2~0','chr2~30']
+    Load a numpy array from a DADE matrix file, optionally
+    returning bin information from the header. Header data
+    processing is delegated downstream.
 
-    Header data processing is delegated downstream.
+    Parameters
+    ----------
+    filename : str, file or pathlib.Path
+        The name of the file containing the DADE matrix.
+    header : bool
+        Whether to return as well information contained
+        in the header. Default is False.
+
+    Example
+    -------
+        >>> import numpy as np
+        >>> np.savetxt("example.dade", np.array(
+        ... [['RST','chr1~0','chr1~10','chr2~0','chr2~30'],
+        ...  ['chr1~0','5', '10', '11', '2'],
+        ...  ['chr1~10',   '8', '3', '5'],
+        ...  ['chr2~0',         '3', '5'],
+        ...  ['chr2~30',             '5']])
+        ... )
+        >>> M, h = from_dade_matrix("example.dade", header=True)
+        >>> print(M)
+        [['5', '10', '11', '2']
+         ['10', '8', '3', '5']
+         [11', '3', '3', '5']
+         ['2', '5', '5', '5']]
+        >>> print(h)
+        [chr1~0','chr1~10','chr2~0','chr2~30']
 
     See https://github.com/scovit/DADE for more details about Dade.
     """
