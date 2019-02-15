@@ -17,6 +17,7 @@ The subcommands are:
     digest      digest genome into a list of fragments
     filter      filters Hi-C pairs to exclude spurious events
     rebin       bin the matrix and regenerate files accordingly
+    subsample   bootstrap subsampling of contacts from a Hi-C map.
     view        visualize a Hi-C matrix
     pipeline    Hi-C pipeline to generate contact matrix from fastq files
 """
