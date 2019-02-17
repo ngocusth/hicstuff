@@ -7,7 +7,7 @@
 [![License: GPLv3](https://img.shields.io/badge/License-GPL%203-0298c3.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-A lightweight library that generates and handles Hi-C contact maps in either CSV or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
+A lightweight library that generates and handles Hi-C contact maps in either 2Dbedgraph or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
 
 ## Table of contents
 
@@ -112,6 +112,11 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
         abs_fragments_contacts_weighted.txt: the sparse contact map
         fragments_list.txt: information about restriction fragments (or chunks)
         info_contigs.txt: information about contigs or chromosomes
+
+For example, to run the pipeline with minimap2 using 8 threads and generate a matrix in instagraal format in the directory `out`:
+```
+hicstuff pipeline -t 8 -m -e DpnII -o out/ -f genome.fa reads_for.fq reads_rev.fq
+```
 
 ### Individual components
 
