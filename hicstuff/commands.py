@@ -41,6 +41,7 @@ from hicstuff.hicstuff import (
     despeckle_simple,
     scalogram,
     distance_law,
+    distance_law_multi,
     subsample_contacts,
 )
 import re
@@ -631,6 +632,13 @@ class Plot(AbstractCommand):
         -f FILE, --frags FILE              The path to the hicstuff fragments
                                            file.
         -l, --distance_law                 Plot the distance law of the matrix.
+        -L, --distance_law_multi FILE,FILE Plot the distance law of matrices 
+                                           with several chromosomes.
+                                           Precise a comma-separated centromeres 
+                                           file and hicstuff fragments file 
+                                           Centromeres files must be a 2 columns csv 
+                                           file with the name of the chromosome 
+                                           and the positions of the centromer.
         -m INT, --max INT                  Saturation threshold in percentile
                                            of pixel values. [default: 99]
         -o FILE, --output FILE             Output file where the plot should be
@@ -688,6 +696,10 @@ class Plot(AbstractCommand):
             plt.plot(tmpidx[2:], subp[2:])
             plt.xscale("log")
             plt.yscale("log")
+        elif self.args["--distance_law_multi"]:
+            arguments = self.args["--dist_law_multi"].split(',')
+            centromeres_file, fragments_file = argument[0], argument[1]
+            xs, ps = distance_law_multi(matrix, centromeres_file, fragments_file, log_bins=True)
         if output_file:
             plt.savefig(output_file)
         else:
