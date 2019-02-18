@@ -1884,10 +1884,10 @@ def compartments(M, normalize=True):
 def compartments_sparse(M, normalize=True, n_components=2):
     """A/B compartment analysis
 
-    Perform a PCA-based A/B compartment analysis on a sparse, normalized,
-    single chromosome contact map. The results are two vectors whose values
-    (negative or positive) should presumably correlate with the presence of
-    'active' vs. 'inert' chromatin.
+    Performs a detrending of the power law followed by a PCA-based A/B
+    compartment analysis on a sparse, normalized, single chromosome contact map.
+    The results are two vectors whose values (negative or positive) should
+    presumably correlate with the presence of 'active' vs. 'inert' chromatin.
 
     Parameters
     ----------
@@ -1907,9 +1907,15 @@ def compartments_sparse(M, normalize=True, n_components=2):
         N = normalize_sparse(M, norm="SCN")
     else:
         N = copy.copy(M)
-    N = (N - np.mean(N.T, axis=1)).T
+    N = N.tocoo()
+    # Detrend by the distance law
+    dist_vals, dist_bins = distance_law(N)
+    N.data /= dist_vals[abs(N.row - N.col)]
+    # Compute covariance matrix
     covN = np.dot(N, N.T)
+    # Extract eigen vectors and eigen values
     [eigen_vals, pr_comp] = eigsh(covN, n_components)
+
     return np.transpose(pr_comp[:, ::-1])
 
 
