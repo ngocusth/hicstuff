@@ -615,8 +615,7 @@ class Plot(AbstractCommand):
 
     usage:
         plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT] [--threads=INT]
-             [--output=FILE] [--max=INT] [--centro] [--process] [--despeckle]
-             (--scalogram | --distance_law) <contact_map>
+             [--output=FILE] [--max=INT] [--centro] [--process] [--despeckle] (--scalogram | --distance_law | --dist_law_mult=FILE++FILE) <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
@@ -632,9 +631,9 @@ class Plot(AbstractCommand):
         -f FILE, --frags FILE              The path to the hicstuff fragments
                                            file.
         -l, --distance_law                 Plot the distance law of the matrix.
-        -L, --distance_law_multi FILE,FILE Plot the distance law of matrices 
+        -L, --dist_law_mult FILE++FILE      Plot the distance law of matrices 
                                            with several chromosomes.
-                                           Precise a comma-separated centromeres 
+                                           Precise a centromeres 
                                            file and hicstuff fragments file 
                                            Centromeres files must be a 2 columns csv 
                                            file with the name of the chromosome 
@@ -696,10 +695,24 @@ class Plot(AbstractCommand):
             plt.plot(tmpidx[2:], subp[2:])
             plt.xscale("log")
             plt.yscale("log")
-        elif self.args["--distance_law_multi"]:
-            arguments = self.args["--dist_law_multi"].split(',')
-            centromeres_file, fragments_file = argument[0], argument[1]
-            xs, ps = distance_law_multi(matrix, centromeres_file, fragments_file, log_bins=True)
+        elif self.args["--dist_law_mult"]:
+            arguments = self.args["--dist_law_mult"].split("++")
+            print(arguments)
+            centromeres_file, fragments_file = arguments[0], arguments[1]
+            print(centromeres_file)
+            print(fragments_file)
+            fragments_df = pd.read_csv(fragments_file, sep='\t', header=0)
+            fragments_df.rename(columns={'chrom': 'chrm'}, inplace=True)
+            xs, averaged_ps = distance_law_multi(S, centromeres_file, fragments_df, log_bins=True)
+            fragments_sizes = fragments_df.groupby('size')['id'].count().sort_values(ascending=False)
+            BIN = fragments_sizes[fragments_sizes == max(fragments_sizes)].index[0]
+            plt.loglog(xs, averaged_ps)
+            # ~ locs = plt.xticks()
+            # ~ labels = [str(float(elt)*BIN/1e3) for elt in locs]
+            # ~ plt.xticklabels(labels, fontsize='large')
+            plt.xlabel('genomic distance (kb)', fontsize='xx-large')
+            plt.ylabel('P(s) log10', fontsize='xx-large')
+            plt.show()
         if output_file:
             plt.savefig(output_file)
         else:
