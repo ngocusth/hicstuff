@@ -33,28 +33,13 @@ ValueError
     not an enzyme or number or invalid range view is
     specified.
 """
-from hicstuff.hicstuff import (
-    bin_sparse,
-    normalize_sparse,
-    bin_bp_sparse,
-    trim_sparse,
-    despeckle_simple,
-    scalogram,
-    distance_law,
-    distance_law_multi,
-    subsample_contacts,
-)
 import re
-from hicstuff.iteralign import *
-from hicstuff.digest import write_frag_info, frag_len
-from hicstuff.filter import get_thresholds, filter_events
-from hicstuff.view import (
-    load_raw_matrix,
-    raw_cols_to_sparse,
-    load_sparse_matrix,
-    sparse_to_dense,
-    plot_matrix,
-)
+import hicstuff.view as hcv
+import hicstuff.hicstuff as hcs
+import hicstuff.digest as hcd
+import hicstuff.iteralign as hci
+import hicstuff.filter as hcf
+import hicstuff.io as hio
 from scipy.sparse import csr_matrix
 import sys
 import os
@@ -99,16 +84,16 @@ class Iteralign(AbstractCommand):
         reads.fq                Fastq file containing the reads to be aligned
 
     options:
-        -f FILE, --fasta=FILE    The fasta file on which to map the reads.
-        -t INT, --threads=INT    Number of parallel threads allocated for the
+        -f, --fasta=FILE         The fasta file on which to map the reads.
+        -t, --threads=INT        Number of parallel threads allocated for the
                                  alignment [default: 1].
-        -T DIR, --tempdir=DIR    Temporary directory. Defaults to current
+        -T, --tempdir=DIR        Temporary directory. Defaults to current
                                  directory.
         -m, --minimap2           If set, use minimap2 instead of bowtie2 for
                                  the alignment.
-        -l INT, --min_len=INT    Length to which the reads should be
+        -l, --min_len=INT        Length to which the reads should be
                                  truncated [default: 40].
-        -o FILE, --out_sam=FILE  Path where the alignment will be written in
+        -o, --out_sam=FILE       Path where the alignment will be written in
                                  SAM format.
     """
 
@@ -117,8 +102,8 @@ class Iteralign(AbstractCommand):
             self.args["--tempdir"] = "."
         if not self.args["--minimap2"]:
             self.args["--minimap2"] = False
-        temp_directory = generate_temp_dir(self.args["--tempdir"])
-        iterative_align(
+        temp_directory = hci.generate_temp_dir(self.args["--tempdir"])
+        hci.iterative_align(
             self.args["<reads.fq>"],
             temp_directory,
             self.args["--fasta"],
@@ -151,14 +136,14 @@ class Digest(AbstractCommand):
                                         representing fixed chunk sizes (in bp).
                                         Multiple comma-separated enzymes can
                                         be given.
-        -s INT, --size=INT              Minimum size threshold to keep
+        -s, --size=INT                  Minimum size threshold to keep
                                         fragments. [default: 0]
-        -o DIR, --outdir=DIR            Directory where the fragments and
+        -o, --outdir=DIR                Directory where the fragments and
                                         contigs files will be written.
                                         Defaults to current directory.
         -p, --plot                      Show a histogram of fragment length
                                         distribution after digestion.
-        -f FILE, --figdir=FILE          Path to directory of the output figure.
+        -f, --figdir=FILE               Path to directory of the output figure.
                                         By default, the figure is only shown
                                         but not saved.
 
@@ -186,7 +171,7 @@ class Digest(AbstractCommand):
         if re.search(r",", enzyme):
             enzyme = enzyme.split(",")
 
-        write_frag_info(
+        hcd.write_frag_info(
             self.args["<fasta>"],
             enzyme,
             self.args["--size"],
@@ -194,7 +179,7 @@ class Digest(AbstractCommand):
             circular=self.args["--circular"],
         )
 
-        frag_len(
+        hcd.frag_len(
             output_dir=self.args["--outdir"],
             plot=self.args["--plot"],
             fig_path=figpath,
@@ -219,16 +204,16 @@ class Filter(AbstractCommand):
         output      Path to the filtered file, in the same format as the input.
 
     options:
-        -f DIR, --figdir=DIR              Path to the output figure directory.
+        -f, --figdir=DIR                  Path to the output figure directory.
                                           By default, the figure is only shown
                                           but not saved.
         -i, --interactive                 Interactively shows plots and asks
                                           for thresholds.
         -p, --plot                        Shows plots of library composition
                                           and 3C events abundance.
-        -P STR, --prefix STR              If the library has a name, it will
+        -P, --prefix STR                  If the library has a name, it will
                                           be shown on the figures.
-        -t INT-INT, --thresholds=INT-INT  Manually defines integer values for
+        -t, --thresholds=INT-INT          Manually defines integer values for
                                           the thresholds in the order
                                           [uncut, loop].
     """
@@ -251,7 +236,7 @@ class Filter(AbstractCommand):
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
             with open(self.args["<input>"]) as handle_in:
-                uncut_thr, loop_thr = get_thresholds(
+                uncut_thr, loop_thr = hcf.get_thresholds(
                     handle_in,
                     interactive=self.args["--interactive"],
                     plot_events=self.args["--plot"],
@@ -264,7 +249,7 @@ class Filter(AbstractCommand):
             figpath = join(self.args["--figdir"], "event_distribution.pdf")
 
         with open(self.args["<input>"]) as handle_in:
-            filter_events(
+            hcf.filter_events(
                 handle_in,
                 output_handle,
                 uncut_thr,
@@ -304,27 +289,27 @@ class View(AbstractCommand):
         -d, --despeckle                  Remove sharp increases in long range
                                          contact by averaging surrounding
                                          values.
-        -f FILE, --frags=FILE            Required for bp binning. Tab-separated
+        -f, --frags=FILE                 Required for bp binning. Tab-separated
                                          file with headers, containing
                                          fragments start position in the 3rd
                                          column, as generated by hicstuff
                                          pipeline.
         -l, --log                        Log transform pixel values to improve
                                          visibility of long range signals.
-        -m INT, --max=INT                Saturation threshold. Maximum pixel
+        -m, --max=INT                    Saturation threshold. Maximum pixel
                                          value is set to this percentile
                                          [default: 99].
         -n, --normalize                  Should SCN normalization be performed
                                          before rendering the matrix ?
-        -o IMG, --output=IMG             Path where the matrix will be stored
+        -o, --output=IMG                 Path where the matrix will be stored
                                          in PNG format.
-        -r STR[;STR], --region=STR[;STR] Only view a region of the contact map.
+        -r, --region=STR[;STR]           Only view a region of the contact map.
                                          Regions are specified as UCSC strings.
                                          (e.g.:chr1:1000-12000). If only one
                                          region is given, it is viewed on the
                                          diagonal. If two regions are given,
                                          The contacts between both are shown.
-        -t INT, --trim=INT               Trims outlier rows/columns from the
+        -t, --trim=INT                   Trims outlier rows/columns from the
                                          matrix if the sum of their contacts
                                          deviates from the mean by more than
                                          INT standard deviations.
@@ -338,12 +323,12 @@ class View(AbstractCommand):
         # BINNING
         if self.binning > 1:
             if self.bp_unit:
-                binned_map, binned_frags = bin_bp_sparse(
+                binned_map, binned_frags = hcs.bin_bp_sparse(
                     M=sparse_map, positions=self.pos, bin_len=self.binning
                 )
 
             else:
-                binned_map = bin_sparse(
+                binned_map = hcs.bin_sparse(
                     M=sparse_map, subsampling_factor=self.binning
                 )
         else:
@@ -351,7 +336,7 @@ class View(AbstractCommand):
 
         # NORMALIZATION
         if self.args["--normalize"]:
-            binned_map = normalize_sparse(binned_map, norm="SCN")
+            binned_map = hcs.normalize_sparse(binned_map, norm="SCN")
 
         # LOG VALUES
         if self.args["--log"]:
@@ -387,10 +372,12 @@ class View(AbstractCommand):
 
             region = self.args["--region"]
             if ";" in region:
+                # 2 input regions: zoom anywhere in matrix
                 reg1, reg2 = region.split(";")
                 reg1 = parse_ucsc(reg1, reg_pos)
                 reg2 = parse_ucsc(reg2, reg_pos)
             else:
+                # Only 1 input region: zoom on diagonal
                 region = parse_ucsc(region, reg_pos)
                 reg1 = reg2 = region
             binned_map = binned_map.tocsr()
@@ -407,7 +394,7 @@ class View(AbstractCommand):
                     "trimming"
                 )
                 raise
-            binned_map = trim_sparse(binned_map, n_std=trim_std)
+            binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
 
         return binned_map
 
@@ -430,13 +417,7 @@ class View(AbstractCommand):
                     )
                     sys.exit(1)
                 # Load positions from fragments list
-                self.pos = np.genfromtxt(
-                    self.args["--frags"],
-                    delimiter="\t",
-                    usecols=(2,),
-                    skip_header=1,
-                    dtype=np.int64,
-                )
+                self.pos = hio.load_pos_col(self.args["--frags"], 2)
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
@@ -448,13 +429,11 @@ class View(AbstractCommand):
 
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
-        raw_map = load_raw_matrix(input_map)
-        sparse_map = raw_cols_to_sparse(raw_map)
+        sparse_map = hio.load_sparse_matrix(input_map)
         processed_map = self.process_matrix(sparse_map)
         # If 2 matrices given compute log ratio
         if self.args["<contact_map2>"]:
-            raw_map2 = load_raw_matrix(self.args["<contact_map2>"])
-            sparse_map2 = raw_cols_to_sparse(raw_map2)
+            sparse_map2 = hio.load_sparse_matrix(self.args["<contact_map2>"])
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
                 print(
@@ -473,14 +452,14 @@ class View(AbstractCommand):
             cmap = "coolwarm"
 
         if self.args["--despeckle"]:
-            processed_map = despeckle_simple(processed_map)
+            processed_map = hcs.despeckle_simple(processed_map)
         vmax = np.percentile(processed_map.data, vmax)
         try:
-            dense_map = sparse_to_dense(processed_map)
+            dense_map = hcv.sparse_to_dense(processed_map)
             vmin = 0
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
-            plot_matrix(
+            hcv.plot_matrix(
                 dense_map,
                 filename=output_file,
                 vmin=vmin,
@@ -523,11 +502,11 @@ class Pipeline(AbstractCommand):
                                       remove PCR duplicates prior to mapping.
                                       Only works if reads start with a 10bp
                                       sequence. Not enabled by default.
-        -e ENZ, --enzyme=ENZ          Restriction enzyme if a string, or chunk
+        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
                                       [default: 5000]
-        -f FILE, --fasta=FILE         Reference genome to map against in FASTA
+        -f, --fasta=FILE              Reference genome to map against in FASTA
                                       format
         -F, --filter                  Filter out spurious 3C events (loops and
                                       uncuts) using hicstuff filter. Requires
@@ -546,21 +525,21 @@ class Pipeline(AbstractCommand):
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
-        -o DIR, --outdir=DIR          Output directory. Defaults to the current
+        -o, --outdir=DIR              Output directory. Defaults to the current
                                       directory.
         -p, --plot                    Generates plots in the output directory
                                       at different steps of the pipeline.
-        -P PREFIX, --prefix=PREFIX    Overrides default GRAAL-compatible
+        -P, --prefix=PREFIX           Overrides default GRAAL-compatible
                                       filenames and use a prefix with
                                       extensions instead.
-        -q INT, --quality_min=INT     Minimum mapping quality for selecting
+        -q, --quality_min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
-        -s INT, --size=INT            Minimum size threshold to consider
+        -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
                                       [default: 0]
-        -t INT, --threads=INT         Number of threads to allocate.
+        -t, --threads=INT             Number of threads to allocate.
                                       [default: 1].
-        -T DIR, --tmpdir=DIR          Directory for storing intermediary BED
+        -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
 
@@ -615,40 +594,47 @@ class Plot(AbstractCommand):
 
     usage:
         plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT] [--threads=INT]
-             [--output=FILE] [--max=INT] [--centro] [--process] [--despeckle] (--scalogram | --distance_law | --dist_law_mult=FILE++FILE) <contact_map>
+             [--output=FILE] [--max=INT] [--centro] [--process] [--centromeres]
+             [--despeckle] (--scalogram | --distance_law) <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
 
     options:
-        -c INT-INT, --coord INT-INT        The bins of the matrix to use for
-                                           the plot (e.g. coordinates of a
-                                           single chromosome).
-        -C NAME, --cmap NAME               The matplotlib colormap to use for
+        -C, --cmap=NAME                    The matplotlib colormap to use for
                                            the plot. [default: viridis]
         -d, --despeckle                    Remove speckles (artifactual spots)
                                            from the matrix.
-        -f FILE, --frags FILE              The path to the hicstuff fragments
-                                           file.
+        -e, --centromeres=FILE             Only meaningful in conjunction with
+                                           the frags option. Specify a centromeres
+                                           file. Centromeres files must be a
+                                           single column file with the name of
+                                           the positions of the centromeres, in
+                                           basepairs. Chromosomes must be in the
+                                           same order as in frags.
+        -f, --frags=FILE                   The path to the hicstuff fragments_list
+                                           file containing the coordinates of
+                                           each fragment/bin.
+        -i, --indices=INT-INT              The bins of the matrix to use for
+                                           the plot (e.g. coordinates of a
+                                           single chromosome).
         -l, --distance_law                 Plot the distance law of the matrix.
-        -L, --dist_law_mult FILE++FILE      Plot the distance law of matrices 
-                                           with several chromosomes.
-                                           Precise a centromeres 
-                                           file and hicstuff fragments file 
-                                           Centromeres files must be a 2 columns csv 
-                                           file with the name of the chromosome 
-                                           and the positions of the centromer.
-        -m INT, --max INT                  Saturation threshold in percentile
+                                           if the info_contigs (chroms) file is
+                                           specified, the law will be computed
+                                           on each chromosome separately. If a
+                                           centromere file is given, it will be
+                                           computed on each chromosomal arm.
+        -m, --max=INT                      Saturation threshold in percentile
                                            of pixel values. [default: 99]
-        -o FILE, --output FILE             Output file where the plot should be
+        -o, --output=FILE                  Output file where the plot should be
                                            saved. Plot is only displayed by
                                            default.
         -p, --process                      Process the matrix first (trim,
                                            normalize)
-        -r INT-INT, --range INT-INT        The range of contact distance to
+        -r, --range=INT-INT                The range of contact distance to
                                            look at. No limit by default. Plot
                                            the scalogram of the contact map.
-        -t INT, --threads=Inter            Parallel processes to run in for
+        -t, --threads=Inter                Parallel processes to run in for
                                            despeckling. [default: 1]
     """
 
@@ -658,8 +644,8 @@ class Plot(AbstractCommand):
                 lower, upper = self.args["--range"].split("-")
                 lower = int(lower)
                 upper = int(upper)
-            if self.args["--coord"]:
-                start, end = self.args["--coord"].split("-")
+            if self.args["--indices"]:
+                start, end = self.args["--indices"].split("-")
                 start = int(start)
                 end = int(end)
         except ValueError:
@@ -671,49 +657,43 @@ class Plot(AbstractCommand):
 
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
-        S = load_raw_matrix(input_map)
-        S = raw_cols_to_sparse(S)
+        S = hio.load_sparse_matrix(input_map)
         S = csr_matrix(S)
         if not self.args["--range"]:
             lower = 0
             upper = S.shape[0]
 
         if self.args["--process"]:
-            S = trim_sparse(S, n_std=3)
-            S = normalize_sparse(S, norm="SCN")
+            S = hcs.trim_sparse(S, n_std=3)
+            S = hcs.normalize_sparse(S, norm="SCN")
         if self.args["--despeckle"]:
-            S = despeckle_simple(S, threads=self.args["--threads"])
+            S = hcs.despeckle_simple(S, threads=self.args["--threads"])
 
         if self.args["--coord"]:
             S = S[start:end, start:end]
         if self.args["--scalogram"]:
-            D = S.todense()
-            D = np.fliplr(np.rot90(scalogram(D), k=-1))
+            D = vm.sparse_to_dense(S)
+            D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
             plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
         elif self.args["--distance_law"]:
-            subp, tmpidx = distance_law(S, log_bins=True)
-            plt.plot(tmpidx[2:], subp[2:])
-            plt.xscale("log")
-            plt.yscale("log")
-        elif self.args["--dist_law_mult"]:
-            arguments = self.args["--dist_law_mult"].split("++")
-            print(arguments)
-            centromeres_file, fragments_file = arguments[0], arguments[1]
-            print(centromeres_file)
-            print(fragments_file)
-            fragments_df = pd.read_csv(fragments_file, sep='\t', header=0)
-            fragments_df.rename(columns={'chrom': 'chrm'}, inplace=True)
-            xs, averaged_ps = distance_law_multi(S, centromeres_file, fragments_df, log_bins=True)
-            fragments_sizes = fragments_df.groupby('size')['id'].count().sort_values(ascending=False)
-            BIN = fragments_sizes[fragments_sizes == max(fragments_sizes)].index[0]
-            plt.loglog(xs, averaged_ps)
-            # ~ locs = plt.xticks()
-            # ~ labels = [str(float(elt)*BIN/1e3) for elt in locs]
-            # ~ plt.xticklabels(labels, fontsize='large')
-            plt.xlabel('genomic distance (kb)', fontsize='xx-large')
-            plt.ylabel('P(s) log10', fontsize='xx-large')
-            plt.show()
-        if output_file:
+            if self.args["--frags"]:
+                # Compute distance law per chromosome
+                centro = None
+                # Load start pos of fragments/bins from fragments_list
+                frags = hio.load_pos_col(self.args["--frags"], 2)
+                if self.args["--centromeres"]:
+                    # Compute per chromosomal arm
+                    centro = hio.load_pos_col(self.args["--centromeres"], 0, 0)
+                xs, ps = hcs.distance_law_multi(
+                    S, frags, centro, log_bins=True
+                )
+            else:
+                # Compute distance law on whole map
+                ps, xs = hcs.distance_law(S, log_bins=True)
+            plt.loglog(xs, ps)
+            plt.xlabel("genomic distance (kb)", fontsize="xx-large")
+            plt.ylabel("P(s) log10", fontsize="xx-large")
+        if output_fie:
             plt.savefig(output_file)
         else:
             plt.show()
@@ -735,14 +715,14 @@ class Rebin(AbstractCommand):
         -b, --binning=INT[bp|kb|Mb|Gb]   Subsampling factor or fix value in
                                          basepairs to use for binning
                                          [default: 1].
-        -f FILE, --frags=FILE            Tab-separated file with headers,
+        -f, --frags=FILE                 Tab-separated file with headers,
                                          containing fragments start position in
                                          the 3rd column, as generated by
                                          hicstuff pipeline.
         -c, --chrom=file                 Tab-separated with headers, containing
                                          chromosome names, size, number of
                                          restriction fragments.
-        -o DIR, --outdir=DIR             Directory where the new binned files
+        -o, --outdir=DIR                 Directory where the new binned files
                                          will be written.
     """
 
@@ -778,12 +758,11 @@ class Rebin(AbstractCommand):
                 )
                 raise
         map_path = self.args["<contact_map>"]
-        hic_map = load_raw_matrix(map_path)
-        hic_map = raw_cols_to_sparse(hic_map)
+        hic_map = hio.load_sparse_matrix(map_path)
         chromnames = np.unique(frags.chrom)
         if bp_unit:
             # Basepair binning
-            hic_map, _ = bin_bp_sparse(hic_map, frags.start_pos, binning)
+            hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
                 bin_id = (
@@ -802,7 +781,7 @@ class Rebin(AbstractCommand):
 
         else:
             # Subsample binning
-            hic_map = bin_sparse(hic_map, binning)
+            hic_map = hcs.bin_sparse(hic_map, binning)
             # Use index for binning, but keep 1-indexed
             frags.id = (frags.id // binning) + 1
         # Save original columns order
@@ -829,15 +808,7 @@ class Rebin(AbstractCommand):
             cumul_bins += n_bins
 
         # Write 3 binned output files
-        sparse_array = np.vstack([hic_map.row, hic_map.col, hic_map.data]).T
-        np.savetxt(
-            join(outdir, basename(map_path)),
-            sparse_array,
-            header="id_fragment_a\tid_fragment_b\tn_contact",
-            comments="",
-            fmt="%i",
-            delimiter="\t",
-        )
+        hio.save_sparse_matrix(hic_map, join(outdir, basename(map_path)))
         # Keep original column order
         frags = frags.reindex(columns=col_ordered)
         frags.to_csv(
@@ -861,27 +832,17 @@ class Subsample(AbstractCommand):
                                 contacts
 
     options:
-        -p FLOAT, --prop=FLOAT           Proportion of contacts to sample from
+        -p, --prop=FLOAT                 Proportion of contacts to sample from
                                          the input matrix. Given as a value
                                          between 0 and 1. [default: 0.1]
     """
 
     def execute(self):
-        map_in = load_sparse_matrix(self.args["<contact_map>"])
+        map_in = hio.load_sparse_matrix(self.args["<contact_map>"])
         map_out = self.args["<subsampled_map>"]
-        subsampled = subsample_contacts(map_in, float(self.args["--prop"]))
+        subsampled = hcs.subsample_contacts(map_in, float(self.args["--prop"]))
         subsampled = subsampled.tocoo()
-        sparse_array = np.vstack(
-            [subsampled.row, subsampled.col, subsampled.data]
-        ).T
-        np.savetxt(
-            map_out,
-            sparse_array,
-            header="id_fragment_a\tid_fragment_b\tn_contact",
-            comments="",
-            fmt="%i",
-            delimiter="\t",
-        )
+        hio.save_sparse_matrix(subsampled, map_out)
 
 
 def parse_bin_str(bin_str):

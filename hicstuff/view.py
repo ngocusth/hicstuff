@@ -9,10 +9,9 @@ viewing contact maps in instaGRAAL or csv format.
 
 
 import numpy as np
-import functools
 from matplotlib import pyplot as plt
 from scipy import sparse
-from hicstuff.hicstuff import bin_sparse, bin_bp_sparse
+import hicstuff.io as hio
 
 SEABORN = False
 
@@ -23,18 +22,19 @@ try:
 except ImportError:
     pass
 
-try:
-    import hicstuff.hicstuff as hcs
-except ImportError:
-    print("Warning, hicstuff was not found - normalizations won't work")
 
 DEFAULT_DPI = 500
 DEFAULT_SATURATION_THRESHOLD = 99
-DEFAULT_MAX_MATRIX_SHAPE = 10000
 
-load_raw_matrix = functools.partial(
-    np.genfromtxt, skip_header=True, dtype=np.float64
-)
+
+def load_sparse_matrix(*args, **kwargs):
+    """Backwards compatibility"""
+    hio.load_sparse_matrix(args, kwargs)
+
+
+def load_raw_matrix(*args, **kwargs):
+    """Backwards compatibility"""
+    hio.load_raw_matrix(args, kwargs)
 
 
 def raw_cols_to_sparse(M, dtype=np.float64):
@@ -85,39 +85,6 @@ def plot_matrix(
         del filename
     else:
         plt.show()
-
-
-def load_sparse_matrix(M, binning=1):
-    """Load sparse matrix
-
-    Load a text file matrix into a sparse matrix object.
-
-    Parameters
-    ----------
-    M : file, str or pathlib.Path
-        The input matrix file in instaGRAAL format.
-    binning : int or "auto"
-        The binning to perform. If "auto", binning will
-        be automatically inferred so that the matrix size
-        will not go beyond (10000, 10000) in shape. That
-        can be changed by modifying the DEFAULT_MAX_MATRIX_SHAPE
-        value. Default is 1, i.e. no binning is performed
-
-    Returns
-    -------
-    N : scipy.sparse.coo_matrix
-        The output (sparse) matrix in COOrdinate format.
-    """
-
-    R = load_raw_matrix(M)
-    S = raw_cols_to_sparse(R)
-    if binning == "auto":
-        n = max(S.shape) + 1
-        subsampling_factor = n // DEFAULT_MAX_MATRIX_SHAPE
-    else:
-        subsampling_factor = binning
-    B = bin_sparse(S, subsampling_factor=subsampling_factor)
-    return B
 
 
 def normalize(M, norm="SCN"):
