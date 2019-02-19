@@ -17,7 +17,7 @@ import subprocess as sp
 import pysam as ps
 import shutil as st
 from random import getrandbits
-import hicstuff.compressed_utils as ct
+import hicstuff.io as ct
 import contextlib
 
 
