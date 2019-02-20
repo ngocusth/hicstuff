@@ -624,7 +624,7 @@ class Plot(AbstractCommand):
         -r, --range=INT-INT                The range of contact distance to
                                            look at. No limit by default. Plot
                                            the scalogram of the contact map.
-        -t, --threads=Inter                Parallel processes to run in for
+        -t, --threads=INT                  Parallel processes to run in for
                                            despeckling. [default: 1]
     """
 
