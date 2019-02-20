@@ -301,7 +301,7 @@ attrib_filter02() {
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
   par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
-                                if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 23))
+                                if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 20))
                                     {print 1}
                                 else {print 0}}')
   [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
