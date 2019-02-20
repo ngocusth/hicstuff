@@ -12,14 +12,6 @@ hicstuff.commands module
     :undoc-members:
     :show-inheritance:
 
-hicstuff.compressed\_utils module
----------------------------------
-
-.. automodule:: hicstuff.compressed_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 hicstuff.digest module
 ----------------------
 
@@ -40,6 +32,14 @@ hicstuff.hicstuff module
 ------------------------
 
 .. automodule:: hicstuff.hicstuff
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+hicstuff.io module
+------------------
+
+.. automodule:: hicstuff.io
     :members:
     :undoc-members:
     :show-inheritance:
