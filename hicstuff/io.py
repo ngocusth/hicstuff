@@ -7,14 +7,22 @@ import bz2
 import io
 import functools
 import numpy as np
-import hicstuff.view as hcv
+from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
-load_raw_matrix = functools.partial(
-    np.genfromtxt, skip_header=True, dtype=np.float64
-)
+load_raw_matrix = functools.partial(np.genfromtxt, skip_header=True, dtype=np.float64)
+
+
+def raw_cols_to_sparse(M, dtype=np.float64):
+    n = int(np.amax(M[:, :-1]) + 1)
+
+    row = M[:, 0]
+    col = M[:, 1]
+    data = M[:, 2]
+    S = coo_matrix((data, (row, col)), shape=(n, n), dtype=dtype)
+    return S
 
 
 def load_sparse_matrix(M, binning=1):
@@ -40,7 +48,7 @@ def load_sparse_matrix(M, binning=1):
     """
 
     R = load_raw_matrix(M)
-    S = hcv.raw_cols_to_sparse(R)
+    S = raw_cols_to_sparse(R)
     if binning == "auto":
         n = max(S.shape) + 1
         subsampling_factor = n // DEFAULT_MAX_MATRIX_SHAPE
@@ -52,7 +60,7 @@ def load_sparse_matrix(M, binning=1):
 
 def save_sparse_matrix(M, path):
     """
-    Saves a sparse matrix object into hicstuff format.
+    Saves a sparse matrix object into tsv format.
     Parameters
     ----------
     M : scipy.sparse.coo_matrix
@@ -72,9 +80,9 @@ def save_sparse_matrix(M, path):
     )
 
 
-def load_pos_col(path, colnum, header=1):
+def load_pos_col(path, colnum, header=1, dtype=np.int64):
     """
-    Loads a single position column of a TSV file with header into a numpy array.
+    Loads a single column of a TSV file with header into a numpy array.
     Parameters
     ----------
     path : str
@@ -89,11 +97,7 @@ def load_pos_col(path, colnum, header=1):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path,
-        delimiter="\t",
-        usecols=(colnum,),
-        skip_header=header,
-        dtype=np.int64,
+        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
     )
     return pos_arr
 
@@ -143,9 +147,7 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError(
-                "Only a single fastq file must be in the zip archive."
-            )
+            raise IOError("Only a single fastq file must be in the zip archive.")
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
