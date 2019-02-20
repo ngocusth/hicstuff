@@ -10,7 +10,6 @@ viewing contact maps in instaGRAAL or csv format.
 
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy import sparse
 import hicstuff.io as hio
 
 SEABORN = False
@@ -29,34 +28,41 @@ DEFAULT_SATURATION_THRESHOLD = 99
 
 def load_sparse_matrix(*args, **kwargs):
     """Backwards compatibility"""
-    hio.load_sparse_matrix(args, kwargs)
+    hio.load_sparse_matrix(*args, **kwargs)
 
 
 def load_raw_matrix(*args, **kwargs):
     """Backwards compatibility"""
-    hio.load_raw_matrix(args, kwargs)
+    hio.load_raw_matrix(*args, **kwargs)
 
 
-def raw_cols_to_sparse(M, dtype=np.float64):
-    n = int(np.amax(M[:, :-1]) + 1)
-
-    row = M[:, 0]
-    col = M[:, 1]
-    data = M[:, 2]
-    S = sparse.coo_matrix((data, (row, col)), shape=(n, n), dtype=dtype)
-    return S
+def raw_cols_to_sparse(*args, **kwargs):
+    """Backwards compatibility"""
+    hio.raw_cols_to_sparse(*args, **kwargs)
 
 
-def sparse_to_dense(M):
-
+def sparse_to_dense(M, remove_diag=True):
+    """
+    Converts a sparse square matrix into a full dense matrix. Removes the
+    diagonal by default.
+    Parameters
+    ----------
+    M : scipy.sparse.coo_matrix
+        A sparse representation of the matrix.
+    remove_diag : bool
+        Whether the diagonal
+    Returns
+    -------
+    numpy.array :
+        The matrix in dense format.
+    """
+    sub_diag = 2 if remove_diag else 1
     D = M.todense()
-    E = D + np.transpose(D) - 2 * np.diag(np.diag(D))
+    E = D + np.transpose(D) - sub_diag * np.diag(np.diag(D))
     return E
 
 
-def plot_matrix(
-    array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"
-):
+def plot_matrix(array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
     as little whitespace as possible.
@@ -75,9 +81,7 @@ def plot_matrix(
     if SEABORN:
         sns.heatmap(array, vmin=vmin, vmax=vmax, cmap=cmap)
     else:
-        plt.imshow(
-            array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none"
-        )
+        plt.imshow(array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none")
         plt.colorbar()
     plt.axis("off")
     if filename:

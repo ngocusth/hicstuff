@@ -180,9 +180,7 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"],
-            plot=self.args["--plot"],
-            fig_path=figpath,
+            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
         )
 
 
@@ -352,9 +350,7 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(
-                self.args["--frags"], delimiter="\t", usecols=(1, 2)
-            )
+            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -364,9 +360,7 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame(
-                        {0: binned_chrom, 1: binned_frags[:, 0]}
-                    )
+                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -390,8 +384,7 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for "
-                    "trimming"
+                    "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
@@ -460,11 +453,7 @@ class View(AbstractCommand):
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             hcv.plot_matrix(
-                dense_map,
-                filename=output_file,
-                vmin=vmin,
-                vmax=vmax,
-                cmap=cmap,
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
@@ -593,25 +582,26 @@ class Plot(AbstractCommand):
     Generate the specified type of plot.
 
     usage:
-        plot [--cmap=NAME] [--range=INT-INT] [--coord=INT-INT] [--threads=INT]
-             [--output=FILE] [--max=INT] [--centro] [--process] [--centromeres]
-             [--despeckle] (--scalogram | --distance_law) <contact_map>
+        plot [--cmap=NAME] [--centromeres=FILE] [--frags=FILE] [--range=INT-INT]
+             [--threads=INT] [--output=FILE] [--max=INT] [--process]
+             [--indices=INT-INT] [--despeckle] (--scalogram | --distance_law)
+             <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
 
     options:
-        -C, --cmap=NAME                    The matplotlib colormap to use for
-                                           the plot. [default: viridis]
-        -d, --despeckle                    Remove speckles (artifactual spots)
-                                           from the matrix.
-        -e, --centromeres=FILE             Only meaningful in conjunction with
+        -c, --centromeres=FILE             Only meaningful in conjunction with
                                            the frags option. Specify a centromeres
                                            file. Centromeres files must be a
                                            single column file with the name of
                                            the positions of the centromeres, in
                                            basepairs. Chromosomes must be in the
                                            same order as in frags.
+        -C, --cmap=NAME                    The matplotlib colormap to use for
+                                           the plot. [default: viridis]
+        -d, --despeckle                    Remove speckles (artifactual spots)
+                                           from the matrix.
         -f, --frags=FILE                   The path to the hicstuff fragments_list
                                            file containing the coordinates of
                                            each fragment/bin.
@@ -654,22 +644,22 @@ class Plot(AbstractCommand):
                 "E.g: 1-100.",
             )
         input_map = self.args["<contact_map>"]
-
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
         S = hio.load_sparse_matrix(input_map)
+        good_bins = np.array(range(S.shape[0]))
         S = csr_matrix(S)
         if not self.args["--range"]:
             lower = 0
             upper = S.shape[0]
 
         if self.args["--process"]:
-            S = hcs.trim_sparse(S, n_std=3)
+            good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
             S = hcs.normalize_sparse(S, norm="SCN")
         if self.args["--despeckle"]:
             S = hcs.despeckle_simple(S, threads=self.args["--threads"])
 
-        if self.args["--coord"]:
+        if self.args["--indices"]:
             S = S[start:end, start:end]
         if self.args["--scalogram"]:
             D = vm.sparse_to_dense(S)
@@ -681,19 +671,28 @@ class Plot(AbstractCommand):
                 centro = None
                 # Load start pos of fragments/bins from fragments_list
                 frags = hio.load_pos_col(self.args["--frags"], 2)
+                chr_names = np.unique(
+                    hio.load_pos_col(self.args["--frags"], 1, dtype=str)
+                )
+
                 if self.args["--centromeres"]:
                     # Compute per chromosomal arm
                     centro = hio.load_pos_col(self.args["--centromeres"], 0, 0)
                 xs, ps = hcs.distance_law_multi(
-                    S, frags, centro, log_bins=True
+                    S, frags, good_bins, centro, log_bins=True, average=False
                 )
             else:
                 # Compute distance law on whole map
-                ps, xs = hcs.distance_law(S, log_bins=True)
-            plt.loglog(xs, ps)
+                xs, ps = hcs.distance_law(S, log_bins=True)
+            i = 0
+            plots = []
+            for x, y in zip(xs, ps):
+                plots.append(plt.loglog(x, y, label=chr_names[i]))
+                plt.legend(plots, labels=chr_names.tolist())
+                i += 1
             plt.xlabel("genomic distance (kb)", fontsize="xx-large")
-            plt.ylabel("P(s) log10", fontsize="xx-large")
-        if output_fie:
+            plt.ylabel("Probability of contacts log10", fontsize="xx-large")
+        if output_file:
             plt.savefig(output_file)
         else:
             plt.show()
@@ -765,16 +764,12 @@ class Rebin(AbstractCommand):
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
-                bin_id = (
-                    frags.loc[frags.chrom == chrom, "start_pos"] // binning
-                )
+                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
                 frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
                 frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[
-                    0
-                ]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
@@ -802,9 +797,7 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[
-                chromlist.contig == chrom, "cumul_length"
-            ] = cumul_bins
+            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
             cumul_bins += n_bins
 
         # Write 3 binned output files
