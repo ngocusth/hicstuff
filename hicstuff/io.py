@@ -6,6 +6,7 @@ import zipfile
 import bz2
 import io
 import functools
+import sys
 import numpy as np
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
@@ -305,3 +306,86 @@ def to_dade_matrix(M, annotations="", filename=None):
             print(str(e))
 
     return A
+
+
+def load_into_redis(filename):
+    """Load a file into redis
+
+    Load a matrix file and sotre it in memory with redis.
+    Useful to pass around huge datasets from scripts to
+    scripts and load them only once.
+
+    Inspired from https://gist.github.com/alexland/ce02d6ae5c8b63413843
+
+    Parameters
+    ----------
+    filename : str, file or pathlib.Path
+        The file of the matrix to load.
+
+    Returns
+    -------
+    key : str
+        The key of the dataset needed to retrieve it from redis.
+    """
+    try:
+        from redis import StrictRedis as redis
+        import time
+    except ImportError:
+        print(
+            "Error! Redis does not appear to be installed in your system.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    M = np.genfromtxt(filename, dtype=None)
+    array_dtype = str(M.dtype)
+    m, n = M.shape
+    M = M.ravel().tostring()
+    database = redis(host="localhost", port=6379, db=0)
+    key = "{0}|{1}#{2}#{3}".format(int(time.time()), array_dtype, m, n)
+
+    database.set(key, M)
+
+    return key
+
+
+def load_from_redis(key):
+    """Retrieve a dataset from redis
+
+    Retrieve a cached dataset that was stored in redis
+    with the input key.
+
+    Parameters
+    ----------
+    key : str
+        The key of the dataset that was stored in redis.
+    Returns
+    -------
+    M : numpy.ndarray
+        The retrieved dataset in array format.
+    """
+
+    try:
+        from redis import StrictRedis as redis
+    except ImportError:
+        print(
+            "Error! Redis does not appear to be installed in your system.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    database = redis(host="localhost", port=6379, db=0)
+
+    try:
+        M = database.get(key)
+    except KeyError:
+        print(
+            "Error! No dataset was found with the supplied key.",
+            file=sys.stderr,
+        )
+        exit(1)
+
+    array_dtype, n, m = key.split("|")[1].split("#")
+
+    M = np.fromstring(M, dtype=array_dtype).reshape(int(n), int(m))
+    return M
