@@ -1322,7 +1322,7 @@ def distance_law_multi(
 
     # Get bins where chromosomes start
     chr_bins = np.where(frag_pos == 0)[0]
-    if centro_pos:
+    if centro_pos is not None:
         # Sanity check: as many chroms as centromeres
         if len(chr_bins) != len(centro_pos):
             sys.stderr.write("ERROR: Number of chromosomes and centromeres differ.")
@@ -1362,8 +1362,6 @@ def distance_law_multi(
         chrom_xs, chrom_ps = distance_law(
             chr_mat, indices=usebins, log_bins=log_bins, base=base
         )
-        print(chrom_xs)
-        print(chrom_ps)
         xs[chrm] = chrom_xs
         ps[chrm] = chrom_ps
 
