@@ -16,6 +16,39 @@ load_raw_matrix = functools.partial(np.genfromtxt, skip_header=True, dtype=np.fl
 
 
 def raw_cols_to_sparse(M, dtype=np.float64):
+    """Make a coordinate based sparse matrix from columns
+    
+    Convert (3, n) shaped arrays to a sparse matrix. The fist
+    one acts as the row coordinates, the second one as the
+    column coordinates, the third one as the data points
+    for each pair. If duplicates are found, the data points are
+    added.
+
+    Parameters
+    ----------
+    M : array_like
+        An array with exactly three rows representing the sparse
+        matrix in coordinate format.
+    dtype : type, optional
+        The type of data being loaded. Default is numpy.float64
+
+    Example
+    -------
+
+        >>> import numpy as np
+        >>> row, col = np.array([1, 2, 3]), np.array([3, 2, 1])
+        >>> data = np.array([4, 5, 6])
+        >>> M = np.array([row, col, data])
+        >>> S = raw_cols_to_sparse(M)
+        >>> for u in S.todense():
+        ...     print(u)
+        [0 0 0 0]
+        [ 0  0  0 10]
+        [0 0 0 0]
+        [ 0 10  0  0]        
+
+
+    """
     n = int(np.amax(M[:, :-1]) + 1)
 
     row = M[:, 0]
@@ -59,8 +92,10 @@ def load_sparse_matrix(M, binning=1):
 
 
 def save_sparse_matrix(M, path):
-    """
+    """Save a sparse matrix
+
     Saves a sparse matrix object into tsv format.
+
     Parameters
     ----------
     M : scipy.sparse.coo_matrix
@@ -185,3 +220,75 @@ def is_compressed(filename):
         if file_start.startswith(magic):
             return True
     return False
+
+
+def from_dade_matrix(filename, header=False):
+    """Load a DADE matrix
+
+    Load a numpy array from a DADE matrix file, optionally
+    returning bin information from the header. Header data
+    processing is delegated downstream.
+
+    Parameters
+    ----------
+    filename : str, file or pathlib.Path
+        The name of the file containing the DADE matrix.
+    header : bool
+        Whether to return as well information contained
+        in the header. Default is False.
+
+    Example
+    -------
+        >>> import numpy as np
+        >>> with open("example.dade", "w") as ex:
+        ...     ex.write("[['RST','chr1~0','chr1~10','chr2~0','chr2~30']\n")
+        ...     ex.write("['chr1~0','5', '10', '11', '2']\n")
+        ...     ex.write("['chr1~10',   '8', '3', '5']\n")
+        ...     ex.write("['chr2~0',         '3', '5']\n")
+        ...     ex.write("['chr2~30',             '5']]\n")
+        >>> M, h = from_dade_matrix("example.dade", header=True)
+        >>> print(M)
+        [['5', '10', '11', '2']
+         ['10', '8', '3', '5']
+         [11', '3', '3', '5']
+         ['2', '5', '5', '5']]
+        >>> print(h)
+        [chr1~0','chr1~10','chr2~0','chr2~30']
+
+    See https://github.com/scovit/DADE for more details about Dade.
+    """
+
+    A = np.genfromtxt(filename, delimiter="\t", dtype=None, filling_values=0)
+    M, headers = np.array(A[1:, 1:], dtype=np.float64), A[0]
+    matrix = M + M.T - np.diag(np.diag(M))
+    parsed_header = list(
+        zip(*[str(h)[:-1].strip('"').strip("'").split("~") for h in headers[1:]])
+    )
+    if header:
+        return matrix, parsed_header
+    else:
+        return matrix
+
+
+def to_dade_matrix(M, annotations="", filename=None):
+    """Returns a Dade matrix from input numpy matrix. Any annotations are added
+    as header. If filename is provided and valid, said matrix is also saved
+    as text.
+    """
+
+    n, m = M.shape
+    A = np.zeros((n + 1, m + 1))
+    A[1:, 1:] = M
+    if not annotations:
+        annotations = np.array(["" for _ in n], dtype=str)
+    A[0, :] = annotations
+    A[:, 0] = annotations.T
+    if filename:
+        try:
+            np.savetxt(filename, A, fmt="%i")
+            print("I saved input matrix in dade format as " + str(filename))
+        except ValueError as e:
+            print("I couldn't save input matrix.")
+            print(str(e))
+
+    return A
