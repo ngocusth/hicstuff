@@ -678,6 +678,11 @@ class Plot(AbstractCommand):
                 if self.args["--centromeres"]:
                     # Compute per chromosomal arm
                     centro = hio.load_pos_col(self.args["--centromeres"], 0, 0)
+                    temp_chr_names = [None] * len(chr_names) * 2
+                    for i in range(0, 2 * len(chr_names), 2):
+                        temp_chr_names[i]=chr_names[i // 2] + "_left"
+                        temp_chr_names[i+1]=chr_names[i // 2] + "_right"
+                    chr_names = temp_chr_names
                 xs, ps = hcs.distance_law_multi(
                     S, frags, good_bins, centro, log_bins=True, average=False
                 )
@@ -688,7 +693,7 @@ class Plot(AbstractCommand):
             plots = []
             for x, y in zip(xs, ps):
                 plots.append(plt.loglog(x, y, label=chr_names[i]))
-                plt.legend(plots, labels=chr_names.tolist())
+                plt.legend(plots, labels=chr_names)
                 i += 1
             plt.xlabel("genomic distance (kb)", fontsize="xx-large")
             plt.ylabel("Probability of contacts log10", fontsize="xx-large")

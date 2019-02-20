@@ -1336,7 +1336,7 @@ def distance_law_multi(
             else:
                 subfrags = frag_pos[chr_bins[i] :]
             # index of last fragment starting before centro in same chrom
-            centro_bins[i] = chr_bins[i] + max(np.where(subfrags // centro_pos[i])[0])
+            centro_bins[i] = chr_bins[i] + max(np.where((subfrags // centro_pos[i]) == 0)[0])
         # Combine centro and chrom bins into a single array. Values are start bins of arms
         chr_bins = np.sort(np.concatenate((chr_bins, centro_bins)))
 
@@ -1351,9 +1351,9 @@ def distance_law_multi(
     for chrm in range(len(chr_bins)):
         # Select bins from chrom / arm
         if (chrm + 1) < len(chr_bins):
-            chr_start, chr_end = chr_bins[chrm], chr_bins[chrm + 1]
+            chr_start, chr_end = int(chr_bins[chrm]), int(chr_bins[chrm + 1])
         else:
-            chr_start, chr_end = chr_bins[chrm], matrix.shape[0]
+            chr_start, chr_end = int(chr_bins[chrm]), matrix.shape[0]
         # Subset indices and matrices. Shift indices to start in chrom
         chr_idx_mask = np.where((indices >= chr_start) & (indices < chr_end))[0]
         usebins = np.array(indices[chr_idx_mask]) - chr_start
