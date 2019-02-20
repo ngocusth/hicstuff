@@ -249,19 +249,19 @@ def from_dade_matrix(filename, header=False):
     -------
         >>> import numpy as np
         >>> with open("example.dade", "w") as ex:
-        ...     ex.write("[['RST','chr1~0','chr1~10','chr2~0','chr2~30']\n")
-        ...     ex.write("['chr1~0','5', '10', '11', '2']\n")
-        ...     ex.write("['chr1~10',   '8', '3', '5']\n")
-        ...     ex.write("['chr2~0',         '3', '5']\n")
-        ...     ex.write("['chr2~30',             '5']]\n")
+        ...     ex.write(" ".join(['RST','chr1~0','chr1~10','chr2~0','chr2~30']) + "\n")
+        ...     ex.write(" ".join(['chr1~0', '5', '10', '11', '2']) + "\n")
+        ...     ex.write(" ".join(['chr1~10','8', '3', '5']) + "\n")
+        ...     ex.write(" ".join(['chr2~0', '3', '5']) + "\n")
+        ...     ex.write(" ".join(['chr2~30', '5']) + "\n")
         >>> M, h = from_dade_matrix("example.dade", header=True)
         >>> print(M)
         [['5', '10', '11', '2']
          ['10', '8', '3', '5']
-         [11', '3', '3', '5']
+         ['11', '3', '3', '5']
          ['2', '5', '5', '5']]
         >>> print(h)
-        [chr1~0','chr1~10','chr2~0','chr2~30']
+        [chr1~0', 'chr1~10', 'chr2~0', 'chr2~30']
 
     See https://github.com/scovit/DADE for more details about Dade.
     """
