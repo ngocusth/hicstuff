@@ -179,7 +179,7 @@ def write_sparse_matrix(
     except AttributeError:
         output_file_path = output_file
 
-    print("Building fragment position dictionary...")
+    print("Building fragment position dictionary...", file=sys.stderr)
     # Build dictionary of absolute positions and fragment ids
     ids_and_positions = dict()
     with open(fragments_list) as fraglist_handle:
@@ -189,9 +189,9 @@ def write_sparse_matrix(
             contig_name, position, end = line.rstrip("\n").split("\t")[1:4]
             ids_and_positions[(contig_name, position, end)] = my_id
             my_id += 1
-    print("Done.")
+    print("Done.", file=sys.stderr)
 
-    print("Counting contacts...")
+    print("Counting contacts...", file=sys.stderr)
 
     # Detect and count contacts between fragments
     contacts = collections.Counter()
@@ -251,7 +251,8 @@ def write_sparse_matrix(
                                 "Couldn't find matching fragment "
                                 "id for position {} or position "
                                 "{}".format(abs_position_for, abs_position_rev)
-                            )
+                            ),
+                            file=sys.stderr,
                         )
                     else:
                         fragment_pair = tuple(
@@ -272,9 +273,9 @@ def write_sparse_matrix(
                     #                                            name_reverse))
                     read_forward = copy.deepcopy(read_reverse)
                     is_forward = False
-    print("Done.")
+    print("Done.", file=sys.stderr)
 
-    print("Writing sparse matrix...")
+    print("Writing sparse matrix...", file=sys.stderr)
     if bedgraph:
         # Get reverse mapping between fragments ids and pos
         positions_and_ids = {
@@ -306,7 +307,7 @@ def write_sparse_matrix(
                 )
                 output_handle.write(line_to_write)
 
-    print("Done.")
+    print("Done.", file=sys.stderr)
 
 
 def dade_to_GRAAL(
@@ -334,20 +335,21 @@ def dade_to_GRAAL(
                     )
                     sparse_file.write(line_to_write)
 
-        print("Matrix file written")
+        print("Matrix file written", file=sys.stderr)
 
     header = first_line.split("\t")
     bin_type = header[0]
     if bin_type == '"RST"':
-        print("I detected fragment-wise binning")
+        print("I detected fragment-wise binning", file=sys.stderr)
     elif bin_type == '"BIN"':
-        print("I detected fixed size binning")
+        print("I detected fixed size binning", file=sys.stderr)
     else:
         print(
             (
                 "Sorry, I don't understand this matrix's "
                 "binning: I read {}".format(str(bin_type))
-            )
+            ),
+            file=sys.stderr,
         )
 
     header_data = [

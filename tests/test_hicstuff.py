@@ -98,7 +98,12 @@ def test_basic_one_argument_functions(matrix_size):
     M_d += M_d.T
     for _, func in functions_list:
         params = signature(func).parameters
+        nb_defaults = len(func.__defaults__)
         annot = params[list(params.keys())[0]].annotation
-        # TODO: add functions annotation to use this test
-        if len(params) == 1 and annot == np.array:
-            assert func(M_d).any()
+
+        if len(params) == 1 or len(params) - nb_defaults == 1:
+            try:
+                assert func(M_d).any()
+            except (ValueError, TypeError, AttributeError):
+                pass
+
