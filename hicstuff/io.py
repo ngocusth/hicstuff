@@ -12,7 +12,9 @@ import hicstuff.hicstuff as hcs
 
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
-load_raw_matrix = functools.partial(np.genfromtxt, skip_header=True, dtype=np.float64)
+load_raw_matrix = functools.partial(
+    np.genfromtxt, skip_header=True, dtype=np.float64
+)
 
 
 def raw_cols_to_sparse(M, dtype=np.float64):
@@ -132,7 +134,11 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
+        path,
+        delimiter="\t",
+        usecols=(colnum,),
+        skip_header=header,
+        dtype=dtype,
     )
     return pos_arr
 
@@ -182,7 +188,9 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError("Only a single fastq file must be in the zip archive.")
+            raise IOError(
+                "Only a single fastq file must be in the zip archive."
+            )
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -262,7 +270,12 @@ def from_dade_matrix(filename, header=False):
     M, headers = np.array(A[1:, 1:], dtype=np.float64), A[0]
     matrix = M + M.T - np.diag(np.diag(M))
     parsed_header = list(
-        zip(*[str(h)[:-1].strip('"').strip("'").split("~") for h in headers[1:]])
+        zip(
+            *[
+                str(h)[:-1].strip('"').strip("'").split("~")
+                for h in headers[1:]
+            ]
+        )
     )
     if header:
         return matrix, parsed_header
