@@ -781,18 +781,18 @@ class Rebin(AbstractCommand):
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
-                frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
-                frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
 
         else:
             # Subsample binning
             hic_map = hcs.bin_sparse(hic_map, binning)
-            # Use index for binning, but keep 1-indexed
-            frags.id = (frags.id // binning) + 1
+            # Use index for binning, but keep 1-indexed.
+            # Exception when binning is 1 (no binning) where no need to shift
+            shift_id = 0 if binning == 1 else 1
+            frags.id = (frags.id // binning) + shift_id
         # Save original columns order
         col_ordered = list(frags.columns)
         # Get new start and end position for each bin
-        frags = frags.groupby(["chrom", "id"])
+        frags = frags.groupby(["chrom", "id"], sort=False)
         positions = frags.agg({"start_pos": "min", "end_pos": "max"})
         positions.reset_index(inplace=True)
         # Compute mean for all added features in each index bin

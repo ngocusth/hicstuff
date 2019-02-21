@@ -1894,7 +1894,7 @@ def PCA(A, numPCs=6, verbose=False):
     A = np.array(A, float)
     M = (A - np.mean(A.T, axis=1)).T
     covM = np.dot(M, M.T)
-    [latent, coeff] = scipy.sparse.linalg.eigsh(covM, numPCs)
+    [latent, coeff] = eigsh(covM, numPCs)
     return (np.transpose(coeff[:, ::-1]), latent[::-1])
 
 
@@ -1920,8 +1920,8 @@ def corrcoef_sparse(A, B=None):
     n = A.shape[1]
     # Compute the covariance matrix
     rowsum = A.sum(1)
-    centering = rowsum.dot(rowsum.T.conjugate()) / n
-    C = (A.dot(A.T.conjugate()) - centering) / (n - 1)
+    centering = rowsum.dot(rowsum.T) / n
+    C = (A.dot(A.T) - centering) / (n - 1)
     d = np.diag(C)
     coeffs = C / np.sqrt(np.outer(d, d))
 
@@ -1956,7 +1956,7 @@ def compartments_sparse(M, normalize=True, n_components=2):
         N = copy.copy(M)
     N = N.tocoo()
     # Detrend by the distance law
-    dist_vals, dist_bins = distance_law(N)
+    dist_bins, dist_vals = distance_law(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
     # Compute covariance matrix
     N = corrcoef_sparse(N)
