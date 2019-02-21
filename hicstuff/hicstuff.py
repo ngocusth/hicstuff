@@ -541,6 +541,7 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
      scipy coo_matrix of floats :
         The input sparse matrix, stripped of outlier component vectors.
     """
+    r = M.tocoo()
     f = get_good_bins(M, n_std, s_min, s_max)
     miss_bins = np.cumsum(1 - f)
     # Mapping pre- and post- trimming indices of bins
