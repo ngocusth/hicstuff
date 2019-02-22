@@ -9,9 +9,8 @@ Basic tests for functions in the hicstuff library.
 import random
 import numpy as np
 import pytest
-import warnings
 import hicstuff.hicstuff as hcs
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
 from inspect import signature, getmembers, isfunction
 
 SIZE_PARAMETERS = ("matrix_size", [5, 10, 20, 50, 100])
@@ -90,15 +89,18 @@ def test_basic_one_argument_functions(matrix_size):
 
     Parameters
     ----------
-    M : numpy.ndarray
-        A random matrix.
+    matrix_size : int
+        The size of the random matrix to use for the tests.
     """
     functions_list = getmembers(hcs, isfunction)
     M_d = np.random.random((matrix_size, matrix_size))
     M_d += M_d.T
     for _, func in functions_list:
         params = signature(func).parameters
-        nb_defaults = len(func.__defaults__)
+        if func.__defaults__ is None:
+            nb_defaults = 0
+        else:
+            nb_defaults = len(func.__defaults__)
         annot = params[list(params.keys())[0]].annotation
 
         if len(params) == 1 or len(params) - nb_defaults == 1:
@@ -107,3 +109,34 @@ def test_basic_one_argument_functions(matrix_size):
             except (ValueError, TypeError, AttributeError):
                 pass
 
+
+@pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
+@pytest.mark.parametrize(*SIZE_PARAMETERS)
+def test_corrcoef_sparse(matrix_size):
+    """
+    Checks if the corrcoeff sparse function yields same results
+    as numpy's corrcoeff.
+    """
+    M_d = np.random.random((matrix_size, matrix_size))
+    M_s = csr_matrix(M_d)
+    C_d = np.corrcoef(M_d)
+    C_s = hcs.corrcoef_sparse(M_s)
+    assert np.isclose(C_s, C_d, rtol=0.0001).all()
+
+
+@pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
+@pytest.mark.parametrize(*SIZE_PARAMETERS)
+def test_compartments_sparse(matrix_size):
+    """
+    Checks if the eigenvectors obtained by the sparse method match what is
+    returned by the dense method.
+    """
+
+    M_d = np.random.random((matrix_size, matrix_size))
+    M_s = csr_matrix(M_d)
+    pc1_d, pc2_d = hcs.compartments(M_d, normalize=False)
+    pc1_s, pc2_s = hcs.compartments_sparse(M_s, normalize=False)
+    print(pc1_s)
+    print(pc1_d)
+    assert np.isclose(np.abs(pc1_d), np.abs(pc1_s), rtol=0.01).all()
+    assert np.isclose(np.abs(pc2_d), np.abs(pc2_s), rtol=0.01).all()

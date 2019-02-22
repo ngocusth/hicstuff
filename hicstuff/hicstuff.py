@@ -27,6 +27,7 @@ import itertools
 import warnings
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 from scipy.sparse.linalg import eigsh
+from scipy.linalg import eig
 import copy
 import random
 import multiprocessing as mp
@@ -86,7 +87,7 @@ def despeckle_simple(B, th2=2, threads=1):
         diag[diag > medians[nw] + th2 * stds[nw]] = medians[nw]
         A.setdiag(diag, nw)
 
-    pool = mp.Pool(threads, maxtasksperchild=1000)
+    pool = mp.Pool(threads, maxtasksperchild=10)
     pool.map(_diagstats, range(n1))
     pool.map(_speck2med, range(n1))
     pool.close()
@@ -1870,6 +1871,7 @@ def compartments(M, normalize=True):
         A vector representing the second component.
     """
 
+    n = M.shape[0]
     if not type(M) is np.ndarray:
         M = np.array(M)
 
@@ -1880,22 +1882,23 @@ def compartments(M, normalize=True):
         N = normalize_dense(M)
     else:
         N = np.copy(M)
+    # Computation of genomic distance law matrice:
+    dist_mat = np.zeros((n, n))
+    _, dist_vals = distance_law(N, log_bins=False)
+    for i in range(n):
+        for j in range(n):
+            dist_mat[i, j] = dist_vals[abs(j - i)]
 
-    from sklearn.decomposition import PCA
+    N /= dist_mat
+    # Computation of the correlation matrice:
+    N = np.corrcoef(N)
+    N[np.isnan(N)] = 0.0
 
-    pca = PCA(n_components=2)
-    PC1, PC2 = pca.fit_transform(N).T
+    # Computation of eigen vectors:
+    (eig_val, eig_vec) = eig(N)
+    PC1 = eig_vec[:, 0]
+    PC2 = eig_vec[:, 1]
     return PC1, PC2
-
-
-def PCA(A, numPCs=6, verbose=False):
-    """performs PCA analysis, and returns 6 best principal components
-    result[0] is the first PC, etc"""
-    A = np.array(A, float)
-    M = (A - np.mean(A.T, axis=1)).T
-    covM = np.dot(M, M.T)
-    [latent, coeff] = eigsh(covM, numPCs)
-    return (np.transpose(coeff[:, ::-1]), latent[::-1])
 
 
 def corrcoef_sparse(A, B=None):
@@ -1913,22 +1916,23 @@ def corrcoef_sparse(A, B=None):
     scipy.sparse.csr_matrix
         The correlation matrix.
     """
+    M = A.copy()
     if B is not None:
-        A = sparse.vstack((A, B), format="csr")
+        M = sparse.vstack((A, B), format="csr")
 
     A = A.astype(np.float64)
     n = A.shape[1]
     # Compute the covariance matrix
-    rowsum = A.sum(1)
+    rowsum = A.sum(axis=1)
     centering = rowsum.dot(rowsum.T) / n
-    C = (A.dot(A.T) - centering) / (n - 1)
-    d = np.diag(C)
+    C = (A.dot(A.T) - coo_matrix(centering)) / (n - 1)
+    d = C.diagonal()
     coeffs = C / np.sqrt(np.outer(d, d))
 
     return coeffs
 
 
-def compartments_sparse(M, normalize=True, n_components=2):
+def compartments_sparse(M, normalize=True):
     """A/B compartment analysis
 
     Performs a detrending of the power law followed by a PCA-based A/B
@@ -1960,10 +1964,11 @@ def compartments_sparse(M, normalize=True, n_components=2):
     N.data /= dist_vals[abs(N.row - N.col)]
     # Compute covariance matrix
     N = corrcoef_sparse(N)
+    N[np.isnan(N)] = 0.0
     # Extract eigen vectors and eigen values
-    [eigen_vals, pr_comp] = eigsh(N, n_components)
+    [eigen_vals, pr_comp] = eig(N)
 
-    return np.transpose(pr_comp[:, ::-1])
+    return pr_comp[:, 0], pr_comp[:, 1]
 
 
 def remove_intra(M, contigs, mask):
