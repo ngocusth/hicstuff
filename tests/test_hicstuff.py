@@ -78,7 +78,10 @@ def test_trim(matrix_size):
     T_s = hcs.trim_sparse(M_s)
     assert T_s.shape[0] == trim_shape
 
-
+@pytest.mark.skip(reason="Cannot work unless functions are annotated or a "
+                         "list of functions taking dense matrices as input is"
+                         "provided")
+@pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
 @pytest.mark.parametrize(*SIZE_PARAMETERS)
 def test_basic_one_argument_functions(matrix_size):
     """Check all functions

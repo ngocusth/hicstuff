@@ -1355,7 +1355,7 @@ def pdb_to_structure(filename):
     """
 
     try:
-        from Bio.PDB import PDB
+        from Bio import PDB
     except ImportError:
         print("I can't import Biopython which is needed to handle PDB files.")
         raise
