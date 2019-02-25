@@ -214,7 +214,8 @@ class Filter(AbstractCommand):
                                           be shown on the figures.
         -t, --thresholds=INT-INT          Manually defines integer values for
                                           the thresholds in the order
-                                          [uncut, loop].
+                                          [uncut, loop]. Reads above those values
+                                          are kept.
     """
 
     def execute(self):
@@ -269,7 +270,7 @@ class View(AbstractCommand):
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
              [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP]
-             [--log] [--region=STR] <contact_map> [<contact_map2>]
+             [--log] [--circular] [--region=STR] <contact_map> [<contact_map2>]
 
     arguments:
         contact_map             Sparse contact matrix in GRAAL format
@@ -300,8 +301,7 @@ class View(AbstractCommand):
                                          [default: 99].
         -n, --normalize                  Should SCN normalization be performed
                                          before rendering the matrix ?
-        -o, --output=IMG                 Path where the matrix will be stored
-                                         in PNG format.
+        -o, --output=IMG                 Name of the image file where the view is stored.
         -r, --region=STR[;STR]           Only view a region of the contact map.
                                          Regions are specified as UCSC strings.
                                          (e.g.:chr1:1000-12000). If only one
@@ -449,12 +449,12 @@ class View(AbstractCommand):
             processed_map = hcs.despeckle_simple(processed_map)
         vmax = np.percentile(processed_map.data, vmax)
         try:
-            dense_map = hcv.sparse_to_dense(processed_map)
+            dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
             vmin = 0
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             hcv.plot_matrix(
-                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap,
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")

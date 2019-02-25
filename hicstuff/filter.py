@@ -130,7 +130,7 @@ def get_thresholds(
     -------
     dictionary
         dictionary with keys "uncuts" and "loops" where the values are the
-        corresponding thresholds entered by the user.
+        corresponding thresholds entered by the user. 
     """
     thr_uncut = None
     thr_loop = None
@@ -159,6 +159,10 @@ def get_thresholds(
             n_events[etype][nsites] += 1
 
     def plot_event(n_events, legend, name):
+        if name == "+-":
+            color = 'g'
+        if name == "-+":
+            color = 'r'
         plt.xlim([-0.5, 15])
         plt.plot(
             range(n_events[name].shape[0]),
@@ -166,6 +170,7 @@ def get_thresholds(
             "o-",
             label=legend[name],
             linewidth=2.0,
+            c=color,
         )
 
     if interactive:
@@ -193,7 +198,7 @@ def get_thresholds(
         # Asks the user for appropriate thresholds
         print(
             "Please enter the number of restriction fragments separating "
-            "reads in a Hi-C pair below which \033[91mloops\033[0m and "
+            "reads in a Hi-C pair below or at which \033[91mloops\033[0m and "
             "\033[92muncuts\033[0m events will be excluded\n",
             file=sys.stderr,
         )
@@ -291,9 +296,9 @@ def filter_events(
     """Filter events (loops, uncuts and weirds)
 
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
-    with reads closer than the uncut threshold and -+ pairs with reads closer
-    than the loop thresholds are excluded from the ouput file. All others are
-    written.
+    with reads closer or at the uncut threshold and -+ pairs with reads closer
+    or at the loop thresholds are excluded from the ouput file. All others
+    are written.
 
     Parameters
     ----------
@@ -325,9 +330,9 @@ def filter_events(
         if p["chr1"] == p["chr2"]:
             if p["indice1"] == p["indice2"] and p["strand1"] == p["strand2"]:
                 n_weirds += 1
-            elif p["nsites"] < thr_loop and p["type"] == "-+":
+            elif p["nsites"] <= thr_loop and p["type"] == "-+":
                 n_loops += 1
-            elif p["nsites"] < thr_uncut and p["type"] == "+-":
+            elif p["nsites"] <= thr_uncut and p["type"] == "+-":
                 n_uncuts += 1
             else:
                 lrange_intra += 1
@@ -391,7 +396,7 @@ def filter_events(
     total = kept + discarded
     print(
         "Proportion of inter contacts: {0}% (intra: {1}, "
-        "inter: {2}".format(ratio_inter, lrange_intra, lrange_inter),
+        "inter: {2})".format(ratio_inter, lrange_intra, lrange_inter),
         file=sys.stderr,
     )
     print(

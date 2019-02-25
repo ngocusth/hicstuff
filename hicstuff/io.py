@@ -14,7 +14,7 @@ import hicstuff.hicstuff as hcs
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
 load_raw_matrix = functools.partial(
-    np.genfromtxt, skip_header=True, dtype=np.float64
+    np.loadtxt, skiprows=1, delimiter='\t'
 )
 
 
