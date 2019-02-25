@@ -95,48 +95,6 @@ def despeckle_simple(B, th2=2, threads=1):
     return csr_matrix(A)
 
 
-def despeckle_global(M, positions=None, stds=2):
-    """Compute a trend by averaging all contacts of equal
-    distance, then sets outstanding values (above stds standard
-    deviations) to the expected value from the trend.
-    """
-
-    N = np.array(M, dtype=np.float64)
-    n, m = M.shape
-    if positions is None:
-        positions = range(min(n, m))
-
-    lengths = np.abs(np.diff(positions))
-
-    def distance(i, j):
-        mean_length = (lengths[i] + lengths[j]) / 2.0
-        if positions[i] < positions[j]:
-            d = ((positions[j] - positions[i] - lengths[i]) + mean_length) // 1000.0
-        else:
-            d = ((positions[i] - positions[j] - lengths[j]) + mean_length) // 1000.0
-        return d
-
-    measurements, bins = {}, []
-    for i in range(n):
-        for j in range(1, i):
-            d = distance(i, j)
-            bins.append(np.abs(d))
-            try:
-                measurements[np.abs(d)].append(M[i, j])
-            except KeyError:
-                measurements[np.abs(d)] = [M[i, j]]
-
-    mean = [np.mean(np.array(measurements[k])) for k in measurements.keys()]
-    std = [np.std(np.array(measurements[k])) for k in measurements.keys()]
-
-    for i, j in itertools.product(range(stds, n - stds), range(stds, m - stds)):
-        d = distance(i, j)
-        if M[i, j] >= mean[d] + std * stds:
-            N[i, j] = mean[d]
-
-    return (N + N.T) / 2
-
-
 def despeckle_local(M, stds=2, width=2):
     """Replace outstanding values (above stds standard deviations)
     in a matrix by the average of a surrounding window of desired width.
