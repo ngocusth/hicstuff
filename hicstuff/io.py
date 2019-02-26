@@ -8,19 +8,18 @@ import io
 import functools
 import sys
 import numpy as np
+import pandas as pd
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
-load_raw_matrix = functools.partial(
-    np.loadtxt, skiprows=1, delimiter='\t'
-)
+load_raw_matrix = functools.partial(np.loadtxt, skiprows=1, delimiter="\t")
 
 
 def raw_cols_to_sparse(M, dtype=np.float64):
-    """Make a coordinate based sparse matrix from columns
-    
+    """
+    Make a coordinate based sparse matrix from columns.
     Convert (3, n) shaped arrays to a sparse matrix. The fist
     one acts as the row coordinates, the second one as the
     column coordinates, the third one as the data points
@@ -41,19 +40,15 @@ def raw_cols_to_sparse(M, dtype=np.float64):
         >>> import numpy as np
         >>> row, col = np.array([1, 2, 3]), np.array([3, 2, 1])
         >>> data = np.array([4, 5, 6])
-        >>> M = np.array([row, col, data])
+        >>> M = np.array([row, col, data]).T
         >>> S = raw_cols_to_sparse(M)
-        >>> for u in S.todense():
-        ...     print(u)
-        [0 0 0 0]
-        [ 0  0  0 10]
-        [0 0 0 0]
-        [ 0 10  0  0]        
-
-
+        >>> print(S.todense())
+        [[0. 0. 0. 0.]
+         [0. 0. 0. 4.]
+         [0. 0. 5. 0.]
+         [0. 6. 0. 0.]]
     """
     n = int(np.amax(M[:, :-1]) + 1)
-
     row = M[:, 0]
     col = M[:, 1]
     data = M[:, 2]
@@ -135,11 +130,7 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path,
-        delimiter="\t",
-        usecols=(colnum,),
-        skip_header=header,
-        dtype=dtype,
+        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
     )
     return pos_arr
 
@@ -189,9 +180,7 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError(
-                "Only a single fastq file must be in the zip archive."
-            )
+            raise IOError("Only a single fastq file must be in the zip archive.")
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -225,7 +214,7 @@ def is_compressed(filename):
     max_len = max(len(x) for x in comp_bytes)
     with open(filename, "rb") as f:
         file_start = f.read(max_len)
-    for magic, filetype in comp_bytes.items():
+    for magic, _ in comp_bytes.items():
         if file_start.startswith(magic):
             return True
     return False
@@ -249,37 +238,43 @@ def from_dade_matrix(filename, header=False):
     Example
     -------
         >>> import numpy as np
-        >>> with open("example.dade", "w") as ex:
-        ...     ex.write(" ".join(['RST','chr1~0','chr1~10','chr2~0','chr2~30']) + "\n")
-        ...     ex.write(" ".join(['chr1~0', '5', '10', '11', '2']) + "\n")
-        ...     ex.write(" ".join(['chr1~10','8', '3', '5']) + "\n")
-        ...     ex.write(" ".join(['chr2~0', '3', '5']) + "\n")
-        ...     ex.write(" ".join(['chr2~30', '5']) + "\n")
-        >>> M, h = from_dade_matrix("example.dade", header=True)
+        >>> import tempfile
+        >>> lines = [['RST', 'chr1~0', 'chr1~10', 'chr2~0', 'chr2~30'],
+        ...          ['chr1~0', '5'],
+        ...          ['chr1~10', '8', '3'],
+        ...          ['chr2~0', '3', '5', '5'],
+        ...          ['chr2~30', '5', '10', '11', '2']
+        ...          ]
+        >>> formatted = ["\\t".join(l) + "\\n" for l in lines ]
+        >>> dade = tempfile.NamedTemporaryFile(mode='w')
+        >>> for fm in formatted:
+        ...     dade.write(fm)
+        34
+        9
+        12
+        13
+        18
+        >>> dade.flush()
+        >>> M, h = from_dade_matrix(dade.name, header=True)
+        >>> dade.close()
         >>> print(M)
-        [['5', '10', '11', '2']
-         ['10', '8', '3', '5']
-         ['11', '3', '3', '5']
-         ['2', '5', '5', '5']]
+        [[ 5.  8.  3.  5.]
+         [ 8.  3.  5. 10.]
+         [ 3.  5.  5. 11.]
+         [ 5. 10. 11.  2.]]
+
         >>> print(h)
-        [chr1~0', 'chr1~10', 'chr2~0', 'chr2~30']
+        ['chr1~0', 'chr1~10', 'chr2~0', 'chr2~30']
 
     See https://github.com/scovit/DADE for more details about Dade.
     """
 
-    A = np.genfromtxt(filename, delimiter="\t", dtype=None, filling_values=0)
-    M, headers = np.array(A[1:, 1:], dtype=np.float64), A[0]
+    A = pd.read_csv(filename, sep="\t", header=None)
+    A.fillna("0", inplace=True)
+    M, headers = np.array(A.iloc[1:, 1:], dtype=np.float64), A.iloc[0, :]
     matrix = M + M.T - np.diag(np.diag(M))
-    parsed_header = list(
-        zip(
-            *[
-                str(h)[:-1].strip('"').strip("'").split("~")
-                for h in headers[1:]
-            ]
-        )
-    )
     if header:
-        return matrix, parsed_header
+        return matrix, headers.tolist()[1:]
     else:
         return matrix
 
@@ -379,10 +374,7 @@ def load_from_redis(key):
     try:
         M = database.get(key)
     except KeyError:
-        print(
-            "Error! No dataset was found with the supplied key.",
-            file=sys.stderr,
-        )
+        print("Error! No dataset was found with the supplied key.", file=sys.stderr)
         exit(1)
 
     array_dtype, n, m = key.split("|")[1].split("#")
