@@ -28,6 +28,7 @@ import warnings
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 from scipy.sparse.linalg import eigsh
 from scipy.linalg import eig
+import scipy.sparse as sparse
 import copy
 import random
 import multiprocessing as mp
@@ -119,7 +120,7 @@ def bin_dense(M, subsampling_factor=3):
     Remaining columns and rows are summed likewise and added to the end of the
     new matrix.
 
-    :note: Will not work for numpy verisons below 1.7
+    :note: Will not work for numpy versions below 1.7
     """
 
     m = min(M.shape)
@@ -169,21 +170,21 @@ def bin_sparse(M, subsampling_factor=3):
 
     # Divide row and column indices - duplicate coordinates are added in
     # sparse matrix construction
-
+    remain_m = 0 if m % subsampling_factor == 0 else 1
+    remain_n = 0 if n % subsampling_factor == 0 else 1
     binned_row = row // subsampling_factor
     binned_col = col // subsampling_factor
-    binned_n = n // subsampling_factor
-    binned_m = m // subsampling_factor
+    binned_n = (n // subsampling_factor) + remain_n
+    binned_m = (m // subsampling_factor) + remain_m
 
     # Attach remaining columns and rows to the last one
 
-    binned_row[binned_row >= binned_n] -= n % subsampling_factor
-    binned_col[binned_col >= binned_m] -= m % subsampling_factor
+    # binned_row[binned_row >= binned_n] -= n % subsampling_factor
+    # binned_col[binned_col >= binned_m] -= m % subsampling_factor
 
     # Sum data over duplicate entries
     binned = pd.DataFrame({"row": binned_row, "col": binned_col, "dat": data})
-    binned = binned.groupby(["row", "col"]).sum().reset_index()
-
+    binned = binned.groupby(["row", "col"], sort=False).sum().reset_index()
     return coo_matrix(
         (binned.dat, (binned.row, binned.col)), shape=(binned_n, binned_m)
     )
@@ -289,7 +290,7 @@ def bin_bp_dense(M, positions, bin_len=10000):
     out_pos = np.zeros((n_bins, 1))
     # initialise matrix for matching frags (row) to bins (col)
     bin_attr = np.zeros((frags.shape[0], n_bins))
-    # Use (chr, bin) as grouping key (coord) and indices of fragments
+    # Use (chr, bin#) as grouping key (coord) and indices of fragments
     # belonging to current bin (bin_frags)
     bin_No = 0
     for coords, bin_frags in itertools.groupby(frag_idx, lambda x: tuple(frags[x, :])):

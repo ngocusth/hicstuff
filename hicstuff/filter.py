@@ -60,7 +60,7 @@ def process_read_pair(line):
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
-        >>> d = hcf.process_read_pair('a 2 3 2 - a 1 1 0 +')
+        >>> d = process_read_pair('a 2 3 2 - a 1 1 0 +')
         >>> [d[x] for x in sorted(d.keys())]
         ['a', 'a', 1, 3, 0, 2, 2, 1, 2, '+', '-', '+-']
     """

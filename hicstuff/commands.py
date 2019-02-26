@@ -454,7 +454,7 @@ class View(AbstractCommand):
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             hcv.plot_matrix(
-                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap,
+                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
@@ -846,6 +846,31 @@ class Subsample(AbstractCommand):
         subsampled = hcs.subsample_contacts(map_in, float(self.args["--prop"]))
         subsampled = subsampled.tocoo()
         hio.save_sparse_matrix(subsampled, map_out)
+
+
+class Convert(AbstractCommand):
+    """
+    Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
+    bedgraph2D (cooler) and DADE.
+    usage:
+        convert [--frags=FILE] [--chrom=FILE] [--out=DIR] [--prefix=NAME]
+                 --from=FORMAT --to=FORMAT <contact_map>
+
+    arguments:
+        <contact_map> : The file containing the contact frequencies.
+
+    options:
+        -f, --frags=FILE    File containing the fragments coordinates. If
+                            not already in the contact map file.
+        -c, --chrom=FILE    File containing the chromosome informations, if not
+                            already in the contact map file.
+        -o, --out=DIR       The directory where output files must be written.
+        -P, --prefix=NAME   A prefix by which the output filenames should start.
+        -F, --from=FORMAT   The format from which to convert. [default: GRAAL]
+        -T, --to=FORMAT     The format to which files should be converted. [default: cooler]
+    """
+
+    ...
 
 
 def parse_bin_str(bin_str):
