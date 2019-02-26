@@ -60,6 +60,9 @@ def process_read_pair(line):
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
+        >>> d = hcf.process_read_pair('a 2 3 2 - a 1 1 0 +')
+        >>> [d[x] for x in sorted(d.keys())]
+        ['a', 'a', 1, 3, 0, 2, 2, 1, 2, '+', '-', '+-']
     """
     # Split line by whitespace
     p = line.split()
@@ -96,7 +99,7 @@ def process_read_pair(line):
         p["indice1"], p["indice2"] = p["indice2"], p["indice1"]
 
     # Number of restriction sites separating reads in the pair
-    p["nsites"] = p["indice2"] - p["indice1"]
+    p["nsites"] = abs(p["indice2"] - p["indice1"])
     # Get event type
     if p["chr1"] == p["chr2"]:
         p["type"] = "".join([p["strand1"], p["strand2"]])
@@ -130,7 +133,7 @@ def get_thresholds(
     -------
     dictionary
         dictionary with keys "uncuts" and "loops" where the values are the
-        corresponding thresholds entered by the user. 
+        corresponding thresholds entered by the user.
     """
     thr_uncut = None
     thr_loop = None
@@ -159,10 +162,7 @@ def get_thresholds(
             n_events[etype][nsites] += 1
 
     def plot_event(n_events, legend, name):
-        if name == "+-":
-            color = 'g'
-        if name == "-+":
-            color = 'r'
+        colors = {"++": "y", "+-": "g", "--": "c", "-+": "r"}
         plt.xlim([-0.5, 15])
         plt.plot(
             range(n_events[name].shape[0]),
@@ -170,7 +170,7 @@ def get_thresholds(
             "o-",
             label=legend[name],
             linewidth=2.0,
-            c=color,
+            c=colors[name],
         )
 
     if interactive:
@@ -230,15 +230,9 @@ def get_thresholds(
         for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if (
-                abs(np.log(n_events["+-"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["+-"][site]) - event_med[site]) <= exp_stdev:
                 thr_uncut = site
-            if (
-                abs(np.log(n_events["-+"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["-+"][site]) - event_med[site]) <= exp_stdev:
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
@@ -264,9 +258,7 @@ def get_thresholds(
                     plt.axvline(x=thr_loop, color="r")
                     plt.axvline(x=thr_uncut, color="g")
                     if prefix:
-                        plt.title(
-                            "Library events by distance in {}".format(prefix)
-                        )
+                        plt.title("Library events by distance in {}".format(prefix))
                     plt.tight_layout()
                     if fig_path:
                         plt.savefig(fig_path)
@@ -384,9 +376,7 @@ def filter_events(
             )
 
     if lrange_inter > 0:
-        ratio_inter = round(
-            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
-        )
+        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
     else:
         ratio_inter = 0
 
@@ -406,9 +396,7 @@ def filter_events(
         file=sys.stderr,
     )
     print(
-        "{0} pairs kept ({1}%)".format(
-            kept, round(100 * kept / (kept + discarded), 2)
-        ),
+        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2)),
         file=sys.stderr,
     )
 
