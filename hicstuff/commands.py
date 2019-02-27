@@ -443,6 +443,7 @@ class View(AbstractCommand):
             # Changing base to 2 afterwards.
             processed_map = processed_map.tocsr() - processed_map2.tocsr()
             processed_map = processed_map.tocoo()
+            processed_map.data[np.isnan(processed_map.data)] = 0.0
             cmap = "coolwarm"
 
         if self.args["--despeckle"]:

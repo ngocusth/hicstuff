@@ -608,8 +608,10 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     scipy.sparse.csr_matrix of floats :
         Normalized sparse matrix.
     """
-
+    # Triangle matrices will not work, making it full
     r = csr_matrix(M)
+    r += r.T
+    r.setdiag(r.diagonal() / 2)
     if norm == "SCN":
         for _ in range(1, iterations):
             row_sums = np.array(r.sum(axis=1)).flatten()
@@ -1901,7 +1903,8 @@ def compartments_sparse(M, normalize=True):
     Parameters
     ----------
     M : array_like
-        The input, normalized contact map. Must be a single chromosome.
+        The input, normalized contact map. Must be a single chromosome. Values
+        are assumed to be only the upper triangle of a symmetrix matrix.
     normalize : bool
         Whether to normalize the matrix beforehand.
     mask : array of bool
@@ -1920,7 +1923,11 @@ def compartments_sparse(M, normalize=True):
     # Detrend by the distance law
     dist_bins, dist_vals = distance_law(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
-    # Compute covariance matrix
+    # Compute covariance matrix on full matrix
+    N = N.tolil()
+    N = N + N.T
+    N.setdiag(N.diagonal() / 2)
+    N = N.tocsr()
     N = corrcoef_sparse(N)
     N[np.isnan(N)] = 0.0
     # Extract eigen vectors and eigen values

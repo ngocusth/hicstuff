@@ -16,7 +16,7 @@ from inspect import signature, getmembers, isfunction
 SIZE_PARAMETERS = ("matrix_size", [5, 10, 20, 50, 100])
 
 
-def _gen_matrices(size, full_dense=True):
+def _gen_matrices(size, full_dense=False):
     """
     Make random dense and sparse matrices of given size.
     Parameters
@@ -33,10 +33,10 @@ def _gen_matrices(size, full_dense=True):
     m_s : scipy.sparse.coo_matrix
         Random sparse matrix of size X size.
     """
-    m_d = np.random.random((size, size))
+    m_d = np.triu(np.random.random((size, size)))
     m_s = coo_matrix(m_d)
     if full_dense:
-        m_d += m_d.T
+        m_d += m_d.T - np.diag(np.diag(m_d))
     return m_d, m_s
 
 
@@ -100,7 +100,7 @@ def test_scn(matrix_size):
     Check whether a SCN-normalized matrix has all vectors
     summing to one. Tests both the sparse and dense algorithms.
     """
-    M_d, M_s = _gen_matrices(matrix_size)
+    M_d, M_s = _gen_matrices(matrix_size, full_dense=True)
     N_d = hcs.normalize_dense(M_d, "SCN", iterations=50)
     N_s = hcs.normalize_sparse(M_s, "SCN", iterations=50)
     assert np.isclose(N_d.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
@@ -190,7 +190,7 @@ def test_corrcoef_sparse(matrix_size):
     Checks if the corrcoeff sparse function yields same results
     as numpy's corrcoeff.
     """
-    M_d, M_s = _gen_matrices(matrix_size, full_dense=False)
+    M_d, M_s = _gen_matrices(matrix_size)
     C_d = np.corrcoef(M_d)
     C_s = hcs.corrcoef_sparse(M_s)
     assert np.isclose(C_s, C_d, rtol=0.0001).all()
@@ -203,8 +203,10 @@ def test_compartments_sparse(matrix_size):
     Checks if the eigenvectors obtained by the sparse method match what is
     returned by the dense method.
     """
-
-    M_d, M_s = _gen_matrices(matrix_size, full_dense=False)
+    # Note: Using full dense matrix for hcs.compartments, but upper triangle
+    # spars matrix for hcs.compartments_sparse because the transpose is added in
+    # the function.
+    M_d, M_s = _gen_matrices(matrix_size, full_dense=True)
     pc1_d, pc2_d = hcs.compartments(M_d, normalize=False)
     pc1_s, pc2_s = hcs.compartments_sparse(M_s, normalize=False)
     assert np.isclose(np.abs(pc1_d), np.abs(pc1_s), rtol=0.01).all()
