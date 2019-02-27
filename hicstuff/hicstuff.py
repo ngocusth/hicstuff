@@ -1130,7 +1130,7 @@ def distance_law(matrix, indices=None, log_bins=True, base=1.1):
     Returns
     -------
     numpy array of floats :
-        The start coordinate of each bin.
+        The start index of each bin.
     numpy array of floats :
         The distance law computed per bin on the diagonal
     """
@@ -1248,7 +1248,6 @@ def distance_law_multi(
         chr_idx_mask = np.where((indices >= chr_start) & (indices < chr_end))[0]
         usebins = np.array(indices[chr_idx_mask]) - chr_start
         chr_mat = matrix[chr_start:chr_end, chr_start:chr_end]
-        print(chr_mat.shape)
         # Get the ps for the different arms/chroms
         chrom_xs, chrom_ps = distance_law(
             chr_mat, indices=usebins, log_bins=log_bins, base=base

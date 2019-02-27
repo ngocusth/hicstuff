@@ -622,9 +622,10 @@ class Plot(AbstractCommand):
                                            default.
         -p, --process                      Process the matrix first (trim,
                                            normalize)
-        -r, --range=INT-INT                The range of contact distance to
-                                           look at. No limit by default. Plot
-                                           the scalogram of the contact map.
+        -r, --range=INT-INT                The range of contact distance to look
+                                           at. No limit by default. Values in
+                                           basepairs by default but a unit can
+                                           be specified (kb, Mb, ...).
         -t, --threads=INT                  Parallel processes to run in for
                                            despeckling. [default: 1]
     """
@@ -633,8 +634,10 @@ class Plot(AbstractCommand):
         try:
             if self.args["--range"]:
                 lower, upper = self.args["--range"].split("-")
-                lower = int(lower)
-                upper = int(upper)
+                try:
+                    lower, upper = int(lower), int(upper)
+                except ValueError:
+                    lower, upper = parse_bin_str(lower), parse_bin_str(upper)
             if self.args["--indices"]:
                 start, end = self.args["--indices"].split("-")
                 start = int(start)
@@ -663,7 +666,7 @@ class Plot(AbstractCommand):
         if self.args["--indices"]:
             S = S[start:end, start:end]
         if self.args["--scalogram"]:
-            D = vm.sparse_to_dense(S)
+            D = hcv.sparse_to_dense(S)
             D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
             plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
         elif self.args["--distance_law"]:
@@ -695,11 +698,16 @@ class Plot(AbstractCommand):
             colors = iter(cm.rainbow(np.linspace(0, 1, len(chr_names))))
             for x, y in zip(xs, ps):
                 col = next(colors)
-                plots.append(plt.loglog(x, y, label=chr_names[i], color=col))
+                # Converting bin indices to kb values
+                x = frags[x.astype(np.int)] / 1000
+                plots.append(plt.loglog(x, y, label=chr_names[i], c=col))
                 plt.legend(plots, labels=chr_names)
                 i += 1
             plt.xlabel("genomic distance (kb)", fontsize="xx-large")
             plt.ylabel("Probability of contacts log10", fontsize="xx-large")
+            if self.args["--range"]:
+                # Crop x axis if desired (boundaries converted to kb)
+                plt.xlim(left=lower / 1000, right=upper / 1000)
         if output_file:
             plt.savefig(output_file)
         else:
