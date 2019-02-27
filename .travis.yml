@@ -12,12 +12,14 @@ os:
 install:
 - pip install -Ur requirements.txt
 - pip install pytest pylint pytest-pylint
+- pip install pytest-cov codecov
 - if [[ $PYVER == "3.4" ]]; then
     pip install typing;
   fi
 - python setup.py install
 script:
 - pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules hicstuff
+- cd test; pytest --cov=hicstuff
 - |
   if [[ $TRAVIS_TAG ]]; then
     python setup.py sdist;
