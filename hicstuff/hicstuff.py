@@ -608,10 +608,12 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     scipy.sparse.csr_matrix of floats :
         Normalized sparse matrix.
     """
-    # Triangle matrices will not work, making it full
+    # Making full symmetric matrix from upper or lower triangle
     r = csr_matrix(M)
     r += r.T
     r.setdiag(r.diagonal() / 2)
+    r.eliminate_zeros()
+    r = r.tocoo()
     if norm == "SCN":
         for _ in range(1, iterations):
             row_sums = np.array(r.sum(axis=1)).flatten()
