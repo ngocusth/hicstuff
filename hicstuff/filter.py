@@ -22,6 +22,7 @@ attributed.
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+from hicstuff.log import logger
 
 
 def process_read_pair(line):
@@ -187,11 +188,10 @@ def get_thresholds(
             plt.show(block=False)
 
         except Exception:
-            print(
+            logger.error(
                 "Unable to show plots. Perhaps there is no Xserver running ? "
                 "(might be due to windows environment). Try running without "
-                "the interactive option.",
-                file=sys.stderr,
+                "the interactive option."
             )
             raise
 
@@ -230,20 +230,25 @@ def get_thresholds(
         for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if abs(np.log(n_events["+-"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["+-"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_uncut = site
-            if abs(np.log(n_events["-+"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["-+"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
                 "The threshold for loops or uncut could not be estimated. "
                 "Please try running with -i to investigate the problem."
             )
-        print(
+        logger.info(
             "Filtering with thresholds: uncuts={0} loops={1}".format(
                 thr_uncut, thr_loop
-            ),
-            file=sys.stderr,
+            )
         )
         if plot_events:
             try:
@@ -258,7 +263,9 @@ def get_thresholds(
                     plt.axvline(x=thr_loop, color="r")
                     plt.axvline(x=thr_uncut, color="g")
                     if prefix:
-                        plt.title("Library events by distance in {}".format(prefix))
+                        plt.title(
+                            "Library events by distance in {}".format(prefix)
+                        )
                     plt.tight_layout()
                     if fig_path:
                         plt.savefig(fig_path)
@@ -266,11 +273,10 @@ def get_thresholds(
                         plt.show(block=False)
 
             except Exception:
-                print(
+                logger.error(
                     "Unable to show plots. Is an X server running?"
                     "(might be due to windows environment)."
-                    "Try running without the plot option.",
-                    file=sys.stderr,
+                    "Try running without the plot option."
                 )
                 raise
     return thr_uncut, thr_loop
@@ -376,7 +382,9 @@ def filter_events(
             )
 
     if lrange_inter > 0:
-        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
+        ratio_inter = round(
+            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
+        )
     else:
         ratio_inter = 0
 
@@ -384,20 +392,19 @@ def filter_events(
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
     total = kept + discarded
-    print(
+    logger.info(
         "Proportion of inter contacts: {0}% (intra: {1}, "
-        "inter: {2})".format(ratio_inter, lrange_intra, lrange_inter),
-        file=sys.stderr,
+        "inter: {2})".format(ratio_inter, lrange_intra, lrange_inter)
     )
-    print(
+    logger.info(
         "{0} pairs discarded: Loops: {1}, Uncuts: {2}, Weirds: {3}".format(
             discarded, n_loops, n_uncuts, n_weirds
-        ),
-        file=sys.stderr,
+        )
     )
-    print(
-        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2)),
-        file=sys.stderr,
+    logger.info(
+        "{0} pairs kept ({1}%)".format(
+            kept, round(100 * kept / (kept + discarded), 2)
+        )
     )
 
     # Visualize summary if requested by user
@@ -464,10 +471,9 @@ def filter_events(
             else:
                 plt.show()
         except Exception:
-            print(
+            logger.error(
                 "Unable to show plots. Perhaps there is no Xserver running ?"
                 "(might be due to windows environment) skipping figure "
-                "generation.",
-                file=sys.stderr,
+                "generation."
             )
             raise
