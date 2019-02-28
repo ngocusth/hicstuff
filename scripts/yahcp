@@ -139,7 +139,6 @@ done
 
 set -e
 set -o pipefail
-
 set -- "${arguments[@]}"
 # Initiate timer
 SECONDS=0
@@ -286,18 +285,26 @@ attrib_filter02() {
     --enzyme "$enzyme" \
     --outdir "$output_dir" \
     --size "$size" "$fasta" 2>&1 | tee -a $logfile
+  
+  # Sort alignments by read names and paste together pairs where both reads map witha good quality
+  # Filtered reads are then split again into end1 and end2
+  # And add content
+  samtools sort -@ $t -n "$sam_for" |
+    samtools view -@ $t > $tmp_dir/for.sorted.sam
+  samtools sort -@ $t -n "$sam_rev" |
+    samtools view -@ $t > $tmp_dir/rev.sorted.sam
 
-  samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_for" |
-    bedtools bamtobed -i - |
-    awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-      >"$tmp_dir"/unsorted_contacts_for.bed &
+  paste <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
+                             else {{$2 = "-"}}
+                               print $3,start,end,$1,$5,$2}}' $tmp_dir/for.sorted.sam) \
+        <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
+                             else {{$2 = "-"}}
+                               print $3,start,end,$1,$5,$2}}' $tmp_dir/rev.sorted.sam) \
+          | awk -v file1="$tmp_dir/unsorted_contacts_for.bed" \
+                -v file2="$tmp_dir/unsorted_contacts_rev.bed" -v qual=$q -v OFS='\t' \
+                '{if($5 >= qual && $11 >= qual) {print $1,$2,$3,$4,$6 > file1; 
+                                                 print $7,$8,$9,$10,$12 > file2}}' 
 
-  samtools view -bS -F 260 -@ $t -q "$quality_min" "$sam_rev" |
-    bedtools bamtobed -i - |
-    awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-      >"$tmp_dir"/unsorted_contacts_rev.bed &
-
-  wait
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
   par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
@@ -306,12 +313,14 @@ attrib_filter02() {
                                 else {print 0}}')
   [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
-  # Sort all forward and reverse reads by name into a single bed
-  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n \
+  # Sort by genomic position for bedtools intersec
+  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n -k6,6n \
     "$tmp_dir"/unsorted_contacts_for.bed \
-    "$tmp_dir"/unsorted_contacts_rev.bed \
-    >"$tmp_dir"/total_contacts.bed
+    >"$tmp_dir"/total_contacts_for.bed
 
+  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n -k6,6n \
+    "$tmp_dir"/unsorted_contacts_rev.bed \
+    >"$tmp_dir"/total_contacts_rev.bed
   # Make a bed out of fragments_list.txt with 0-based fragment index for GRAAL
   awk 'NR>1 { print $2"\t"$3"\t"$4"\t"(NR-2) }' \
     "$output_dir"/fragments_list.txt >"$tmp_dir"/fragments_list.bed
@@ -322,28 +331,25 @@ attrib_filter02() {
   # into a paired bed file with fields:
   #     F1chr F1start F1end F1idx R1strand F2chr F2start F2end F2idx R2strand
   # Where F1 and F2 are fragments of the reads R1 and R2 in a Hi-C pair
-  bed2pairs='
-    BEGIN{dir="for"; OFS="\t"}
-    {
-      if(dir=="for") {
-        fw["name"]=$4; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; dir="rev" }
-      else {
-        if(fw["name"] == $4) {
-            print fw["coord"],$6,$7,$8,$9,$5; dir="for"}
-        else {
-            dir="rev"; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; fw["name"]=$4}
-        }
-    }
-    '
-  pairs="$tmp_dir/contact_intersect_sorted.bed"
-  # Intersect fragment list with mapping data
-  echo "Intersecting bed files..."
-  bedtools intersect -a "$tmp_dir"/total_contacts.bed \
-    -b "$tmp_dir"/fragments_list.bed -wa -wb |
-    sort -k4d -S 2G ${sort_par} -T "$tmp_dir" |
-    awk "$bed2pairs" \
-      >"$pairs"
 
+  pairs="$tmp_dir/contact_intersect_sorted.bed"
+  # Function to get longest overlaps between each read and fragment
+  attrib_frags() {
+    bedtools intersect -a $1 -b $2 -wo | 
+    bedtools groupby -g 4 -c 10 -o max -full | 
+    sort -k4,4d -S 2G ${sort_par} -T "$tmp_dir" | 
+    awk '{print $6,$7,$8,$9,$5}'
+  }
+
+  # Intersect fragment list with mapping data (end1 and end2 separately)
+  # And paste ends together
+  echo "Intersecting bed files..."
+  paste <(attrib_frags "$tmp_dir"/total_contacts_for.bed \
+            "$tmp_dir"/fragments_list.bed) \
+        <(attrib_frags "$tmp_dir"/total_contacts_rev.bed \
+        "$tmp_dir"/fragments_list.bed ) | 
+        tr ' ' '\t' \
+        >"$pairs"
   # Filter spurious (loops and uncuts) 3C events
   if [ "$filter_events" -eq 1 ]; then
     if ! [ $clean_up -eq 1 ]; then
@@ -382,8 +388,7 @@ gen_matrix03() {
       sort -S 2G ${sort_par} -T "$tmp_dir" -V |
       uniq -c |
       sed 's/^ *//' |
-      tr ' ' '\t' |
-      gawk -v OFS="\t" '{print $0,$1}' |
+      gawk -v FS=" " -v OFS="\t" '{print $0,$1}' |
       cut -f1 --complement |
       tr '\t' ' ' >"${output_dir}/${matrix_out}"
     matext="2bg"
