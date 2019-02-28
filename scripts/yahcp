@@ -278,7 +278,6 @@ attrib_filter02() {
       tee -a "$logfile"
     exit 1
   fi
-
   # Write fragments_list.txt info_contigs.txt (optionally save plot)
   echo "Writing fragment information..."
   hicstuff digest $circular $plot ${plot:+-f $plot_dir} \
@@ -286,14 +285,13 @@ attrib_filter02() {
     --outdir "$output_dir" \
     --size "$size" "$fasta" 2>&1 | tee -a $logfile
   
-  # Sort alignments by read names and paste together pairs where both reads map witha good quality
-  # Filtered reads are then split again into end1 and end2
-  # And add content
+  # Sort alignments by read names and make sure no duplicate alignments are added
   samtools sort -@ $t -n "$sam_for" |
-    samtools view -@ $t > $tmp_dir/for.sorted.sam
+    samtools view -@ $t -F 2539 > $tmp_dir/for.sorted.sam
   samtools sort -@ $t -n "$sam_rev" |
-    samtools view -@ $t > $tmp_dir/rev.sorted.sam
-
+    samtools view -@ $t -F 2539 > $tmp_dir/rev.sorted.sam
+# Convert to BED and paste together pairs where both reads map witha good quality
+# Filtered reads are then split again into end1 and end2
   paste <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
                                print $3,start,end,$1,$5,$2}}' $tmp_dir/for.sorted.sam) \
@@ -301,9 +299,9 @@ attrib_filter02() {
                              else {{$2 = "-"}}
                                print $3,start,end,$1,$5,$2}}' $tmp_dir/rev.sorted.sam) \
           | awk -v file1="$tmp_dir/unsorted_contacts_for.bed" \
-                -v file2="$tmp_dir/unsorted_contacts_rev.bed" -v qual=$q -v OFS='\t' \
-                '{if($5 >= qual && $11 >= qual) {print $1,$2,$3,$4,$6 > file1; 
-                                                 print $7,$8,$9,$10,$12 > file2}}' 
+                -v file2="$tmp_dir/unsorted_contacts_rev.bed" \
+                -v qual=$quality_min -v OFS='\t' \
+                '{if($5 >= qual && $11 >= qual) {print $1,$2,$3,$4,$6 > file1; print $7,$8,$9,$10,$12 > file2}}' 
 
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
