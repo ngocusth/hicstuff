@@ -381,3 +381,40 @@ def load_from_redis(key):
 
     M = np.fromstring(M, dtype=array_dtype).reshape(int(n), int(m))
     return M
+
+
+def load_bedgraph2d(filename):
+    """
+    Loads matrix and fragment information from a 2D bedgraph file.
+    Parameters
+    ----------
+    filename : str
+        Path to the bedgraph2D file.
+    Returns
+    -------
+    mat : scipy.sparse.coo_matrix
+        The Hi-C contact map as the upper triangle of a symetric matrix, in
+        sparse format.
+    frags : pandas.DataFrame
+        The list of fragments/bin present in the matrix with their genomic
+        positions.
+    """
+    bed2d = pd.read_csv(filename, sep=" ", header=None)
+    # Get unique identifiers for fragments (chrom+pos)
+    frag_pos_a = np.array(
+        bed2d[[0, 1]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
+    )
+    frag_pos_b = np.array(
+        bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
+    )
+    # Match position-based identifiers to their index
+    frag_map = {v: i for i, v in enumerate(np.unique(frag_pos_a))}
+    frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
+    frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))
+    contacts = np.array(bed2d.iloc[:, 6].tolist())
+    # Use index to build matrix
+    n_frags = len(frag_map.keys())
+    mat = coo_matrix((contacts, (frag_id_a, frag_id_b)), shape=(n_frags, n_frags))
+    frags = bed2d.groupby([0, 1], sort=False).first().reset_index().iloc[:, [0, 1, 2]]
+    frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
+    return mat, frags
