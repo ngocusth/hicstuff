@@ -15,6 +15,7 @@ import collections
 import copy
 import matplotlib.pyplot as plt
 import pandas as pd
+from hicstuff.log import logger
 
 DEFAULT_FRAGMENTS_LIST_FILE_NAME = "fragments_list.txt"
 DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
@@ -147,7 +148,7 @@ def write_frag_info(
                                 current_id > 1 and start_pos > 0
                             )
                         except AssertionError:
-                            print((current_id, start_pos), file=sys.stderr)
+                            logger.error((current_id, start_pos))
                             raise
                         start_pos = end_pos
                         current_id += 1
@@ -179,7 +180,7 @@ def write_sparse_matrix(
     except AttributeError:
         output_file_path = output_file
 
-    print("Building fragment position dictionary...", file=sys.stderr)
+    logger.info("Building fragment position dictionary...")
     # Build dictionary of absolute positions and fragment ids
     ids_and_positions = dict()
     with open(fragments_list) as fraglist_handle:
@@ -189,9 +190,9 @@ def write_sparse_matrix(
             contig_name, position, end = line.rstrip("\n").split("\t")[1:4]
             ids_and_positions[(contig_name, position, end)] = my_id
             my_id += 1
-    print("Done.", file=sys.stderr)
+    logger.info("Done.")
 
-    print("Counting contacts...", file=sys.stderr)
+    logger.info("Counting contacts...")
 
     # Detect and count contacts between fragments
     contacts = collections.Counter()
@@ -246,7 +247,7 @@ def write_sparse_matrix(
                         id_frag_for = ids_and_positions[abs_position_for]
                         id_frag_rev = ids_and_positions[abs_position_rev]
                     except KeyError:
-                        print(
+                        logger.warning(
                             (
                                 "Couldn't find matching fragment "
                                 "id for position {} or position "
@@ -273,9 +274,9 @@ def write_sparse_matrix(
                     #                                            name_reverse))
                     read_forward = copy.deepcopy(read_reverse)
                     is_forward = False
-    print("Done.", file=sys.stderr)
+    logger.info("Done.")
 
-    print("Writing sparse matrix...", file=sys.stderr)
+    logger.info("Writing sparse matrix...")
     if bedgraph:
         # Get reverse mapping between fragments ids and pos
         positions_and_ids = {
@@ -307,7 +308,7 @@ def write_sparse_matrix(
                 )
                 output_handle.write(line_to_write)
 
-    print("Done.", file=sys.stderr)
+    logger.info("Done.")
 
 
 def dade_to_GRAAL(
@@ -335,21 +336,18 @@ def dade_to_GRAAL(
                     )
                     sparse_file.write(line_to_write)
 
-        print("Matrix file written", file=sys.stderr)
-
     header = first_line.split("\t")
     bin_type = header[0]
     if bin_type == '"RST"':
-        print("I detected fragment-wise binning", file=sys.stderr)
+        logger.info("I detected fragment-wise binning")
     elif bin_type == '"BIN"':
-        print("I detected fixed size binning", file=sys.stderr)
+        logger.info("I detected fixed size binning")
     else:
-        print(
+        logger.warning(
             (
                 "Sorry, I don't understand this matrix's "
                 "binning: I read {}".format(str(bin_type))
-            ),
-            file=sys.stderr,
+            )
         )
 
     header_data = [
@@ -393,8 +391,6 @@ def dade_to_GRAAL(
             info_contigs.write(line_to_write)
             cumul_length += n_frags
 
-        print("Contig list written")
-
     with open(output_frags, "w") as fragments_list:
 
         fragments_list.write(
@@ -412,8 +408,6 @@ def dade_to_GRAAL(
                 bogus_gc,
             )
             fragments_list.write(line_to_write)
-
-        print("Fragment list written")
 
 
 def frag_len(
@@ -477,8 +471,7 @@ def frag_len(
         else:
             plt.show()
     else:
-        print(
+        logger.info(
             "Genome digested into {0} fragments with a median "
-            "length of {1}".format(nfrags, med_len),
-            file=sys.stderr,
+            "length of {1}".format(nfrags, med_len)
         )

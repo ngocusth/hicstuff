@@ -19,6 +19,7 @@ import shutil as st
 from random import getrandbits
 import hicstuff.io as ct
 import contextlib
+from hicstuff.log import logger
 
 
 def generate_temp_dir(path):
@@ -88,7 +89,7 @@ def iterative_align(
         try:
             os.remove(sam_out)
         except IsADirectoryError:
-            print("You need to give the SAM output file, not a folder.")
+            logger.error("You need to give the SAM output file, not a folder.")
             raise
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
@@ -103,8 +104,8 @@ def iterative_align(
     # throw error if index does not exist
     index = os.path.splitext(ref)[0]
     if not minimap2 and not os.path.isfile(index + ".1.bt2"):
-        print(
-            "Error: Reference index is missing, please build the bowtie2 "
+        logger.error(
+            "Reference index is missing, please build the bowtie2 "
             "index first."
         )
         sys.exit(1)
@@ -124,21 +125,21 @@ def iterative_align(
     # initial length of the fragments to align
     # In case reads are shorter than provided min_len
     n = min(size, min_len)
-    print("{0} reads to parse".format(total_reads))
+    logger.info("{0} reads to parse".format(total_reads))
 
     # iterative alignment per se
     while n <= size:
-        print("\n" + "-" * 10 + "\nn = {0}".format(n))
+        logger.info("\n" + "-" * 10 + "\nn = {0}".format(n))
         iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
         # Generate a temporary input fastq file with the n first nucleotids
         # of the reads.
-        print("Generating truncated reads")
+        logger.info("Generating truncated reads")
         truncated_reads = truncate_reads(
             tmp_dir, uncomp_path, remaining_reads, n, min_len
         )
 
         # Align the truncated reads on reference genome
-        print("Aligning reads")
+        logger.info("Aligning reads")
         temp_alignment = "{0}/temp_alignment.sam".format(tmp_dir)
         map_args = {
             "fa": ref,
@@ -161,18 +162,18 @@ def iterative_align(
         # filter the reads: the reads whose truncated end was aligned are written
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
-        print("Reporting aligned reads")
+        logger.info("Reporting aligned reads")
         remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
 
         n += 20
 
     # one last round without trimming
-    print("\n" + "-" * 10 + "\nn = {0}".format(size))
-    print("Generating truncated reads")
+    logger.info("\n" + "-" * 10 + "\nn = {0}".format(size))
+    logger.info("Generating truncated reads")
     truncated_reads = truncate_reads(
         tmp_dir, uncomp_path, remaining_reads, size, min_len
     )
-    print("Aligning reads")
+    logger.info("Aligning reads")
     if minimap2:
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
             ref, n_cpu, temp_alignment, truncated_reads
@@ -183,7 +184,7 @@ def iterative_align(
             "--very-sensitive -S {2} {3}"
         ).format(index, n_cpu, temp_alignment, truncated_reads)
     sp.call(cmd, shell=True)
-    print("Reporting aligned reads")
+    logger.info("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
     remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
 
@@ -200,7 +201,7 @@ def iterative_align(
 
     # Merge all aligned reads and unmapped reads into a single sam
     ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out)
-    print(
+    logger.info(
         "{0} reads aligned / {1} total reads.".format(
             total_reads - len(remaining_reads), total_reads
         )
@@ -269,7 +270,7 @@ def filter_samfile(temp_alignment, filtered_out):
         else:
             unaligned.add(r.query_name)
 
-    print("{0} reads left to map.".format(len(unaligned)))
+    logger.info("{0} reads left to map.".format(len(unaligned)))
     temp_sam.close()
     outf.close()
 

@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
+from hicstuff.log import logger
 
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
@@ -130,7 +131,11 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
+        path,
+        delimiter="\t",
+        usecols=(colnum,),
+        skip_header=header,
+        dtype=dtype,
     )
     return pos_arr
 
@@ -180,7 +185,9 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError("Only a single fastq file must be in the zip archive.")
+            raise IOError(
+                "Only a single fastq file must be in the zip archive."
+            )
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -295,10 +302,12 @@ def to_dade_matrix(M, annotations="", filename=None):
     if filename:
         try:
             np.savetxt(filename, A, fmt="%i")
-            print("I saved input matrix in dade format as " + str(filename))
+            logger.info(
+                "I saved input matrix in dade format as " + str(filename)
+            )
         except ValueError as e:
-            print("I couldn't save input matrix.")
-            print(str(e))
+            logger.warning("I couldn't save input matrix.")
+            logger.warning(str(e))
 
     return A
 
@@ -374,7 +383,10 @@ def load_from_redis(key):
     try:
         M = database.get(key)
     except KeyError:
-        print("Error! No dataset was found with the supplied key.", file=sys.stderr)
+        print(
+            "Error! No dataset was found with the supplied key.",
+            file=sys.stderr,
+        )
         exit(1)
 
     array_dtype, n, m = key.split("|")[1].split("#")
