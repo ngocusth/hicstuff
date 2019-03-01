@@ -63,7 +63,8 @@ def setup_text_logging(credentials=TEXT_CREDENTIALS_DEFAULT_PATH):
     class TextHandler(logging.Handler):
         def emit(self, record):
             log_entry = self.format(record)
-            return requests.get(api_service, {**cred_dict, "msg": log_entry})
+            cred_dict["msg"] = log_entry
+            return requests.get(api_service, cred_dict)
 
     sms_handler = TextHandler()
     sms_handler.setLevel(logging.ERROR)
