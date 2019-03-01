@@ -879,7 +879,40 @@ class Convert(AbstractCommand):
         -T, --to=FORMAT     The format to which files should be converted. [default: cooler]
     """
 
-    ...
+    def execute(self):
+        accepted_fmt = ["cooler", "GRAAL", "DADE"]
+        in_fmt = self.args["--from"]
+        out_fmt = self.args["--to"]
+        mat_path = self.args["--mat"]
+        out_path = self.args["--out"]
+        prefix = self.args["--prefix"]
+        frags_path = 0
+        # Read input files
+        if in_fmt == "GRAAL":
+            M = hio.load_sparse_matrix(mat_path)
+            frags = pd.read_csv(frags_path, delim="\t")
+        elif in_fmt == "cooler":
+            M, frags = hio.load_bedgraph2d(mat_path)
+        else:
+            print("Error: unknown input format")
+            sys.exit(1)
+        # Write output files
+        if out_fmt == "cooler":
+            pass
+            print("not implemented yet, sorry")
+        elif out_fmt == "GRAAL":
+            mat_name = (
+                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
+            )
+            frag_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            out_mat = join(out_path, mat_name)
+            out_frag = join(out_path, frag_name)
+            hio.save_sparse_matrix(M, out_mat)
+            frag.to_csv(out_frag, sep="\t", index=False)
+
+        else:
+            print("Error: unknown output format")
+            sys.exit(1)
 
 
 def parse_bin_str(bin_str):

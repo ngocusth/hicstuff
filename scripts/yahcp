@@ -284,7 +284,7 @@ attrib_filter02() {
     --enzyme "$enzyme" \
     --outdir "$output_dir" \
     --size "$size" "$fasta" 2>&1 | tee -a $logfile
-  
+
   # Sort alignments by read names and make sure no duplicate alignments are added
   samtools sort -@ $t -n "$sam_for" |
     samtools view -@ $t -F 2539 > $tmp_dir/for.sorted.sam
@@ -301,7 +301,7 @@ attrib_filter02() {
           | awk -v file1="$tmp_dir/unsorted_contacts_for.bed" \
                 -v file2="$tmp_dir/unsorted_contacts_rev.bed" \
                 -v qual=$quality_min -v OFS='\t' \
-                '{if($5 > qual && $11 > qual) {print $1,$2,$3,$4,$6 > file1; print $7,$8,$9,$10,$12 > file2}}' 
+                '{if($5 > qual && $11 > qual) {print $1,$2,$3,$4,$6 > file1; print $7,$8,$9,$10,$12 > file2}}'
 
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
@@ -333,9 +333,9 @@ attrib_filter02() {
   pairs="$tmp_dir/contact_intersect_sorted.bed"
   # Function to get longest overlaps between each read and fragment
   attrib_frags() {
-    bedtools intersect -a $1 -b $2 -wo | 
-    bedtools groupby -g 4 -c 10 -o max -full | 
-    sort -k4,4d -S 2G ${sort_par} -T "$tmp_dir" | 
+    bedtools intersect -a $1 -b $2 -wo |
+    bedtools groupby -g 4 -c 10 -o max -full |
+    sort -k4,4d -S 2G ${sort_par} -T "$tmp_dir" |
     awk '{print $6,$7,$8,$9,$5}'
   }
 
@@ -345,7 +345,7 @@ attrib_filter02() {
   paste <(attrib_frags "$tmp_dir"/total_contacts_for.bed \
             "$tmp_dir"/fragments_list.bed) \
         <(attrib_frags "$tmp_dir"/total_contacts_rev.bed \
-        "$tmp_dir"/fragments_list.bed ) | 
+        "$tmp_dir"/fragments_list.bed ) |
         tr ' ' '\t' \
         >"$pairs"
   # Filter spurious (loops and uncuts) 3C events
@@ -386,6 +386,7 @@ gen_matrix03() {
       sort -S 2G ${sort_par} -T "$tmp_dir" -V |
       uniq -c |
       sed 's/^ *//' |
+      tr ' ' '\t' |
       gawk -v FS=" " -v OFS="\t" '{print $0,$1}' |
       cut -f1 --complement |
       tr '\t' ' ' >"${output_dir}/${matrix_out}"

@@ -131,11 +131,7 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path,
-        delimiter="\t",
-        usecols=(colnum,),
-        skip_header=header,
-        dtype=dtype,
+        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
     )
     return pos_arr
 
@@ -185,9 +181,7 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError(
-                "Only a single fastq file must be in the zip archive."
-            )
+            raise IOError("Only a single fastq file must be in the zip archive.")
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -302,9 +296,7 @@ def to_dade_matrix(M, annotations="", filename=None):
     if filename:
         try:
             np.savetxt(filename, A, fmt="%i")
-            logger.info(
-                "I saved input matrix in dade format as " + str(filename)
-            )
+            logger.info("I saved input matrix in dade format as " + str(filename))
         except ValueError as e:
             logger.warning("I couldn't save input matrix.")
             logger.warning(str(e))
@@ -383,10 +375,7 @@ def load_from_redis(key):
     try:
         M = database.get(key)
     except KeyError:
-        print(
-            "Error! No dataset was found with the supplied key.",
-            file=sys.stderr,
-        )
+        print("Error! No dataset was found with the supplied key.", file=sys.stderr)
         exit(1)
 
     array_dtype, n, m = key.split("|")[1].split("#")
@@ -420,7 +409,8 @@ def load_bedgraph2d(filename):
         bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
     # Match position-based identifiers to their index
-    frag_map = {v: i for i, v in enumerate(np.unique(frag_pos_a))}
+    ordered_frag_pos = np.unique(np.concatenate([frag_pos_a, frag_pos_b]))
+    frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
     frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
     frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))
     contacts = np.array(bed2d.iloc[:, 6].tolist())
@@ -429,4 +419,6 @@ def load_bedgraph2d(filename):
     mat = coo_matrix((contacts, (frag_id_a, frag_id_b)), shape=(n_frags, n_frags))
     frags = bed2d.groupby([0, 1], sort=False).first().reset_index().iloc[:, [0, 1, 2]]
     frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
+    frags.insert(loc=0, column="id", value=0)
+    frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
     return mat, frags

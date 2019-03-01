@@ -161,7 +161,7 @@ def bin_dense(M, subsampling_factor=3):
 
 def bin_sparse(M, subsampling_factor=3):
     """Perform the bin_dense procedure for sparse matrices. Remaining rows
-    and cols are lumped with the rest at the end.
+    and cols are put into a smaller bin at the end.
     """
 
     N = M.tocoo()
@@ -176,11 +176,6 @@ def bin_sparse(M, subsampling_factor=3):
     binned_col = col // subsampling_factor
     binned_n = (n // subsampling_factor) + remain_n
     binned_m = (m // subsampling_factor) + remain_m
-
-    # Attach remaining columns and rows to the last one
-
-    # binned_row[binned_row >= binned_n] -= n % subsampling_factor
-    # binned_col[binned_col >= binned_m] -= m % subsampling_factor
 
     # Sum data over duplicate entries
     binned = pd.DataFrame({"row": binned_row, "col": binned_col, "dat": data})
@@ -1182,7 +1177,7 @@ def distance_law_multi(
     # TODO: Generalize function to plot the P(s) of several maps on the same plot
     Parameters
     ----------
-    matrix : numpy.array or scipy.sparse.coo_matrix
+    matrix : numpy.array or scipy.sparse.csr_matrix
         Hi-C contact map on which the distance law is calculated.
     frag_pos : numpy.array
         The list of fragments or bins start positions, in base pairs.
