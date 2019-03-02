@@ -181,7 +181,9 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
+            output_dir=self.args["--outdir"],
+            plot=self.args["--plot"],
+            fig_path=figpath,
         )
 
 
@@ -351,7 +353,9 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
+            reg_pos = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2)
+            )
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -361,7 +365,9 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                    reg_pos = pd.DataFrame(
+                        {0: binned_chrom, 1: binned_frags[:, 0]}
+                    )
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -385,7 +391,8 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for " "trimming"
+                    "You must specify a number of standard deviations for "
+                    "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
@@ -455,7 +462,11 @@ class View(AbstractCommand):
             if self.args["<contact_map2>"]:
                 vmin, vmax = -2, 2
             hcv.plot_matrix(
-                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
+                dense_map,
+                filename=output_file,
+                vmin=vmin,
+                vmax=vmax,
+                cmap=cmap,
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
@@ -781,12 +792,16 @@ class Rebin(AbstractCommand):
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
-                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                bin_id = (
+                    frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                )
                 frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
                 frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[
+                    0
+                ]
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
@@ -816,7 +831,9 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
+            chromlist.loc[
+                chromlist.contig == chrom, "cumul_length"
+            ] = cumul_bins
             cumul_bins += n_bins
 
         # Write 3 binned output files
@@ -862,8 +879,7 @@ class Convert(AbstractCommand):
     Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
     bedgraph2D (cooler) and DADE.
     usage:
-        convert [--frags=FILE] [--chrom=FILE] [--out=DIR] [--prefix=NAME]
-                 --from=FORMAT --to=FORMAT <contact_map>
+        convert [--frags=FILE] [--chrom=FILE] [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
 
     arguments:
         <contact_map> : The file containing the contact frequencies.
@@ -891,6 +907,10 @@ class Convert(AbstractCommand):
         if in_fmt == "GRAAL":
             M = hio.load_sparse_matrix(mat_path)
             frags = pd.read_csv(frags_path, delim="\t")
+        elif in_fmt == "DADE":
+            if out_fmt != "GRAAL":
+                print("conversion not implemented yet.")
+                sys.exit(1)
         elif in_fmt == "cooler":
             M, frags = hio.load_bedgraph2d(mat_path)
         else:
@@ -902,11 +922,24 @@ class Convert(AbstractCommand):
             print("not implemented yet, sorry")
         elif out_fmt == "GRAAL":
             mat_name = (
-                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
+                prefix + ".mat.tsv"
+                if prefix
+                else "abs_fragments_contacts_weighted.txt"
             )
-            frag_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            frag_name = (
+                prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            )
+            chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
             out_mat = join(out_path, mat_name)
             out_frag = join(out_path, frag_name)
+            out_chr = join(out_path, chr_name)
+            if in_fmt == "DADE":
+                hio.dade_to_GRAAL(
+                    mat_path,
+                    output_matrix=out_mat,
+                    output_contigs=out_chr,
+                    output_frags=out_frag,
+                )
             hio.save_sparse_matrix(M, out_mat)
             frag.to_csv(out_frag, sep="\t", index=False)
 

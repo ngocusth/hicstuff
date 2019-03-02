@@ -164,7 +164,7 @@ def write_frag_info(
                 info_contigs.write(current_contig_line)
 
 
-def write_sparse_matrix(
+def intersect_to_sparse_matrix(
     intersect_sorted,
     fragments_list=DEFAULT_SPARSE_MATRIX_FILE_NAME,
     output_file=DEFAULT_SPARSE_MATRIX_FILE_NAME,
@@ -309,105 +309,6 @@ def write_sparse_matrix(
                 output_handle.write(line_to_write)
 
     logger.info("Done.")
-
-
-def dade_to_GRAAL(
-    filename,
-    output_matrix=DEFAULT_SPARSE_MATRIX_FILE_NAME,
-    output_contigs=DEFAULT_INFO_CONTIGS_FILE_NAME,
-    output_frags=DEFAULT_SPARSE_MATRIX_FILE_NAME,
-    output_dir=None,
-):
-    """Convert a matrix from DADE format (https://github.com/scovit/dade)
-    to a GRAAL-compatible format. Since DADE matrices contain both fragment
-    and contact information all files are generated at the same time.
-    """
-    import numpy as np
-
-    with open(output_matrix, "w") as sparse_file:
-        sparse_file.write("id_frag_a\tid_frag_b\tn_contact")
-        with open(filename) as file_handle:
-            first_line = file_handle.readline()
-            for row_index, line in enumerate(file_handle):
-                dense_row = np.array(line.split("\t")[1:], dtype=np.int32)
-                for col_index in np.nonzero(dense_row)[0]:
-                    line_to_write = "{}\t{}\t{}\n".format(
-                        row_index, col_index, dense_row[col_index]
-                    )
-                    sparse_file.write(line_to_write)
-
-    header = first_line.split("\t")
-    bin_type = header[0]
-    if bin_type == '"RST"':
-        logger.info("I detected fragment-wise binning")
-    elif bin_type == '"BIN"':
-        logger.info("I detected fixed size binning")
-    else:
-        logger.warning(
-            (
-                "Sorry, I don't understand this matrix's "
-                "binning: I read {}".format(str(bin_type))
-            )
-        )
-
-    header_data = [
-        header_elt.replace("'", "")
-        .replace('"', "")
-        .replace("\n", "")
-        .split("~")
-        for header_elt in header[1:]
-    ]
-
-    (
-        global_frag_ids,
-        contig_names,
-        local_frag_ids,
-        frag_starts,
-        frag_ends,
-    ) = np.array(list(zip(*header_data)))
-
-    frag_starts = frag_starts.astype(np.int32) - 1
-    frag_ends = frag_ends.astype(np.int32) - 1
-    frag_lengths = frag_ends - frag_starts
-
-    total_length = len(global_frag_ids)
-
-    with open(output_contigs, "w") as info_contigs:
-
-        info_contigs.write("contig\tlength\tn_frags\tcumul_length\n")
-
-        cumul_length = 0
-
-        for contig in collections.OrderedDict.fromkeys(contig_names):
-
-            length_tig = np.sum(frag_lengths[contig_names == contig])
-            n_frags = collections.Counter(contig_names)[contig]
-            line_to_write = "%s\t%s\t%s\t%s\n" % (
-                contig,
-                length_tig,
-                n_frags,
-                cumul_length,
-            )
-            info_contigs.write(line_to_write)
-            cumul_length += n_frags
-
-    with open(output_frags, "w") as fragments_list:
-
-        fragments_list.write(
-            "id\tchrom\tstart_pos\tend_pos" "\tsize\tgc_content\n"
-        )
-        bogus_gc = 0.5
-
-        for i in range(total_length):
-            line_to_write = "%s\t%s\t%s\t%s\t%s\t%s\n" % (
-                int(local_frag_ids[i]) + 1,
-                contig_names[i],
-                frag_starts[i],
-                frag_ends[i],
-                frag_lengths[i],
-                bogus_gc,
-            )
-            fragments_list.write(line_to_write)
 
 
 def frag_len(
