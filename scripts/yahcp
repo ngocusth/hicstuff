@@ -287,17 +287,21 @@ attrib_filter02() {
 
   # Sort alignments by read names and make sure no duplicate alignments are added
   samtools sort -@ $t -n "$sam_for" |
-    samtools view -@ $t -F 2539 > $tmp_dir/for.sorted.sam
+    samtools view -@ $t -F 2539 > "$tmp_dir/for.sorted.sam" && \
+    mv "$tmp_dir/for.sorted.sam" "$sam_for" &
   samtools sort -@ $t -n "$sam_rev" |
-    samtools view -@ $t -F 2539 > $tmp_dir/rev.sorted.sam
+    samtools view -@ $t -F 2539 > "$tmp_dir/rev.sorted.sam" && \
+    mv "$tmp_dir/rev.sorted.sam" "$sam_rev" &
+
+  wait
 # Convert to BED and paste together pairs where both reads map witha good quality
 # Filtered reads are then split again into end1 and end2
   paste <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
-                               print $3,start,end,$1,$5,$2}}' $tmp_dir/for.sorted.sam) \
+                               print $3,start,end,$1,$5,$2}}' "$sam_for") \
         <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
-                               print $3,start,end,$1,$5,$2}}' $tmp_dir/rev.sorted.sam) \
+                               print $3,start,end,$1,$5,$2}}' "$sam_rev") \
           | awk -v file1="$tmp_dir/unsorted_contacts_for.bed" \
                 -v file2="$tmp_dir/unsorted_contacts_rev.bed" \
                 -v qual=$quality_min -v OFS='\t' \
@@ -408,7 +412,6 @@ cleanup_files04() {
     rm "$tmp_dir"/fragments_list.bed
     rm "$tmp_dir"/unsorted_contacts_for.bed
     rm "$tmp_dir"/unsorted_contacts_rev.bed
-    rm "$tmp_dir"/total_contacts.bed
     rm "$tmp_dir"/contact_intersect_sorted.bed
   fi
 }
