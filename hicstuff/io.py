@@ -9,6 +9,7 @@ import functools
 import sys
 import numpy as np
 import pandas as pd
+import collections
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger

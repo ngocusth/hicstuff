@@ -906,7 +906,7 @@ class Convert(AbstractCommand):
         # Read input files
         if in_fmt == "GRAAL":
             M = hio.load_sparse_matrix(mat_path)
-            frags = pd.read_csv(frags_path, delim="\t")
+            frags = pd.read_csv(frags_path, delimiter="\t")
         elif in_fmt == "DADE":
             if out_fmt != "GRAAL":
                 print("conversion not implemented yet.")
@@ -941,7 +941,7 @@ class Convert(AbstractCommand):
                     output_frags=out_frag,
                 )
             hio.save_sparse_matrix(M, out_mat)
-            frag.to_csv(out_frag, sep="\t", index=False)
+            frags.to_csv(out_frag, sep="\t", index=False)
 
         else:
             print("Error: unknown output format")
