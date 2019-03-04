@@ -294,8 +294,9 @@ attrib_filter02() {
     mv "$tmp_dir/rev.sorted.sam" "$sam_rev" &
 
   wait
-# Convert to BED and paste together pairs where both reads map witha good quality
+# Convert to BED and paste together pairs where both reads map with a good quality
 # Filtered reads are then split again into end1 and end2
+# Note: BAM positions are 1-based, BED are 0-based
   paste <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
                                print $3,start,end,$1,$5,$2}}' "$sam_for") \
@@ -315,31 +316,25 @@ attrib_filter02() {
                                 else {print 0}}')
   [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
-  # Sort by genomic position for bedtools intersec
-  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n -k6,6n \
+  # Sort by genomic position for bedtools intersect
+  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1 -k2,2n -k6,6n \
     "$tmp_dir"/unsorted_contacts_for.bed \
     >"$tmp_dir"/total_contacts_for.bed
 
-  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1d -k2,2n -k6,6n \
+  sort -S 2G ${sort_par} -T "$tmp_dir" -k1,1 -k2,2n -k6,6n \
     "$tmp_dir"/unsorted_contacts_rev.bed \
     >"$tmp_dir"/total_contacts_rev.bed
   # Make a bed out of fragments_list.txt with 0-based fragment index for GRAAL
   awk 'NR>1 { print $2"\t"$3"\t"$4"\t"(NR-2) }' \
     "$output_dir"/fragments_list.txt >"$tmp_dir"/fragments_list.bed
 
-  # Awk code that transforms input bed file *sorted on Rname* with fields:
-  #     Rchr Rstart Rend Rname Rstrand Fchr Fstart Fend Fidx
-  # where R=read and F=fragment
-  # into a paired bed file with fields:
-  #     F1chr F1start F1end F1idx R1strand F2chr F2start F2end F2idx R2strand
-  # Where F1 and F2 are fragments of the reads R1 and R2 in a Hi-C pair
 
   pairs="$tmp_dir/contact_intersect_sorted.bed"
   # Function to get longest overlaps between each read and fragment
   attrib_frags() {
-    bedtools intersect -a $1 -b $2 -wo |
-    bedtools groupby -g 4 -c 10 -o max -full |
+    bedtools intersect -sorted -a $1 -b $2 -wo |
     sort -k4,4d -S 2G ${sort_par} -T "$tmp_dir" |
+    bedtools groupby -g 4 -c 10 -o max -full |
     awk '{print $6,$7,$8,$9,$5}'
   }
 
