@@ -1921,6 +1921,7 @@ def compartments_sparse(M, normalize=True):
     dist_bins, dist_vals = distance_law(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
     # Compute covariance matrix on full matrix
+    N = N.tocsr()
     N = N + N.T
     N.setdiag(N.diagonal() / 2)
     N.eliminate_zeros()
