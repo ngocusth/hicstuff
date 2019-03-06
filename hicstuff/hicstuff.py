@@ -603,11 +603,12 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     scipy.sparse.csr_matrix of floats :
         Normalized sparse matrix.
     """
-    # Making full symmetric matrix from upper or lower triangle
+    # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
     r = csr_matrix(M)
-    r += r.T
-    r.setdiag(r.diagonal() / 2)
-    r.eliminate_zeros()
+    if (abs(r-r.T)>1e-10).nnz != 0:
+        r += r.T
+        r.setdiag(r.diagonal() / 2)
+        r.eliminate_zeros()
     r = r.tocoo()
     if norm == "SCN":
         for _ in range(1, iterations):
@@ -1920,11 +1921,13 @@ def compartments_sparse(M, normalize=True):
     # Detrend by the distance law
     dist_bins, dist_vals = distance_law(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
-    # Compute covariance matrix on full matrix
     N = N.tocsr()
-    N = N + N.T
-    N.setdiag(N.diagonal() / 2)
-    N.eliminate_zeros()
+    # Make matrix symmetric (in case of upper triangle)
+    if (abs(N-N.T)>1e-10).nnz != 0:
+        N = N + N.T
+        N.setdiag(N.diagonal() / 2)
+        N.eliminate_zeros()
+    # Compute covariance matrix on full matrix
     N = N.tocsr()
     N = corrcoef_sparse(N)
     N[np.isnan(N)] = 0.0
