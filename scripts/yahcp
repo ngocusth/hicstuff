@@ -143,6 +143,15 @@ set -- "${arguments[@]}"
 # Initiate timer
 SECONDS=0
 
+# Function to check if the version number of a GNU command is higher than minimum value 
+# usage: version_check <command> <major version> <minor version>
+version_check() {
+  $1 --version | awk -v major=$2 -v minor=$3 'NR==1 {split($NF, vnum, ".");
+        if(vnum[1] > major || (vnum[1] == major && vnum[2] > minor))
+            {print 1}
+        else {print 0}}'
+}
+
 setup_yahcp00() {
 
   # If no output dir specified, defaults to output dir
@@ -310,10 +319,7 @@ attrib_filter02() {
 
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
-  par=$(sort --version | awk 'NR==1 {split($NF, vnum, ".");
-                                if(vnum[1] > 8 || (vnum[1] == 8 && vnum[2] > 20))
-                                    {print 1}
-                                else {print 0}}')
+  par=$(version_check sort 8 20)
   [ "$par" -eq 1 ] && sort_par="--parallel=$threads"
 
   # Sort by genomic position for bedtools intersect
@@ -332,7 +338,6 @@ attrib_filter02() {
 
 
   pairs="$tmp_dir/contact_intersect_sorted.bed"
-
   echo "Intersecting bed files..."
   # Function to get longest overlaps between each read and fragment
   # 1. split bed into 1 chunk/thread
@@ -340,8 +345,19 @@ attrib_filter02() {
   # 3. only keep longest overlap for each read
   # 4. merge back overlaps from all chunks and sort by read ID
   attrib_frags() {
+    
+    # Check if version of GNU split supports --number. Otherwise
+    # Splits by lines (will not be as fast)
+    split_ver=$(version_check split 8 7)
+    if [ "$split_ver" -eq 1 ]; then
+      split_method="--number=l/$threads"
+    else
+      tot_lines=$(wc -l $1 | awk '{print $1}')
+      split_method="--lines=$((tot_lines / threads))"
+    fi
+
     declare -i i=1
-    split -n l/$threads -a 4 --additional-suffix="$3_${now}.bedsplit" "$1" "$tmp_dir/x"
+    split $split_method -a 4 --additional-suffix="$3_${now}.bedsplit" "$1" "$tmp_dir/x"
     for file in $tmp_dir/*$3_${now}.bedsplit; do
       (
         bedtools intersect -sorted -a $file -b $2 -wo |
