@@ -294,7 +294,8 @@ attrib_filter02() {
     --outdir "$output_dir" \
     --size "$size" "$fasta" 2>&1 | tee -a $logfile
   # Create a genome file in order to run bedtools intersect if not eenough reads map on the some chromosomes
-  awk -v OFS="\t" 'NR != 1 {print $1,$2}' "$output_dir/info_contigs.txt" > "$tmp_dir/genome_file.txt"
+  awk -v OFS="\t" 'NR != 1 {print $1,$2}' "$output_dir/info_contigs.txt" |
+    sort -k 1,1 -k2,2n > "$tmp_dir/genome_file.txt"
 
   # Sort alignments by read names and make sure no duplicate alignments are added
   samtools sort -@ $t -n "$sam_for" |
