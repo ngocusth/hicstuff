@@ -72,7 +72,9 @@ def sparse_to_dense(M, remove_diag=True):
     return np.array(E)
 
 
-def plot_matrix(array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"):
+def plot_matrix(
+    array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"
+):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
     as little whitespace as possible.
@@ -91,7 +93,9 @@ def plot_matrix(array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="
     if SEABORN:
         sns.heatmap(array, vmin=vmin, vmax=vmax, cmap=cmap)
     else:
-        plt.imshow(array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none")
+        plt.imshow(
+            array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none"
+        )
         plt.colorbar()
     plt.axis("off")
     if filename:

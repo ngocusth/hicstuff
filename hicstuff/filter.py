@@ -325,6 +325,26 @@ def filter_events(
     # open the files for reading and writing
     for line in in_dat:  # iterate over each line
         p = process_read_pair(line)
+        line_to_write = (
+            "\t".join(
+                map(
+                    str,
+                    (
+                        p["chr1"],
+                        p["start1"],
+                        p["end1"],
+                        p["indice1"],
+                        p["strand1"],
+                        p["chr2"],
+                        p["start2"],
+                        p["end2"],
+                        p["indice2"],
+                        p["strand2"],
+                    ),
+                )
+            )
+            + "\n"
+        )
         if p["chr1"] == p["chr2"]:
             if p["indice1"] == p["indice2"] and p["strand1"] == p["strand2"]:
                 n_weirds += 1
@@ -334,52 +354,11 @@ def filter_events(
                 n_uncuts += 1
             else:
                 lrange_intra += 1
-                out_filtered.write(
-                    str(p["chr1"])
-                    + "\t"
-                    + str(p["start1"])
-                    + "\t"
-                    + str(p["end1"])
-                    + "\t"
-                    + str(p["indice1"])
-                    + "\t"
-                    + str(p["strand1"])
-                    + "\t"
-                    + str(p["chr2"])
-                    + "\t"
-                    + str(p["start2"])
-                    + "\t"
-                    + str(p["end2"])
-                    + "\t"
-                    + str(p["indice2"])
-                    + "\t"
-                    + str(p["strand2"])
-                    + "\n"
-                )
+                out_filtered.write(line_to_write)
+
         if p["chr1"] != p["chr2"]:
             lrange_inter += 1
-            out_filtered.write(
-                str(p["chr1"])
-                + "\t"
-                + str(p["start1"])
-                + "\t"
-                + str(p["end1"])
-                + "\t"
-                + str(p["indice1"])
-                + "\t"
-                + str(p["strand1"])
-                + "\t"
-                + str(p["chr2"])
-                + "\t"
-                + str(p["start2"])
-                + "\t"
-                + str(p["end2"])
-                + "\t"
-                + str(p["indice2"])
-                + "\t"
-                + str(p["strand2"])
-                + "\n"
-            )
+            out_filtered.write(line_to_write)
 
     if lrange_inter > 0:
         ratio_inter = round(
