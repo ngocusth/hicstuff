@@ -293,6 +293,8 @@ attrib_filter02() {
     --enzyme "$enzyme" \
     --outdir "$output_dir" \
     --size "$size" "$fasta" 2>&1 | tee -a $logfile
+  # Create a genome file in order to run bedtools intersect if not eenough reads map on the some chromosomes
+  awk -v OFS="\t" 'NR != 1 {print $1,$2}' "$output_dir/info_contigs.txt" > "$tmp_dir/genome_file.txt"
 
   # Sort alignments by read names and make sure no duplicate alignments are added
   samtools sort -@ $t -n "$sam_for" |
@@ -360,7 +362,7 @@ attrib_filter02() {
     split $split_method -a 4 --additional-suffix="$3_${now}.bedsplit" "$1" "$tmp_dir/x"
     for file in $tmp_dir/*$3_${now}.bedsplit; do
       (
-        bedtools intersect -sorted -a $file -b $2 -wo |
+        bedtools intersect -sorted -g "$tmp_dir/genome_file.txt" -a $file -b $2 -wo |
         sort -k4,4d -T "$tmp_dir" |
         bedtools groupby -g 4 -c 10 -o max -full > $tmp_dir/${now}_${i}_$3_grouped.bed
       ) &
@@ -448,6 +450,7 @@ cleanup_files04() {
     rm "$tmp_dir"/unsorted_contacts_*.bed
     rm "$tmp_dir"/contact_intersect_sorted.bed
     rm "$tmp_dir"/total_contacts_*.bed
+    rm "$tmp_dir"/genome_file.txt
   fi
 }
 
