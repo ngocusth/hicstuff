@@ -341,6 +341,7 @@ class View(AbstractCommand):
         if self.args["--log"]:
             binned_map = binned_map.log1p()
 
+        self.vmax = np.percentile(binned_map.data, self.vmax)
         # ZOOM REGION
         if self.args["--region"]:
             if not self.args["--frags"]:
@@ -396,6 +397,7 @@ class View(AbstractCommand):
 
         input_map = self.args["<contact_map>"]
         cmap = self.args["--cmap"]
+        self.vmax = float(self.args["--max"])
         self.bp_unit = False
         bin_str = self.args["--binning"].upper()
         try:
@@ -421,7 +423,6 @@ class View(AbstractCommand):
                 )
                 raise
 
-        vmax = float(self.args["--max"])
         output_file = self.args["--output"]
         sparse_map = hio.load_sparse_matrix(input_map)
         processed_map = self.process_matrix(sparse_map)
@@ -448,14 +449,17 @@ class View(AbstractCommand):
 
         if self.args["--despeckle"]:
             processed_map = hcs.despeckle_simple(processed_map)
-        vmax = np.percentile(processed_map.data, vmax)
         try:
             dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
-            vmin = 0
+            self.vmin = 0
             if self.args["<contact_map2>"]:
-                vmin, vmax = -2, 2
+                self.vmin, self.vmax = -2, 2
             hcv.plot_matrix(
-                dense_map, filename=output_file, vmin=vmin, vmax=vmax, cmap=cmap
+                dense_map,
+                filename=output_file,
+                vmin=self.vmin,
+                vmax=self.vmax,
+                cmap=cmap,
             )
         except MemoryError:
             print("contact map is too large to load, try binning more")
@@ -951,12 +955,15 @@ def parse_bin_str(bin_str):
     binning : int
         The number of basepair corresponding to the binning string.
     """
-    bin_str = bin_str.upper()
-    binsuffix = {"B": 1, "K": 1000, "M": 1e6, "G": 1e9}
-    unit_pos = re.search(r"[KMG]?B[P]?$", bin_str).start()
-    bp_unit = bin_str[unit_pos:]
-    # Extract unit and multiply accordingly for fixed bp binning
-    binning = int(float(bin_str[:unit_pos]) * binsuffix[bp_unit[0]])
+    try:
+        binning = int(bin_str)
+    except ValueError:
+        bin_str = bin_str.upper()
+        binsuffix = {"B": 1, "K": 1000, "M": 1e6, "G": 1e9}
+        unit_pos = re.search(r"[KMG]?B[P]?$", bin_str).start()
+        bp_unit = bin_str[unit_pos:]
+        # Extract unit and multiply accordingly for fixed bp binning
+        binning = int(float(bin_str[:unit_pos]) * binsuffix[bp_unit[0]])
 
     return binning
 
@@ -979,18 +986,27 @@ def parse_ucsc(ucsc_str, bins):
     coord : tuple
         A tuple containing the bin range containing in the requested region.
     """
-    chrom, bp = ucsc_str.split(":")
-    bp = bp.replace(",", "").upper()
-    start, end = bp.split("-")
-    try:
-        start, end = int(start), int(end)
-    except ValueError:
+    if ":" in ucsc_str:
+        chrom, bp = ucsc_str.split(":")
+        bp = bp.replace(",", "").upper()
+        start, end = bp.split("-")
         start, end = parse_bin_str(start), parse_bin_str(end)
-    # Make absolute bin index (independent of chrom)
-    bins["id"] = bins.index
-    chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
-    start = max([start, 1])
-    start = max(chrombins.id[chrombins.iloc[:, 1] // start == 0])
-    end = max(chrombins.id[chrombins.iloc[:, 1] // end == 0])
-    coord = (start, end)
+        # Make absolute bin index (independent of chrom)
+        bins["id"] = bins.index
+        chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
+        start = max([start, 1])
+        start = max(chrombins.id[chrombins.iloc[:, 1] // start == 0])
+        end = max(chrombins.id[chrombins.iloc[:, 1] // end == 0])
+    else:
+        chrom = ucsc_str
+        # Make absolute bin index (independent of chrom)
+        bins["id"] = bins.index
+        chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
+        try:
+            start = min(chrombins.id)
+            end = max(chrombins.id)
+        except ValueError:
+            print("Invalid chromosome")
+            raise
+    coord = (int(start), int(end))
     return coord
