@@ -13,6 +13,7 @@ increase of properly mapped reads.
 
 import os
 import sys
+import glob
 import subprocess as sp
 import pysam as ps
 import shutil as st
@@ -101,12 +102,15 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
 
     # throw error if index does not exist
     index = os.path.splitext(ref)[0]
-    if not minimap2 and not os.path.isfile(index + ".1.bt2"):
-        logger.error(
-            "Reference index is missing, please build the bowtie2 " "index first."
-        )
-        sys.exit(1)
-
+    if not minimap2:
+        try:
+            index = glob.glob(index + "*rev.1.bt2")[0]
+            index = index.rstrip(".rev.1.bt2")
+        except IndexError:
+            logger.error(
+                "Reference index is missing, please build the bowtie2 " "index first."
+            )
+            sys.exit(1)
     # Counting reads
     with ct.read_compressed(uncomp_path) as inf:
         for _ in inf:
