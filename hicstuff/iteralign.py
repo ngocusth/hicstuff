@@ -125,7 +125,13 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
 
     # initial length of the fragments to align
     # In case reads are shorter than provided min_len
-    n = min(size, min_len)
+    if size > min_len:
+        n = min_len
+    else:
+        logger.error(
+            "min_len must be shorter than the reads. Either decrease it or do not use iterative mapping."
+        )
+        sys.exit(1)
     logger.info("{0} reads to parse".format(total_reads))
 
     # iterative alignment per se
