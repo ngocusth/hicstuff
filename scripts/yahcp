@@ -298,12 +298,12 @@ attrib_filter02() {
     sort -k 1,1 -k2,2n > "$tmp_dir/genome_file.txt"
 
   # Sort alignments by read names and make sure no duplicate alignments are added
+  samsort_for="$tmp_dir/for.sorted.sam"
+  samsort_rev="$tmp_dir/rev.sorted.sam"
   samtools sort -@ $t -n "$sam_for" |
-    samtools view -@ $t -F 2539 > "$tmp_dir/for.sorted.sam" && \
-    mv "$tmp_dir/for.sorted.sam" "$sam_for" &
+    samtools view -@ $t -F 2539 > $samsort_for & \
   samtools sort -@ $t -n "$sam_rev" |
-    samtools view -@ $t -F 2539 > "$tmp_dir/rev.sorted.sam" && \
-    mv "$tmp_dir/rev.sorted.sam" "$sam_rev" &
+    samtools view -@ $t -F 2539 > "$samsort_rev" & \
 
   wait
 # Convert to BED and paste together pairs where both reads map with a good quality
@@ -311,15 +311,15 @@ attrib_filter02() {
 # Note: BAM positions are 1-based, BED are 0-based
   paste <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
-                               print $3,start,end,$1,$5,$2}}' "$sam_for") \
+                               print $3,start,end,$1,$5,$2}}' "$samsort_for") \
         <(awk -v OFS="\t" '{{start=$4-1;end=start+length($10); if($2 == 0) {{$2 = "+"}}
                              else {{$2 = "-"}}
-                               print $3,start,end,$1,$5,$2}}' "$sam_rev") \
+                               print $3,start,end,$1,$5,$2}}' "$samsort_rev") \
           | awk -v file1="$tmp_dir/unsorted_contacts_for.bed" \
                 -v file2="$tmp_dir/unsorted_contacts_rev.bed" \
                 -v qual=$quality_min -v OFS='\t' \
                 '{if($5 > qual && $11 > qual) {print $1,$2,$3,$4,$6 > file1; print $7,$8,$9,$10,$12 > file2}}'
-
+  rm $samsort_for $samsort_rev
   # Check if version of UNIX sort supports parallelization and add flag if it does
   sort_par=""
   par=$(version_check sort 8 20)
