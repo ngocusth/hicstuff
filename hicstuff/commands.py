@@ -369,6 +369,7 @@ class View(AbstractCommand):
             region = self.args["--region"]
             if ";" in region:
                 # 2 input regions: zoom anywhere in matrix
+                self.symmetric = False
                 reg1, reg2 = region.split(";")
                 reg1 = parse_ucsc(reg1, reg_pos)
                 reg2 = parse_ucsc(reg2, reg_pos)
@@ -400,6 +401,7 @@ class View(AbstractCommand):
         self.vmax = float(self.args["--max"])
         self.bp_unit = False
         bin_str = self.args["--binning"].upper()
+        self.symmetric = True
         try:
             # Subsample binning
             self.binning = int(bin_str)
@@ -450,7 +452,10 @@ class View(AbstractCommand):
         if self.args["--despeckle"]:
             processed_map = hcs.despeckle_simple(processed_map)
         try:
-            dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
+            if self.symmetric:
+                dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
+            else:
+                dense_map = processed_map.todense()
             self.vmin = 0
             if self.args["<contact_map2>"]:
                 self.vmin, self.vmax = -2, 2
