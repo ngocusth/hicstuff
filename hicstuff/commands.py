@@ -698,7 +698,7 @@ class Plot(AbstractCommand):
                         temp_chr_names[i + 1] = chr_names[i // 2] + "_right"
                     chr_names = temp_chr_names
                 xs, ps = hcs.distance_law_multi(
-                    S, frags, good_bins, centro, log_bins=True, average=False
+                    S.tocsr(), frags, good_bins, centro, log_bins=True, average=False
                 )
             else:
                 # Compute distance law on whole map
