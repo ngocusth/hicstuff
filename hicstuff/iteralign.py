@@ -53,7 +53,9 @@ def generate_temp_dir(path):
     return full_path
 
 
-def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20):
+def iterative_align(
+    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
+):
     """Iterative alignment
 
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
@@ -105,10 +107,11 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
     if not minimap2:
         try:
             index = glob.glob(index + "*rev.1.bt2")[0]
-            index = index.rstrip(".rev.1.bt2")
+            index = index.split(".rev.1.bt2")[0]
         except IndexError:
             logger.error(
-                "Reference index is missing, please build the bowtie2 " "index first."
+                "Reference index is missing, please build the bowtie2 "
+                "index first."
             )
             sys.exit(1)
     # Counting reads
@@ -156,7 +159,9 @@ def iterative_align(fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
+                **map_args
+            )
         else:
             cmd = (
                 "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
