@@ -32,7 +32,7 @@ DEFAULT_MIN_CHUNK_SIZE = 50
 def write_frag_info(
     fasta,
     enzyme,
-    size=DEFAULT_THRESHOLD_SIZE,
+    min_size=DEFAULT_THRESHOLD_SIZE,
     circular=False,
     output_contigs=DEFAULT_INFO_CONTIGS_FILE_NAME,
     output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME,
@@ -52,7 +52,7 @@ def write_frag_info(
         will be cut at the enzyme's restriction sites. If a number, the genome
         will be cut uniformly into chunks with length equal to that number. A
         list of enzymes can also be specified if using multiple enzymes.
-    size : float, optional
+    min_size : float, optional
         Size below which shorter contigs are discarded. Default is 0, i.e. all
         contigs are retained.
     circular : bool, optional
@@ -98,7 +98,7 @@ def write_frag_info(
                 contig_name = record.id
                 contig_length = len(my_seq)
                 n = len(my_seq)
-                if contig_length < int(size):
+                if contig_length < int(min_size):
                     continue
                 try:
                     # Find sites of all restriction enzymes given
