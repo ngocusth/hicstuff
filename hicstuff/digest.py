@@ -280,45 +280,47 @@ def intersect_to_sparse_matrix(
     logger.info("Done.")
 
 
-def attribute_fragments(infile, outfile, restriction_table):
+def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
     """
-    Writes the "dat.indices" file, which has two more columns than the input
-    file corresponding to the restriction fragment index of each read.
+    Writes the indexed pairs file, which has two more columns than the input
+    pairs file corresponding to the restriction fragment index of each read.
 
     Parameters
     ----------
-    infile: file object
-        File handle for the input .dat file. Consists of 6 white-space separated
+    pairs_file: str
+        Path the the input pairs file. Consists of 6 white-space separated
         columns: chrA, posA, strandA, chrB, posB, strandB.
-    outfile: file object
-        File handle for the output .dat.indices file. Consists of 8 white space
+    idx_pairs_file: str
+        Path to the output indexed pairs file. Consists of 8 white space
         separated columns: chrA, posA, strandA, indexA, chrB, posB, strandB, indexB.
     restriction_table: dict
         Dictionary with chromosome identifiers (str) as keys and list of
         positions (int) of restriction sites as values.
     """
     # Open files for reading and writing
-    for line in infile:  # iterate over each line
-        chr1, pos1, sens1, chr2, pos2, sens2 = line.split()  # split it by whitespace
-        pos1 = int(pos1)
-        sens1 = sens1
-        pos2 = int(pos2)
-        sens2 = sens2
+    with open(pairs_file, "r") as pairs, open(idx_pairs_file, "w") as idx_pairs:
+        for line in pairs:  # iterate over each line
+            # split it by whitespace
+            chr1, pos1, sens1, chr2, pos2, sens2 = line.split()
+            pos1 = int(pos1)
+            sens1 = sens1
+            pos2 = int(pos2)
+            sens2 = sens2
 
-        # Get the 0-based indices of corresponding restriction fragments
-        indice1 = find_frag(pos1, restriction_table[chr1])
-        indice2 = find_frag(pos2, restriction_table[chr2])
+            # Get the 0-based indices of corresponding restriction fragments
+            indice1 = find_frag(pos1, restriction_table[chr1])
+            indice2 = find_frag(pos2, restriction_table[chr2])
 
-        outfile.write(
-            "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(
-                chr1, pos1, sens1, indice1, chr2, pos2, sens2, indice2
+            idx_pairs.write(
+                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(
+                    chr1, pos1, sens1, indice1, chr2, pos2, sens2, indice2
+                )
             )
-        )
 
 
 def get_restriction_table(seq, enzyme, circular=False):
     """
-    Get the restriction table for a genomic sequence.
+    Get the restriction table for a single genomic sequence.
 
     Parameters
     ----------
@@ -420,7 +422,7 @@ def find_frag(pos, r_sites):
 
 
 def frag_len(
-    output_frags=DEFAULT_FRAGMENTS_LIST_FILE_NAME,
+    frags_file_name=DEFAULT_FRAGMENTS_LIST_FILE_NAME,
     output_dir=None,
     plot=False,
     fig_path=None,
@@ -431,7 +433,7 @@ def frag_len(
     of text summary.
     Parameters
     ----------
-    output_frags : str
+    frags_file_name : str
         Path to the output list of fragments.
     output_dir : str
         Directory where the list should be saved.
@@ -442,9 +444,9 @@ def frag_len(
     """
 
     try:
-        frag_list_path = os.path.join(output_dir, output_frags)
+        frag_list_path = os.path.join(output_dir, frags_file_name)
     except AttributeError:
-        frag_list_path = output_frags
+        frag_list_path = frags_file_name
     frags = pd.read_csv(frag_list_path, sep="\t")
     nfrags = frags.shape[0]
     med_len = frags["size"].median()
