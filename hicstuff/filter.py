@@ -19,24 +19,25 @@ attributed.
 @author: cmdoret (reimplementation of Axel KournaK's code)
 """
 
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 from hicstuff.log import logger
 
 
 def process_read_pair(line):
-    """Process and order 2D BED based read pairs
+    """Process and order read pairs in a .pairs record.
 
-    Takes a read pair (line) from a 2D BED file as input, reorders the pair
+    Takes a read pair (line) from a .pairs file as input, reorders the pair
     so that read 1 in intrachromosomal pairs always has the smallest genomic
     coordinate.
 
     Parameters
     ----------
     line : str
-        Read pair from a 2D BED file.
-    
+        Record from a pairs file with columns: readID, chr1, pos1, chr2,
+        pos2, strand1, strand2, frag1, frag2
+
     Returns
     -------
     dict
@@ -68,40 +69,37 @@ def process_read_pair(line):
     """
     # Split line by whitespace
     p = line.split()
-    if len(p) != 10:
+    if len(p) != 9:
         raise ValueError(
             "Your input file does not have 10 columns. Make sure "
-            "the file has twice the following 5 fields (once for each read in "
-            "the pair): chr start end indice strand."
+            "the file has the readID and twice the following 4 fields "
+            "(once for each read in the pair): chr pos strand frag."
         )
     # Saving each column as a dictionary entry with meaningful key
     cols = [
-        "chr1",
-        "start1",
-        "end1",
-        "indice1",
-        "strand1",
+        "readID" "chr1",
+        "pos1",
         "chr2",
-        "start2",
-        "end2",
-        "indice2",
+        "pos2",
+        "strand1",
         "strand2",
+        "frag1",
+        "frag2",
     ]
     p = {cols[i]: p[i] for i in range(len(cols))}
     # Transforming numeric columns to int
-    for col in ["start1", "end1", "indice1", "start2", "indice2", "end2"]:
+    for col in ["pos1", "pos2", "frag1", "frag2"]:
         p[col] = int(p[col])
 
     # invert records for intrachromosomal pairs where rec2 comes before
     # rec1 in genomic coordinates
-    if p["chr1"] == p["chr2"] and p["start2"] < p["start1"]:
+    if p["chr1"] == p["chr2"] and p["pos2"] < p["pos1"]:
         p["strand1"], p["strand2"] = p["strand2"], p["strand1"]
-        p["start1"], p["start2"] = p["start2"], p["start1"]
-        p["end1"], p["end2"] = p["end2"], p["end1"]
-        p["indice1"], p["indice2"] = p["indice2"], p["indice1"]
+        p["pos1"], p["pos2"] = p["pos2"], p["pos1"]
+        p["frag1"], p["frag2"] = p["frag2"], p["frag1"]
 
     # Number of restriction sites separating reads in the pair
-    p["nsites"] = abs(p["indice2"] - p["indice1"])
+    p["nsites"] = abs(p["frag2"] - p["frag1"])
     # Get event type
     if p["chr1"] == p["chr2"]:
         p["type"] = "".join([p["strand1"], p["strand2"]])
@@ -235,9 +233,15 @@ def get_thresholds(
         for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if abs(np.log(n_events["+-"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["+-"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_uncut = site
-            if abs(np.log(n_events["-+"][site]) - event_med[site]) <= exp_stdev:
+            if (
+                abs(np.log(n_events["-+"][site]) - event_med[site])
+                <= exp_stdev
+            ):
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
@@ -262,7 +266,9 @@ def get_thresholds(
                     plt.axvline(x=thr_loop, color="r")
                     plt.axvline(x=thr_uncut, color="g")
                     if prefix:
-                        plt.title("Library events by distance in {}".format(prefix))
+                        plt.title(
+                            "Library events by distance in {}".format(prefix)
+                        )
                     plt.tight_layout()
                     if fig_path:
                         plt.savefig(fig_path)
@@ -330,23 +336,22 @@ def filter_events(
                 map(
                     str,
                     (
+                        p["readID"],
                         p["chr1"],
-                        p["start1"],
-                        p["end1"],
-                        p["indice1"],
-                        p["strand1"],
+                        p["pos1"],
                         p["chr2"],
-                        p["start2"],
-                        p["end2"],
-                        p["indice2"],
+                        p["pos2"],
+                        p["strand1"],
                         p["strand2"],
+                        p["frag1"],
+                        p["frag2"],
                     ),
                 )
             )
             + "\n"
         )
         if p["chr1"] == p["chr2"]:
-            if p["indice1"] == p["indice2"] and p["strand1"] == p["strand2"]:
+            if p["frag1"] == p["frag2"] and p["strand1"] == p["strand2"]:
                 n_weirds += 1
             elif p["nsites"] <= thr_loop and p["type"] == "-+":
                 n_loops += 1
@@ -361,7 +366,9 @@ def filter_events(
             out_filtered.write(line_to_write)
 
     if lrange_inter > 0:
-        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
+        ratio_inter = round(
+            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
+        )
     else:
         ratio_inter = 0
 
@@ -379,7 +386,9 @@ def filter_events(
         )
     )
     logger.info(
-        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2))
+        "{0} pairs kept ({1}%)".format(
+            kept, round(100 * kept / (kept + discarded), 2)
+        )
     )
 
     # Visualize summary if requested by user

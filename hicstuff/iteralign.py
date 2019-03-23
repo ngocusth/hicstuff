@@ -27,10 +27,12 @@ def generate_temp_dir(path):
     """Temporary directory generation
 
     Generates a temporary file with a random name at the input path.
+    
     Parameters
     ----------
     path : str
         The path at which the temporary directory will be created.
+    
     Returns
     -------
     str
@@ -53,6 +55,34 @@ def generate_temp_dir(path):
     return full_path
 
 
+def check_bt2_index(ref):
+    """
+    Checks for the existence of a bowtie2 index based on the reference
+    file name.
+
+    Parameters
+    ----------
+    ref : str
+        Path to the reference genome.
+
+    Returns
+    -------
+    index : str
+        The bowtie2 index basename.
+    """
+    index = os.path.splitext(ref)[0]
+    try:
+        index = glob.glob(index + "*rev.1.bt2")[0]
+        index = index.split(".rev.1.bt2")[0]
+    except IndexError:
+        logger.error(
+            "Reference index is missing, please build the bowtie2 "
+            "index first."
+        )
+        sys.exit(1)
+    return index
+
+
 def iterative_align(
     fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
 ):
@@ -61,6 +91,7 @@ def iterative_align(
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
     truncated to the 40 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
+
     Parameters
     ----------
     fq_in : str
@@ -103,17 +134,9 @@ def iterative_align(
         uncomp_path = fq_in
 
     # throw error if index does not exist
-    index = os.path.splitext(ref)[0]
+    index = ""
     if not minimap2:
-        try:
-            index = glob.glob(index + "*rev.1.bt2")[0]
-            index = index.split(".rev.1.bt2")[0]
-        except IndexError:
-            logger.error(
-                "Reference index is missing, please build the bowtie2 "
-                "index first."
-            )
-            sys.exit(1)
+        index = check_bt2_index(ref)
     # Counting reads
     with ct.read_compressed(uncomp_path) as inf:
         for _ in inf:
@@ -257,13 +280,16 @@ def filter_samfile(temp_alignment, filtered_out):
     Write reads to the output file if they are aligned with a good
     quality, otherwise add their name in a set to stage them for the next round
     of alignment.
+
     Parameters
     ----------
     temp_alignment : str
         Path to the input temporary alignment.
     outfile : str
         Path to the output filtered temporary alignment.
+    
     Returns
+    -------
     set:
         Contains the names reads that did not align.
     """

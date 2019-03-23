@@ -5,6 +5,7 @@ cmdoret, 20190322
 import os
 import time
 from os.path import join
+import subprocess as sp
 from Bio import SeqIO
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
@@ -12,7 +13,13 @@ import hicstuff.filter as hcf
 
 
 def align_reads(
-    reads, genome, out_sam, tmp_dir=None, threads=1, minimap2=False, iterative=False
+    reads,
+    genome,
+    out_sam,
+    tmp_dir=None,
+    threads=1,
+    minimap2=False,
+    iterative=False,
 ):
     """
     Select and call correct alignment method and generate logs accordingly.
@@ -37,15 +44,32 @@ def align_reads(
     """
     if tmp_dir is None:
         tmp_dir = os.getcwd()
+    index = None
 
     if iterative:
-        temp_directory = hci.generate_temp_dir(tmp_dir)
-        hci.iterative_align(reads, genome)
+        hci.temp_directory = hci.generate_temp_dir(tmp_dir)
+        hci.iterative_align(
+            reads, tmp_dir=tmp_dir, ref=genome, n_cpu=threads, sam_out=out_sam
+        )
+    else:
+        if minimap2:
+            map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {reads} > {sam}"
+        else:
+            index = hci.check_bt2_index(genome)
+            map_cmd = "bowtie2 --very-sensitive-local -p {threads} -x {index} -U {fastq} > {sam}"
+        map_args = {
+            "threads": threads,
+            "sam": out_sam,
+            "fastq": "reads",
+            "fasta": genome,
+            "index": index,
+        }
+        sp.call(map_cmd.format(map_args))
 
 
-def merge_sam(sam1, sam2, out_pairs, min_qual=30):
+def sam2pairs(sam1, sam2, out_pairs, min_qual=30):
     """
-    Make a 2D BED file from two Hi-C fastq files. The Hi-C mates are matched
+    Make a .pairs file from two Hi-C sam files. The Hi-C mates are matched
     by read identifier. Pairs where at least one reads maps with MAPQ below 
     min_qual threshold are discarded.
 
@@ -56,9 +80,10 @@ def merge_sam(sam1, sam2, out_pairs, min_qual=30):
     sam2 : str
         Path to the SAM file with aligned Hi-C reads.
     out_pairs : str
-        Path to the output tab-separated 2D BED file with columns 
-        chr1 start1 end1 name1 strand1 chr2 start2 end2 name2 strand2
+        Path to the output space-separated .pairs file with columns 
+        readID, chr1 pos1 chr2 pos2 strand1 strand2
     """
+    # Write header lines
     ...
 
 
@@ -191,8 +216,8 @@ def full_pipeline(
 
     # Define output file names
     if prefix:
-        frags = _out_file("mat.tsv")
-        info_tigs = _out_file("chr.tsv")
+        fragments_list = _out_file("mat.tsv")
+        info_contigs = _out_file("chr.tsv")
         mat = _out_file("mat.tsv")
     else:
         # Default GRAAL file names
@@ -240,22 +265,33 @@ def full_pipeline(
         )
 
         # Log fragment size distribution
-        hcd.frag_len(frags_file_name=fragments_list, plot=plot, fig_path=frag_plot)
+        hcd.frag_len(
+            frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
+        )
 
     if start_stage < 2:
         pairs = "pairs.bed"
-        merge_sam(sam1, sam2, pairs)
+        # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
+        sam2pairs(sam1, sam2, pairs)
         restrict_table = {}
         for record in SeqIO.parse(genome, "fasta"):
             restrict_table[record.id] = hcd.get_restriction_table(
                 record.seq, enzyme, circular=circular
             )
-            hcd.attribute_fragments(pairs, pairs_idx, restrict_table)
+
+        # Add fragment index to pairs (readID, chr1, pos1, chr2,
+        # pos2, strand1, strand2, frag1, frag2)
+        hcd.attribute_fragments(pairs, pairs_idx, restrict_table)
 
     if filter_events:
         uncut_thr, loop_thr = hcf.get_thresholds(pairs_idx)
         hcf.filter_events(
-            pairs_idx, pairs_idx, uncut_thr, loop_thr, fig_path=pie_plot, prefix=prefix
+            pairs_idx,
+            pairs_idx,
+            uncut_thr,
+            loop_thr,
+            fig_path=pie_plot,
+            prefix=prefix,
         )
 
     # NOTE: hicstuff.digest module has an "intersect_to_sparse_matrix". Could
