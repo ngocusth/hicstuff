@@ -307,4 +307,4 @@ def full_pipeline(
 
     # NOTE: hicstuff.digest module has an "intersect_to_sparse_matrix". Could
     # start from this and make it work with pairs files.
-    generate_matrix(pairs)
+    pairs2matrix(pairs, mat)

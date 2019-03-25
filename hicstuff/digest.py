@@ -82,7 +82,9 @@ def write_frag_info(
 
         with open(frag_list_path, "w") as fragments_list:
 
-            fragments_list.write("id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n")
+            fragments_list.write(
+                "id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n"
+            )
 
             total_frags = 0
 
@@ -93,9 +95,12 @@ def write_frag_info(
                 if contig_length < int(min_size):
                     continue
 
-                sites = get_restriction_table(contig_seq, enzyme, circular=circular)
+                sites = get_restriction_table(
+                    contig_seq, enzyme, circular=circular
+                )
                 fragments = (
-                    contig_seq[sites[i] : sites[i + 1]] for i in range(len(sites) - 1)
+                    contig_seq[sites[i] : sites[i + 1]]
+                    for i in range(len(sites) - 1)
                 )
                 n_frags = 0
 
@@ -231,7 +236,9 @@ def intersect_to_sparse_matrix(
                             file=sys.stderr,
                         )
                     else:
-                        fragment_pair = tuple(sorted((id_frag_for, id_frag_rev)))
+                        fragment_pair = tuple(
+                            sorted((id_frag_for, id_frag_rev))
+                        )
                         contacts[fragment_pair] += 1
                         # print("Successfully added contact between"
                         #       " {} and {}".format(id_fragment_forward,
@@ -252,7 +259,9 @@ def intersect_to_sparse_matrix(
     logger.info("Writing sparse matrix...")
     if bedgraph:
         # Get reverse mapping between fragments ids and pos
-        positions_and_ids = {id: pos for pos, id in list(ids_and_positions.items())}
+        positions_and_ids = {
+            id: pos for pos, id in list(ids_and_positions.items())
+        }
 
         def parse_coord(coord):
             return "\t".join(str(x) for x in coord)
@@ -263,7 +272,9 @@ def intersect_to_sparse_matrix(
                 nb_contacts = contacts[id_pair]
                 coord_a = parse_coord(positions_and_ids[id_fragment_a])
                 coord_b = parse_coord(positions_and_ids[id_fragment_b])
-                line_to_write = "{}\t{}\t{}\n".format(coord_a, coord_b, nb_contacts)
+                line_to_write = "{}\t{}\t{}\n".format(
+                    coord_a, coord_b, nb_contacts
+                )
                 output_handle.write(line_to_write)
 
     else:
@@ -298,7 +309,9 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
         positions (int) of restriction sites as values.
     """
     # Open files for reading and writing
-    with open(pairs_file, "r") as pairs, open(idx_pairs_file, "w") as idx_pairs:
+    with open(pairs_file, "r") as pairs, open(
+        idx_pairs_file, "w"
+    ) as idx_pairs:
         for line in pairs:  # iterate over each line
             # split it by whitespace
             chr1, pos1, sens1, chr2, pos2, sens2 = line.split()
@@ -336,7 +349,8 @@ def get_restriction_table(seq, enzyme, circular=False):
     -------
     list:
         List of restriction fragment boundary positions for the input sequence.
-
+    
+    >>> from Bio.Seq import Seq
     >>> get_restriction_table(Seq("AAGATCGATCGG"),"DpnII")
     [0, 2, 6, 12]
     >>> get_restriction_table(Seq("AA"),"DpnII")
@@ -411,7 +425,9 @@ def find_frag(pos, r_sites):
 
     """
     if r_sites[0] != 0:
-        raise ValueError("The first position in the restriction table is not 0.")
+        raise ValueError(
+            "The first position in the restriction table is not 0."
+        )
     if pos > r_sites[-1]:
         raise ValueError(
             "Read position is larger than last entry in restriction table."
@@ -486,4 +502,3 @@ def frag_len(
             "Genome digested into {0} fragments with a median "
             "length of {1}".format(nfrags, med_len)
         )
-

@@ -48,24 +48,23 @@ def process_read_pair(line):
 
     Examples
     --------
-        >>> d = process_read_pair("a 1 3 0 - b 2 4 1 -")
+        >>> d = process_read_pair("readX a 1 b 20 - - 1 3")
         >>> for u in sorted(d.items()):
         ...     print(u)
         ('chr1', 'a')
         ('chr2', 'b')
-        ('end1', 3)
-        ('end2', 4)
-        ('indice1', 0)
-        ('indice2', 1)
-        ('nsites', 1)
-        ('start1', 1)
-        ('start2', 2)
+        ('frag1', 1)
+        ('frag2', 3)
+        ('pos1', 1)
+        ('pos2', 20)
+        ('readID', 'readX')
+        ('nsites', 2)
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
-        >>> d = process_read_pair('a 2 3 2 - a 1 1 0 +')
+        >>> d = process_read_pair('readY a 20 a 10 - + 2 1')
         >>> [d[x] for x in sorted(d.keys())]
-        ['a', 'a', 1, 3, 0, 2, 2, 1, 2, '+', '-', '+-']
+        ['a', 'a', 10, 20, 'readY', '1', +, -, +-']
     """
     # Split line by whitespace
     p = line.split()
@@ -77,7 +76,8 @@ def process_read_pair(line):
         )
     # Saving each column as a dictionary entry with meaningful key
     cols = [
-        "readID" "chr1",
+        "readID",
+        "chr1",
         "pos1",
         "chr2",
         "pos2",
@@ -122,7 +122,7 @@ def get_thresholds(
     Parameters
     ----------
     in_dat: file object
-        File handle in read mode to the 2D BED file containing Hi-C pairs.
+        File handle in read mode to the .pairs file containing Hi-C pairs.
     interactive: bool
         If True, plots are diplayed and thresholds are required interactively.
     plot_events : bool
@@ -298,8 +298,9 @@ def filter_events(
 
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
     with reads closer or at the uncut threshold and -+ pairs with reads closer
-    or at the loop thresholds are excluded from the ouput file. All others
-    are written.
+    or at the loop thresholds are excluded from the ouput file. -- and ++ pairs
+    with both mates on the same fragments are also discarded. All others are
+    written.
 
     Parameters
     ----------
@@ -332,7 +333,7 @@ def filter_events(
     for line in in_dat:  # iterate over each line
         p = process_read_pair(line)
         line_to_write = (
-            "\t".join(
+            " ".join(
                 map(
                     str,
                     (
