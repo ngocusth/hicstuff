@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import pandas as pd
 import collections
+import subprocess as sp
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
@@ -62,14 +63,14 @@ def raw_cols_to_sparse(M, dtype=np.float64):
     return S
 
 
-def load_sparse_matrix(M, binning=1):
+def load_sparse_matrix(mat_path, binning=1):
     """Load sparse matrix
 
     Load a text file matrix into a sparse matrix object.
 
     Parameters
     ----------
-    M : file, str or pathlib.Path
+    mat_path : file, str or pathlib.Path
         The input matrix file in instaGRAAL format.
     binning : int or "auto"
         The binning to perform. If "auto", binning will
@@ -80,19 +81,21 @@ def load_sparse_matrix(M, binning=1):
 
     Returns
     -------
-    N : scipy.sparse.coo_matrix
+    sparse_mat : scipy.sparse.coo_matrix
         The output (sparse) matrix in COOrdinate format.
     """
 
-    R = load_raw_matrix(M)
-    S = raw_cols_to_sparse(R)
+    raw_mat = load_raw_matrix(mat_path)
+    sparse_mat = raw_cols_to_sparse(raw_mat)
     if binning == "auto":
-        n = max(S.shape) + 1
-        subsampling_factor = n // DEFAULT_MAX_MATRIX_SHAPE
+        num_bins = max(sparse_mat.shape) + 1
+        subsampling_factor = num_bins // DEFAULT_MAX_MATRIX_SHAPE
     else:
         subsampling_factor = binning
-    B = hcs.bin_sparse(S, subsampling_factor=subsampling_factor)
-    return B
+    sparse_mat = hcs.bin_sparse(
+        sparse_mat, subsampling_factor=subsampling_factor
+    )
+    return sparse_mat
 
 
 def save_sparse_matrix(M, path):
@@ -308,7 +311,9 @@ def to_dade_matrix(M, annotations="", filename=None):
         try:
             np.savetxt(filename, A, fmt="%i")
             logger.info(
-                "I saved input matrix in dade format as " + str(filename)
+                "I saved input matrix in dade format as {0}".format(
+                    str(filename)
+                )
             )
         except ValueError as e:
             logger.warning("I couldn't save input matrix.")
@@ -544,3 +549,52 @@ def load_bedgraph2d(filename):
     frags.insert(loc=0, column="id", value=0)
     frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
     return mat, frags
+
+
+def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
+    """
+    Sort a pairs file in batches using UNIX sort.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the unsorted input file
+    out_file : str
+        Path to the sorted output file.
+    keys : list of str
+        list of columns to use as sort keys. Each column can be one of readID,
+        chr1, pos1, chr2, pos2, frag1, frag2. Key priorities are according to
+        the order in the list.
+    tmp_dir : str
+        Path to the directory where temporary files will be created. Defaults
+        to current directory.
+    threads : int
+        Number of parallel sorting threads.
+    buffer : str
+        Buffer size used for sorting. Consists of a number and a unit.
+    """
+    # TODO: Write a pure python implementation to drop GNU coreutils depencency,
+    # could be inspired from: https://stackoverflow.com/q/14465154/8440675
+    key_map: {
+        "readID": "-k1,1d",
+        "chr1": "-k2,2d",
+        "pos1": "-k3,3n",
+        "chr2": "-k4,4d",
+        "pos2": "-k5,5n",
+        "frag1": "-k6,6n",
+        "frag2": "-k7,7n",
+    }
+    # transform column names to corresponding sort keys
+    try:
+        keys = map(lambda k: key_map[k], keys)
+        keys = " ".join(keys)
+    except KeyError:
+        print("Unkown column name.")
+        raise
+
+    sort_cmd = "sort --parallel={threads} -S {keys} {in} > {out}"
+    sp.call(
+        sort_cmd.format(
+            {"threads": threads, "keys": keys, "in": in_file, "out": out_file}
+        )
+    )
