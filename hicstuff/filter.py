@@ -351,6 +351,7 @@ def filter_events(
             + "\n"
         )
         if p["chr1"] == p["chr2"]:
+            # Do not report ++ and -- pairs on the same fragment (impossible)
             if p["frag1"] == p["frag2"] and p["strand1"] == p["strand2"]:
                 n_weirds += 1
             elif p["nsites"] <= thr_loop and p["type"] == "-+":
@@ -372,7 +373,7 @@ def filter_events(
     else:
         ratio_inter = 0
 
-    # Dump quick summary of operation results into stderr
+    # Log quick summary of operation results
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
     total = kept + discarded

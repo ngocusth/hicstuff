@@ -4,12 +4,14 @@ cmdoret, 20190322
 """
 import os
 import time
+import shutil as st
 from os.path import join
 import subprocess as sp
 from Bio import SeqIO
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
+import pysam as ps
 
 
 def align_reads(
@@ -69,25 +71,29 @@ def align_reads(
 
 def sam2pairs(sam1, sam2, out_pairs, min_qual=30):
     """
-    Make a .pairs file from two Hi-C sam files. The Hi-C mates are matched
-    by read identifier. Pairs where at least one reads maps with MAPQ below 
-    min_qual threshold are discarded.
+    Make a .pairs file from two Hi-C sam files sorted by read names.
+    The Hi-C mates are matched by read identifier. Pairs where at least one
+    reads maps with MAPQ below  min_qual threshold are discarded.
 
     Parameters
     ----------
     sam1 : str
-        Path to the SAM file with aligned Hi-C reads.
+        Path to the name-sorted SAM file with aligned Hi-C forward reads.
     sam2 : str
-        Path to the SAM file with aligned Hi-C reads.
+        Path to the name-sorted SAM file with aligned Hi-C reverse reads.
     out_pairs : str
         Path to the output space-separated .pairs file with columns 
         readID, chr1 pos1 chr2 pos2 strand1 strand2
     """
+    forward = ps.AlignmentFile(sam1)
+    reverse = ps.AlignmentFile(sam2)
+    pairs = open(out_pairs, "w")
+    # sort both SAM files by read names
     # Write header lines
-    ...
+    pairs.close()
 
 
-def generate_matrix(pairs, mat):
+def pairs2matrix(pairs, mat):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
 
@@ -238,7 +244,7 @@ def full_pipeline(
         align_reads(
             reads1,
             genome,
-            "end1.sam",
+            sam1,
             tmp_dir=tmp_dir,
             threads=threads,
             minimap2=minimap2,
@@ -247,12 +253,17 @@ def full_pipeline(
         align_reads(
             reads2,
             genome,
-            "end2.sam",
+            sam2,
             tmp_dir=tmp_dir,
             threads=threads,
             minimap2=minimap2,
             iterative=iterative,
         )
+        # Sort alignments by read name
+        ps.sort("-@", threads, "-n", "-o", sam1 + ".sorted", sam1)
+        st.move(sam1 + ".sorted", sam1)
+        ps.sort("-@", threads, "-n", "-o", sam2 + ".sorted", sam2)
+        st.move(sam2 + ".sorted", sam2)
 
         # Generate info_contigs and fragments_list output files
         hcd.write_frag_info(
@@ -270,7 +281,7 @@ def full_pipeline(
         )
 
     if start_stage < 2:
-        pairs = "pairs.bed"
+
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         sam2pairs(sam1, sam2, pairs)
         restrict_table = {}
