@@ -586,15 +586,79 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     }
     # transform column names to corresponding sort keys
     try:
-        keys = map(lambda k: key_map[k], keys)
-        keys = " ".join(keys)
+        sort_keys = map(lambda k: key_map[k], keys)
+        sort_keys = " ".join(sort_keys)
     except KeyError:
         print("Unkown column name.")
         raise
 
-    sort_cmd = "sort --parallel={threads} -S {keys} {in} > {out}"
+    # Rewrite header with new sorting order
+    header = get_pairs_header(in_file)
+    with open(out_file, "w") as output:
+        for line in header:
+            if line.startswith("#sorted"):
+                output.write("#sorted: {0}\n".format("-".join(keys)))
+            else:
+                output.write(line + "\n")
+
+    # Sort and append content.
+    sort_cmd = (
+        "grep -v '^#' {in} | sort --parallel={threads} -S {keys} >> {out}"
+    )
     sp.call(
         sort_cmd.format(
-            {"threads": threads, "keys": keys, "in": in_file, "out": out_file}
+            {
+                "threads": threads,
+                "keys": sort_keys,
+                "in": in_file,
+                "out": out_file,
+            }
         )
     )
+
+
+def get_pairs_header(pairs):
+    """Retrieves the header of a .pairs file and stores lines into a list.
+
+    Parameters
+    ----------
+    pairs : str or file object
+        Path to the pairs file, or a file handle.
+
+    Returns
+    -------
+    header : list of str
+        A list of header lines found, in the same order they appear in pairs.
+
+    Examples
+    --------
+    >>> import os
+    >>> from tempfile import NamedTemporaryFile
+    >>> p = NamedTemporaryFile('w', delete=False)
+    >>> p.writelines(["## pairs format v1.0\n", "#sorted: chr1-chr2\n", "abcd\n"])
+    >>> p.close()
+    >>> p = open(p.name, 'r')
+    >>> h = get_pairs_header(p)
+    >>> for line in h:
+    ...     print(line)
+    ## pairs format v1.0
+    #sorted: chr1-chr2
+    >>> os.unlink(p.name)
+    """
+    # Open file if needed
+    file_open = False
+    if isinstance(pairs, str):
+        pairs = open(pairs, "r")
+        file_open = True
+
+    # Store header lines into a list
+    header = []
+    line = pairs.readline()
+    while line.startswith("#"):
+        header.append(line.rstrip())
+        line = pairs.readline()
+    # Close file if needed
+    if file_open:
+        pairs.close()
+
+    return header
