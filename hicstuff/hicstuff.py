@@ -263,6 +263,7 @@ def bin_bp_dense(M, positions, bin_len=10000):
     than bin size will not be split, which can result in larger bins.
     The last smaller bin of the chromosome will be merged with the
     previous one.
+
     Parameters
     ----------
     M : 2D numpy array of ints or floats
@@ -271,6 +272,7 @@ def bin_bp_dense(M, positions, bin_len=10000):
         List of 0-based basepair start positions of fragments bins
     bin_len : int
         Bin length in basepairs
+
     Returns
     -------
     2D numpy array of ints of floats :
@@ -318,6 +320,9 @@ def bin_exact_bp_dense(M, positions, bin_len=10000):
     """Perform the kb-binning procedure with total bin lengths being exactly
     set to that of the specified input. Fragments overlapping two potential
     bins will be split and related contact counts will be divided according
+
+    Parameters
+    ----------
     to overlap proportions in each bin.
     M : 2D numpy array of ints or floats
         The Hi-C matrix to bin in dense format
@@ -325,6 +330,7 @@ def bin_exact_bp_dense(M, positions, bin_len=10000):
         List of basepair start positions of fragments bins
     bin_len : int
         Bin length in basepairs
+
     Returns
     -------
     2D numpy array of ints of floats :
@@ -357,6 +363,7 @@ def bin_exact_bp_dense(M, positions, bin_len=10000):
 def bin_bp_sparse(M, positions, bin_len=10000):
     """
     Performs the bp-binning procedure on a sparse matrix.
+
     Parameters
     ----------
     M : sparse numpy matrix
@@ -365,6 +372,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
         Start positions of fragments in the matrix, in base pairs.
     bin_len : int
         Desired length of bins, in base pairs
+
     Returns
     -------
     sparse numpy matrix:
@@ -419,6 +427,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     of standard deviations from the mean. Boolean variables
     s_min and s_max act as absolute fixed values which override
     such behaviour when specified.
+
     Parameters
     ----------
     M : 2D numpy array of floats
@@ -433,6 +442,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     s_max : float
         Fixed maximum value above which the component vectors will
         be trimmed.
+
     Returns
     -------
     numpy 2D array of floats :
@@ -459,6 +469,7 @@ def get_good_bins(M, n_std=3, s_min=None, s_max=None):
     Returns a boolean mask marking the outlier bins of a Hi-C contact map with
     0 and the good bins with 1. Good bins are defined either by a fixed
     or a number of standard deviations from the mean of all bins values.
+
     Parameters
     ----------
     M : scipy.sparse.coo_matrix
@@ -473,6 +484,7 @@ def get_good_bins(M, n_std=3, s_min=None, s_max=None):
     s_max : float
         Fixed maximum value above which the component vectors will
         be trimmed.
+
     Returns
     -------
     numpy.array of bool :
@@ -494,6 +506,7 @@ def get_good_bins(M, n_std=3, s_min=None, s_max=None):
 
 def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     """Apply the trimming procedure to a sparse matrix.
+
     Parameters
     ----------
     M : scipy.sparse.coo_matrix
@@ -508,6 +521,7 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     s_max : float
         Fixed maximum value above which the component vectors will
         be trimmed.
+
     Returns
     -------
      scipy coo_matrix of floats :
@@ -533,6 +547,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     """Apply one of the many normalization types to input dense
     matrix. Will also apply any callable norms such as a user-made
     or a lambda function.
+
     Parameters
     ----------
     M : 2D numpy array of floats
@@ -546,6 +561,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     iterations : int
         Iterations parameter when using an iterative normalization
         procedure.
+
     Returns
     -------
     2D numpy array of floats :
@@ -605,6 +621,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
 
 def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     """Applies a normalization type to a sparse matrix.
+
     Parameters
     ----------
     M : scipy.sparse.csr_matrix of floats
@@ -618,6 +635,7 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     iterations : int
         Iterations parameter when using an iterative normalization
         procedure.
+
     Returns
     -------
     scipy.sparse.csr_matrix of floats :
@@ -663,10 +681,12 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
 def GC_partial(portion: str):
     """Manually compute GC content percentage in a DNA string, taking
     ambiguous values into account (according to standard IUPAC notation).
+
     Parameters
     ----------
     portion : str
         DNA sequence on which GC content is computed.
+
     Returns
     -------
     float :
@@ -1148,7 +1168,6 @@ def distance_law(matrix, indices=None, log_bins=True, base=1.1):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance if log_bins is True. Works
     on dense and sparse matrices.
-    # TODO: Generalize function to work on multiple chromosomes (given a coordinates list)
 
     Parameters
     ----------
@@ -1216,7 +1235,7 @@ def distance_law_multi(
     Bin length increases exponentially with distance if log_bins is True. Works
     on dense and sparse matrices. Use this function if the genome is composed of
     several chromosomes and provide a file with the positions of centromers
-    # TODO: Generalize function to plot the P(s) of several maps on the same plot
+
     Parameters
     ----------
     matrix : numpy.array or scipy.sparse.csr_matrix
@@ -1240,6 +1259,7 @@ def distance_law_multi(
         of chromosomes. If centromeres is also given, each array will have 2*C
         values. Chromosomes are returned in the same order as they appear in
         frag_pos.
+
     Returns
     -------
     list of numpy.array :
@@ -1313,10 +1333,12 @@ def average_ps(ps):
     """Computes the average of a several lists of floats of different lengths.
     Values that do not exist in shorter list are not taken into account and do
     not count as zeros.
+
     Parameters
     ----------
     ps : list of lists of floats
         The list of all the ps to average
+
     Returns
     -------
     list of floats :
@@ -1342,6 +1364,7 @@ def subsample_contacts(M, prop):
         The input Hi-C contact map in sparse format.
     prop : float
         The proportion of contacts to sample.
+
     Returns
     -------
     scipy.sparse.csr_matrix
@@ -1805,7 +1828,6 @@ def scalogram(M, circ=False, max_range=False):
 
     Returns
     -------
-
     N : array_like
         The output scalogram. Values that can't be computed
         due to edge issues, or being beyond max_range will
@@ -1864,7 +1886,6 @@ def asd(M1, M2):
 
     Returns
     -------
-
     asd : numpy.float64
         The matrix distance
     """
@@ -1891,9 +1912,9 @@ def compartments(M, normalize=True):
         The input, normalized contact map. Must be a single chromosome.
     normalize : bool
         Whether to normalize the matrix beforehand.
+
     Returns
     -------
-
     PC1 : numpy.ndarray
         A vector representing the first component.
     PC2 : numpy.ndarray
@@ -1932,7 +1953,8 @@ def compartments(M, normalize=True):
 
 def corrcoef_sparse(A, B=None):
     """
-    Computes correlation coefficient on sparse matrices.
+    Computes correlation coefficient on sparse matrices 
+
     Parameters
     ----------
     A : scipy.sparse.csr_matrix
@@ -1940,6 +1962,7 @@ def corrcoef_sparse(A, B=None):
     B: scipy.sparse.csr_matrix
         An optional second matrix. If provided, the correlation between A and B
         is computed.
+
     Returns
     -------
     scipy.sparse.csr_matrix
@@ -1978,9 +2001,9 @@ def compartments_sparse(M, normalize=True):
         Whether to normalize the matrix beforehand.
     mask : array of bool
         An optional boolean mask indicating which bins should be used
+
     Returns
     -------
-
     pr_comp : numpy.ndarray
         An array containing the N first principal component
     """

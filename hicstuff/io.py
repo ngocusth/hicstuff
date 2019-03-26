@@ -635,9 +635,9 @@ def get_pairs_header(pairs):
     >>> p = open(p.name, 'r')
     >>> h = get_pairs_header(p)
     >>> for line in h:
-    ...     print(line)
-    ## pairs format v1.0
-    #sorted: chr1-chr2
+    ...     print([line])
+    ['## pairs format v1.0']
+    ['#sorted: chr1-chr2']
     >>> os.unlink(p.name)
     """
     # Open file if needed
