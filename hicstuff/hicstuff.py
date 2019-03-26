@@ -1149,6 +1149,7 @@ def distance_law(matrix, indices=None, log_bins=True, base=1.1):
     Bin length increases exponentially with distance if log_bins is True. Works
     on dense and sparse matrices.
     # TODO: Generalize function to work on multiple chromosomes (given a coordinates list)
+
     Parameters
     ----------
     matrix : numpy.array or scipy.sparse.coo_matrix
@@ -1160,6 +1161,7 @@ def distance_law(matrix, indices=None, log_bins=True, base=1.1):
     log_bins : bool
         Whether the distance law should be computed on exponentially larger
         bins.
+
     Returns
     -------
     numpy array of floats :

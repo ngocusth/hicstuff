@@ -84,7 +84,14 @@ def check_bt2_index(ref):
 
 
 def iterative_align(
-    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
+    fq_in,
+    tmp_dir,
+    ref,
+    n_cpu,
+    sam_out,
+    minimap2=False,
+    min_len=20,
+    min_qual=30,
 ):
     """Iterative alignment
 
@@ -108,6 +115,8 @@ def iterative_align(
         If True, use minimap2 instead of bowtie2 for the alignment.
     min_len : int
         The initial length of the fragments to align.
+    min_qual : int
+        Minimum mapping quality required to keep Hi-C pairs.
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()
@@ -196,7 +205,9 @@ def iterative_align(
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
         logger.info("Reporting aligned reads")
-        remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
+        remaining_reads = filter_samfile(
+            temp_alignment, iter_out[-1], min_qual
+        )
 
         n += 20
 
@@ -219,7 +230,7 @@ def iterative_align(
     sp.call(cmd, shell=True)
     logger.info("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
-    remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
+    remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
     # Report unaligned reads as well
     iter_out += [os.path.join(tmp_dir, "unaligned.sam")]
@@ -273,7 +284,7 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
     return outfile
 
 
-def filter_samfile(temp_alignment, filtered_out):
+def filter_samfile(temp_alignment, filtered_out, min_qual=30):
     """Filter alignment SAM files
 
     Reads all the reads in the input SAM alignment file.
@@ -287,6 +298,8 @@ def filter_samfile(temp_alignment, filtered_out):
         Path to the input temporary alignment.
     outfile : str
         Path to the output filtered temporary alignment.
+    min_qual : int
+        Minimum mapping quality required to keep a Hi-C pair.
     
     Returns
     -------
@@ -301,7 +314,7 @@ def filter_samfile(temp_alignment, filtered_out):
     temp_sam = ps.AlignmentFile(temp_alignment, "r")
     outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam)
     for r in temp_sam:
-        if r.flag in [0, 16] and r.mapping_quality >= 30:
+        if r.flag in [0, 16] and r.mapping_quality >= min_qual:
             outf.write(r)
         else:
             unaligned.add(r.query_name)
