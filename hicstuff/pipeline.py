@@ -15,6 +15,7 @@ import pandas as pd
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
+import hicstuff.io as hio
 import pysam as ps
 from hicstuff.log import logger
 
@@ -66,12 +67,12 @@ def align_reads(
             tmp_dir=tmp_dir,
             ref=genome,
             n_cpu=threads,
-            sam_out=out_sam,
+            sam_out=tmp_sam,
             min_qual=min_qual,
         )
     else:
         if minimap2:
-            map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {reads} > {sam}"
+            map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
         else:
             index = hci.check_bt2_index(genome)
             map_cmd = "bowtie2 --very-sensitive-local -p {threads} -x {index} -U {fastq} > {sam}"
@@ -84,9 +85,16 @@ def align_reads(
         }
         sp.call(map_cmd.format(**map_args), shell=True)
 
-        # Remove supplementary alignments
-        ps.view("-F", "2048", "-h", "-o", out_sam, "-@", str(threads), tmp_sam)
-        os.remove(tmp_sam)
+    # Remove supplementary alignments
+    # TODO: replace sp.call with ps.view command. It currently has a bug
+    # preventing output redirection.
+    sp.call(
+        "samtools view -F 2048 -h -@ {threads} -o {out} {tmp}".format(
+            tmp=tmp_sam, threads=threads, out=out_sam
+        ),
+        shell=True,
+    )
+    os.remove(tmp_sam)
 
 
 def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
@@ -116,6 +124,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     format_version = "## pairs format v1.0\n"
     sorting = "#sorted: readID\n"
     cols = "#columns: readID chr1 pos1 chr2 pos2 strand1 strand2\n"
+    # Chromosome order will be identical in info_contigs and pair files
     chroms = pd.read_csv(info_contigs, sep="\t").apply(
         lambda x: "#chromsize: %s %d\n" % (x.contig, x.length), axis=1
     )
@@ -152,20 +161,46 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     pairs.close()
 
 
-def pairs2matrix(pairs, mat, mat_format="GRAAL"):
+def pairs2matrix(pairs_file, mat_file, mat_format="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
 
     Parameters
     ----------
-    pairs : str
+    pairs_file : str
         Path to a Hi-C pairs file, with frag1 and frag2 columns added.
-    mat : str
+    mat_file : str
         Path where the matrix will be written.
     mat_format : str
         The format to use when writing the matrix. Can be GRAAL or cooler format.
     """
-    ...
+    pre_mat_file = mat_file + ".pre.pairs"
+    hio.sort_pairs(
+        pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads
+    )
+    header_size = len(hio.get_pairs_header(pre_mat_file))
+    with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
+        # Skip header lines
+        for _ in range(header_size):
+            next(pairs)
+
+        prev_pair = [0, 0]
+        n_occ = 0
+        pairs_reader = csv.reader(pairs, delimiter=" ")
+        for pair in pairs_reader:
+            print(pair)
+            # Fragment ids are field 8 and 9
+            curr_pair = [pair[8], pair[9]]
+            # Increment number of occurences for fragment pair
+            if prev_pair == curr_pair:
+                n_occ += 1
+            # Write previous pair and start a new one
+            else:
+                mat.write(prev_pair[0] + "\t" + prev_pair[1] + "\t" + n_occ)
+                prev_pair = curr_pair
+                n_occ = 0
+
+    os.remove(pre_mat_file)
 
 
 def full_pipeline(
@@ -325,9 +360,13 @@ def full_pipeline(
             min_qual=min_qual,
         )
         # Sort alignments by read name
-        ps.sort("-@", str(threads), "-n", "-o", sam1 + ".sorted", sam1)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1
+        )
         st.move(sam1 + ".sorted", sam1)
-        ps.sort("-@", str(threads), "-n", "-o", sam2 + ".sorted", sam2)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2
+        )
         st.move(sam2 + ".sorted", sam2)
 
     if start_stage < 2:
@@ -351,7 +390,9 @@ def full_pipeline(
         sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
 
         restrict_table = {}
+        prev_frags = 0
         for record in SeqIO.parse(genome, "fasta"):
+            # Get chromosome restriction table
             restrict_table[record.id] = hcd.get_restriction_table(
                 record.seq, enzyme, circular=circular
             )
@@ -380,11 +421,22 @@ def full_pipeline(
     # NOTE: hicstuff.digest module has an "intersect_to_sparse_matrix". Could
     # start from this and make it work with pairs files.
     mat_format = "cooler" if bedgraph else "GRAAL"
-    pairs2matrix(use_pairs, mat, mat_format=mat_format)
+    pairs2matrix(use_pairs, mat, mat_format=mat_format, threads=threads)
 
     # Clean temporary files
     if not no_cleanup:
-        map(os.remove, [pairs, pairs_idx, pairs_filtered, sam1, sam2])
+        tempfiles = [pairs, pairs_idx, pairs_filtered, sam1, sam2]
+        # Do not delete files that were given as input
+        try:
+            tempfiles.remove(input1)
+            tempfiles.remove(input2)
+        except ValueError:
+            pass
+        for file in tempfiles:
+            try:
+                os.remove(file)
+            except FileNotFoundError:
+                pass
 
     end_time = datetime.now()
     duration = relativedelta(end_time, start_time)
