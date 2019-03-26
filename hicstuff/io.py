@@ -575,7 +575,7 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     """
     # TODO: Write a pure python implementation to drop GNU coreutils depencency,
     # could be inspired from: https://stackoverflow.com/q/14465154/8440675
-    key_map: {
+    key_map = {
         "readID": "-k1,1d",
         "chr1": "-k2,2d",
         "pos1": "-k3,3n",
@@ -584,10 +584,10 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
         "frag1": "-k6,6n",
         "frag2": "-k7,7n",
     }
+
     # transform column names to corresponding sort keys
     try:
         sort_keys = map(lambda k: key_map[k], keys)
-        sort_keys = " ".join(sort_keys)
     except KeyError:
         print("Unkown column name.")
         raise
@@ -601,20 +601,15 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
             else:
                 output.write(line + "\n")
 
-    # Sort and append content.
-    sort_cmd = (
-        "grep -v '^#' {in} | sort --parallel={threads} -S {keys} >> {out}"
-    )
-    sp.call(
-        sort_cmd.format(
-            {
-                "threads": threads,
-                "keys": sort_keys,
-                "in": in_file,
-                "out": out_file,
-            }
+    # Sort pairs and append to file.
+    print(sort_keys)
+    with open(out_file, "a") as output:
+        grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
+        sort_cmd = sp.Popen(
+            ["sort", "--parallel=%d" % threads, "-S %s" % buffer, *sort_keys],
+            stdin=grep_cmd.stdout,
+            stdout=output,
         )
-    )
 
 
 def get_pairs_header(pairs):
