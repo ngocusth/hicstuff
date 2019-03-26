@@ -2,16 +2,21 @@
 Handle generation of GRAAL-compatible contact maps from fastq files.
 cmdoret, 20190322
 """
-import os
-import time
+import os, sys, time, csv
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import shutil as st
+import itertools
 from os.path import join
 import subprocess as sp
 from Bio import SeqIO
+import numpy as np
+import pandas as pd
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import pysam as ps
+from hicstuff.log import logger
 
 
 def align_reads(
@@ -22,9 +27,11 @@ def align_reads(
     threads=1,
     minimap2=False,
     iterative=False,
+    min_qual=30,
 ):
     """
     Select and call correct alignment method and generate logs accordingly.
+    Alignments are filtered so that there at most one alignment per read.
 
     Parameters
     ----------
@@ -43,15 +50,24 @@ def align_reads(
     iterative : bool
         Wether to use the iterative mapping procedure (truncating reads and
         extending iteratively)
+    min_qual : int
+        Minimum mapping quality required to keep an alignment during iterative
+        mapping.
     """
     if tmp_dir is None:
         tmp_dir = os.getcwd()
     index = None
+    tmp_sam = out_sam + ".tmp"
 
     if iterative:
         hci.temp_directory = hci.generate_temp_dir(tmp_dir)
         hci.iterative_align(
-            reads, tmp_dir=tmp_dir, ref=genome, n_cpu=threads, sam_out=out_sam
+            reads,
+            tmp_dir=tmp_dir,
+            ref=genome,
+            n_cpu=threads,
+            sam_out=out_sam,
+            min_qual=min_qual,
         )
     else:
         if minimap2:
@@ -61,15 +77,19 @@ def align_reads(
             map_cmd = "bowtie2 --very-sensitive-local -p {threads} -x {index} -U {fastq} > {sam}"
         map_args = {
             "threads": threads,
-            "sam": out_sam,
-            "fastq": "reads",
+            "sam": tmp_sam,
+            "fastq": reads,
             "fasta": genome,
             "index": index,
         }
-        sp.call(map_cmd.format(map_args))
+        sp.call(map_cmd.format(**map_args), shell=True)
+
+        # Remove supplementary alignments
+        ps.view("-F", "2048", "-h", "-o", out_sam, "-@", str(threads), tmp_sam)
+        os.remove(tmp_sam)
 
 
-def sam2pairs(sam1, sam2, out_pairs, min_qual=30):
+def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     """
     Make a .pairs file from two Hi-C sam files sorted by read names.
     The Hi-C mates are matched by read identifier. Pairs where at least one
@@ -84,32 +104,73 @@ def sam2pairs(sam1, sam2, out_pairs, min_qual=30):
     out_pairs : str
         Path to the output space-separated .pairs file with columns 
         readID, chr1 pos1 chr2 pos2 strand1 strand2
+    info_contigs : str
+        Path to the info contigs file, to get info on chromosome sizes and order.
+    min_qual : int
+        Minimum mapping quality required to keep a Hi=C pair.
     """
     forward = ps.AlignmentFile(sam1)
     reverse = ps.AlignmentFile(sam2)
-    pairs = open(out_pairs, "w")
-    # sort both SAM files by read names
-    # Write header lines
+
+    # Generate header lines
+    format_version = "## pairs format v1.0\n"
+    sorting = "#sorted: readID\n"
+    cols = "#columns: readID chr1 pos1 chr2 pos2 strand1 strand2\n"
+    chroms = pd.read_csv(info_contigs, sep="\t").apply(
+        lambda x: "#chromsize: %s %d\n" % (x.contig, x.length), axis=1
+    )
+
+    with open(out_pairs, "w") as pairs:
+        pairs.writelines([format_version, sorting, cols, *chroms])
+        pairs_writer = csv.writer(pairs, delimiter=" ")
+        # Iterate on both SAM simultaneously
+        for end1, end2 in itertools.zip_longest(forward, reverse):
+            # Keep only pairs where both reads have good quality
+            if (
+                end1.mapping_quality >= min_qual
+                and end2.mapping_quality >= min_qual
+            ):
+                if end1.query_name == end2.query_name:
+                    pairs_writer.writerow(
+                        [
+                            end1.query_name,
+                            end1.reference_name,
+                            end1.reference_start + 1,
+                            end2.reference_name,
+                            end2.reference_start + 1,
+                            "+" if end1.is_reverse else "-",
+                            "+" if end2.is_reverse else "-",
+                        ]
+                    )
+                else:
+                    print(
+                        "Error: Reads do not match between SAM files. "
+                        "Verify both files are name-sorted and do not have "
+                        "supplementary alignments."
+                    )
+                    sys.exit(1)
     pairs.close()
 
 
-def pairs2matrix(pairs, mat):
+def pairs2matrix(pairs, mat, mat_format="GRAAL"):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
 
     Parameters
     ----------
     pairs : str
-        Path to a Hi-C pairs file in 2D BED format.
+        Path to a Hi-C pairs file, with frag1 and frag2 columns added.
     mat : str
         Path where the matrix will be written.
+    mat_format : str
+        The format to use when writing the matrix. Can be GRAAL or cooler format.
     """
     ...
 
 
 def full_pipeline(
-    input1,
     genome,
+    input1,
     input2=None,
     enzyme=5000,
     circular=False,
@@ -133,14 +194,14 @@ def full_pipeline(
     
     Parameters
     ----------
+    genome : str
+        Path to the genome in fasta format.
     input1 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
         in SAM format, or the pairs file, depending on the value of start_stage.
-    reads2 : str
+    input2 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
         in SAM format, or None, depending on the value of start_stage.
-    genome : str
-        Path to the genome in fasta format.
     enzyme : int or str
         Name of the enzyme used for the digestion (e.g "DpnII"). If an integer
         is used instead, the fragment attribution will be done directly using a
@@ -179,6 +240,7 @@ def full_pipeline(
         Use minimap2 instead of bowtie2 for read alignment.
     """
     # Pipeline can start from 3 input types
+    start_time = datetime.now()
     stages = {"fastq": 0, "sam": 1, "pairs": 2}
     start_stage = stages[start_stage]
 
@@ -187,8 +249,8 @@ def full_pipeline(
 
     if tmp_dir is None:
         tmp_dir = join(out_dir, "tmp")
-    os.mkdir(out_dir)
-    os.mkdir(tmp_dir)
+    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(tmp_dir, exist_ok=True)
 
     # Define figures output paths
     if plot:
@@ -217,8 +279,9 @@ def full_pipeline(
     log_file = _out_file("hicstuff_" + now + ".log")
     sam1 = _tmp_file("for.sam")
     sam2 = _tmp_file("rev.sam")
-    pairs = _tmp_file("pairs.tsv")
-    pairs_idx = _tmp_file("pairs_idx.tsv")
+    pairs = _tmp_file("valid.pairs")
+    pairs_idx = _tmp_file("valid_idx.pairs")
+    pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
 
     # Define output file names
     if prefix:
@@ -249,6 +312,7 @@ def full_pipeline(
             threads=threads,
             minimap2=minimap2,
             iterative=iterative,
+            min_qual=min_qual,
         )
         align_reads(
             reads2,
@@ -258,12 +322,15 @@ def full_pipeline(
             threads=threads,
             minimap2=minimap2,
             iterative=iterative,
+            min_qual=min_qual,
         )
         # Sort alignments by read name
-        ps.sort("-@", threads, "-n", "-o", sam1 + ".sorted", sam1)
+        ps.sort("-@", str(threads), "-n", "-o", sam1 + ".sorted", sam1)
         st.move(sam1 + ".sorted", sam1)
-        ps.sort("-@", threads, "-n", "-o", sam2 + ".sorted", sam2)
+        ps.sort("-@", str(threads), "-n", "-o", sam2 + ".sorted", sam2)
         st.move(sam2 + ".sorted", sam2)
+
+    if start_stage < 2:
 
         # Generate info_contigs and fragments_list output files
         hcd.write_frag_info(
@@ -280,10 +347,9 @@ def full_pipeline(
             frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
         )
 
-    if start_stage < 2:
-
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
-        sam2pairs(sam1, sam2, pairs)
+        sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
+
         restrict_table = {}
         for record in SeqIO.parse(genome, "fasta"):
             restrict_table[record.id] = hcd.get_restriction_table(
@@ -295,16 +361,35 @@ def full_pipeline(
         hcd.attribute_fragments(pairs, pairs_idx, restrict_table)
 
     if filter_events:
-        uncut_thr, loop_thr = hcf.get_thresholds(pairs_idx)
+        uncut_thr, loop_thr = hcf.get_thresholds(
+            pairs_idx, plot_events=plot, fig_path=dist_plot, prefix=prefix
+        )
         hcf.filter_events(
             pairs_idx,
             pairs_idx,
             uncut_thr,
             loop_thr,
+            plot_events=plot,
             fig_path=pie_plot,
             prefix=prefix,
         )
+        use_pairs = pairs_filtered
+    else:
+        use_pairs = pairs_idx
 
     # NOTE: hicstuff.digest module has an "intersect_to_sparse_matrix". Could
     # start from this and make it work with pairs files.
-    pairs2matrix(pairs, mat)
+    mat_format = "cooler" if bedgraph else "GRAAL"
+    pairs2matrix(use_pairs, mat, mat_format=mat_format)
+
+    # Clean temporary files
+    if not no_cleanup:
+        map(os.remove, [pairs, pairs_idx, pairs_filtered, sam1, sam2])
+
+    end_time = datetime.now()
+    duration = relativedelta(end_time, start_time)
+    logger.info(
+        "Contact map generated after {h}h {m}m {s}s".format(
+            h=duration.hours, m=duration.minutes, s=duration.seconds
+        )
+    )
