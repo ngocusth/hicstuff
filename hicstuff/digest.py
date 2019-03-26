@@ -9,14 +9,14 @@ sparse matrices.
 
 from Bio import SeqIO, SeqUtils
 from Bio.Restriction import RestrictionBatch, Analysis
-import os
-import sys
+import os, sys, csv
 import collections
 import copy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from hicstuff.log import logger
+import hicstuff.io as hio
 
 DEFAULT_FRAGMENTS_LIST_FILE_NAME = "fragments_list.txt"
 DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
@@ -72,7 +72,7 @@ def write_frag_info(
     try:
         info_contigs_path = os.path.join(output_dir, output_contigs)
         frag_list_path = os.path.join(output_dir, output_frags)
-    except AttributeError:
+    except TypeError:
         info_contigs_path = output_contigs
         frag_list_path = output_frags
 
@@ -157,7 +157,7 @@ def intersect_to_sparse_matrix(
 
     try:
         output_file_path = os.path.join(output_dir, output_file)
-    except AttributeError:
+    except TypeError:
         output_file_path = output_file
 
     logger.info("Building fragment position dictionary...")
@@ -299,36 +299,87 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
     Parameters
     ----------
     pairs_file: str
-        Path the the input pairs file. Consists of 6 white-space separated
-        columns: chrA, posA, strandA, chrB, posB, strandB.
+        Path the the input pairs file. Consists of 7 white-space separated
+        columns: readID, chr1, pos1, chr2, pos2, strand1, strand2
     idx_pairs_file: str
-        Path to the output indexed pairs file. Consists of 8 white space
-        separated columns: chrA, posA, strandA, indexA, chrB, posB, strandB, indexB.
+        Path to the output indexed pairs file. Consists of 9 white space
+        separated columns: readID, chr1, pos1, chr2, pos2, strand1, strand2,
+        frag1, frag2. frag1 and frag2 are 0-based restriction fragments based
+        on whole genome.
     restriction_table: dict
         Dictionary with chromosome identifiers (str) as keys and list of
         positions (int) of restriction sites as values.
     """
-    # Open files for reading and writing
+
+    # NOTE: Bottlenecks here are 1. binary search in find_frag and 2. writerow
+    # 1. could be reduced by searching groups of N frags in parallel and 2. by
+    # writing N frags simultaneously using a single call of writerows.
+
+    # Parse and update header section
+    pairs_header = hio.get_pairs_header(pairs_file)
+    header_size = len(pairs_header)
+    chrom_order = []
+    with open(idx_pairs_file, "w") as idx_pairs:
+        for line in pairs_header:
+            # Add new column names to header
+            if line.startswith("#columns"):
+                line = line.rstrip() + " frag1 frag2"
+            if line.startswith("#chromsize"):
+                chrom_order.append(line.split()[1])
+            idx_pairs.write(line + "\n")
+
+    # Get number of fragments per chrom to allow genome-based indices
+    shift_frags = {}
+    prev_frags = 0
+    for rank, chrom in enumerate(chrom_order):
+        if rank > 0:
+            prev_frags += len(restriction_table[chrom_order[rank - 1]])
+        # Idx of each chrom's frags will be shifted by n frags in previous chroms
+        shift_frags[chrom] = prev_frags
+
+    # Attribute pairs to fragments and append them to output file (after header)
     with open(pairs_file, "r") as pairs, open(
-        idx_pairs_file, "w"
+        idx_pairs_file, "a"
     ) as idx_pairs:
-        for line in pairs:  # iterate over each line
-            # split it by whitespace
-            chr1, pos1, sens1, chr2, pos2, sens2 = line.split()
-            pos1 = int(pos1)
-            sens1 = sens1
-            pos2 = int(pos2)
-            sens2 = sens2
+        # Skip header lines
+        for _ in range(header_size):
+            next(pairs)
 
+        # Define input and output fields
+        pairs_cols = [
+            "readID",
+            "chr1",
+            "pos1",
+            "chr2",
+            "pos2",
+            "strand1",
+            "strand2",
+        ]
+        idx_cols = pairs_cols + ["frag1", "frag2"]
+
+        # Use csv reader / writer to automatically parse columns into a dict
+        pairs_reader = csv.DictReader(
+            pairs, fieldnames=pairs_cols, delimiter=" "
+        )
+        pairs_writer = csv.DictWriter(
+            idx_pairs, fieldnames=idx_cols, delimiter=" "
+        )
+
+        for pair in pairs_reader:
             # Get the 0-based indices of corresponding restriction fragments
-            indice1 = find_frag(pos1, restriction_table[chr1])
-            indice2 = find_frag(pos2, restriction_table[chr2])
-
-            idx_pairs.write(
-                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(
-                    chr1, pos1, sens1, indice1, chr2, pos2, sens2, indice2
-                )
+            pair["frag1"] = find_frag(
+                int(pair["pos1"]), restriction_table[pair["chr1"]]
             )
+            pair["frag2"] = find_frag(
+                int(pair["pos2"]), restriction_table[pair["chr2"]]
+            )
+            # Shift fragment indices to make them genome-based instead of
+            # chromosome-based
+            pair["frag1"] += shift_frags[pair["chr1"]]
+            pair["frag2"] += shift_frags[pair["chr2"]]
+
+            # Write indexed pairs in the new file
+            pairs_writer.writerow(pair)
 
 
 def get_restriction_table(seq, enzyme, circular=False):
@@ -347,7 +398,7 @@ def get_restriction_table(seq, enzyme, circular=False):
 
     Returns
     -------
-    list:
+    numpy.array:
         List of restriction fragment boundary positions for the input sequence.
     
     >>> from Bio.Seq import Seq
@@ -380,7 +431,6 @@ def get_restriction_table(seq, enzyme, circular=False):
     # Conversion from string type to restriction type
     if isinstance(cutter, int):
         sites = [i for i in range(0, chrom_len, cutter)]
-        print(cutter)
         if sites[-1] < chrom_len:
             sites.append(chrom_len)
     else:
@@ -394,7 +444,7 @@ def get_restriction_table(seq, enzyme, circular=False):
         sites.insert(0, 0)
         sites.append(chrom_len)
 
-    return sites
+    return np.array(sites)
 
 
 def find_frag(pos, r_sites):
@@ -461,7 +511,7 @@ def frag_len(
 
     try:
         frag_list_path = os.path.join(output_dir, frags_file_name)
-    except AttributeError:
+    except TypeError:
         frag_list_path = frags_file_name
     frags = pd.read_csv(frag_list_path, sep="\t")
     nfrags = frags.shape[0]
