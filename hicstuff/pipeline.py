@@ -10,7 +10,6 @@ import itertools
 from os.path import join
 import subprocess as sp
 from Bio import SeqIO
-import numpy as np
 import pandas as pd
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
@@ -101,7 +100,8 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     """
     Make a .pairs file from two Hi-C sam files sorted by read names.
     The Hi-C mates are matched by read identifier. Pairs where at least one
-    reads maps with MAPQ below  min_qual threshold are discarded.
+    reads maps with MAPQ below  min_qual threshold are discarded. Pairs are
+    sorted by readID and stored in upper triangle (first pair higher).
 
     Parameters
     ----------
@@ -140,6 +140,11 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                 and end2.mapping_quality >= min_qual
             ):
                 if end1.query_name == end2.query_name:
+                    if (
+                        end1.reference_start > end2.reference_start
+                        or end1.reference_id > end2.reference_id
+                    ):
+                        end1, end2 = end2, end1
                     pairs_writer.writerow(
                         [
                             end1.query_name,
@@ -161,7 +166,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     pairs.close()
 
 
-def pairs2matrix(pairs_file, mat_file, mat_format="GRAAL", threads=1):
+def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
 
@@ -171,36 +176,65 @@ def pairs2matrix(pairs_file, mat_file, mat_format="GRAAL", threads=1):
         Path to a Hi-C pairs file, with frag1 and frag2 columns added.
     mat_file : str
         Path where the matrix will be written.
+    n_frags : int
+        Total number of restriction fragments in genome. Used to know total
+        matrix size in case some observations are not observed at the end.
     mat_format : str
         The format to use when writing the matrix. Can be GRAAL or cooler format.
+    threads : int
+        Number of threads to use in parallel.
     """
     pre_mat_file = mat_file + ".pre.pairs"
     hio.sort_pairs(
         pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads
     )
     header_size = len(hio.get_pairs_header(pre_mat_file))
+    time.sleep(
+        1
+    )  # Crashes if no sleep. File pointer must not be closed. Why ??
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
         for _ in range(header_size):
             next(pairs)
-
-        prev_pair = [0, 0]
-        n_occ = 0
+        prev_pair = ["0", "0"]  # Pairs identified by [frag1, frag2]
+        n_occ = 0  # Number of occurences of each frag combination
+        n_nonzero = 0  # Total number of nonzero matrix entries
         pairs_reader = csv.reader(pairs, delimiter=" ")
+        # First line contains nrows, ncols and number of nonzero entries.
+        # Number of nonzero entries is unknown for now
+        mat.write("\t".join(map(str, [n_frags, n_frags, "-"])) + "\n")
         for pair in pairs_reader:
-            print(pair)
             # Fragment ids are field 8 and 9
-            curr_pair = [pair[8], pair[9]]
+            curr_pair = [pair[7], pair[8]]
             # Increment number of occurences for fragment pair
             if prev_pair == curr_pair:
                 n_occ += 1
             # Write previous pair and start a new one
             else:
-                mat.write(prev_pair[0] + "\t" + prev_pair[1] + "\t" + n_occ)
+                if n_occ > 0:
+                    mat.write(
+                        "\t".join(
+                            map(str, [prev_pair[0], prev_pair[1], n_occ])
+                        )
+                        + "\n"
+                    )
                 prev_pair = curr_pair
-                n_occ = 0
+                n_occ = 1
+                n_nonzero += 1
+        # Write the last value
+        mat.write(
+            "\t".join(map(str, [curr_pair[0], curr_pair[1], n_occ])) + "\n"
+        )
+        n_nonzero += 1
+    # Edit header line to fill number of nonzero entries inplace
+    with open(mat_file) as mat, open(pre_mat_file, "w") as tmp_mat:
+        header = mat.readline()
+        header = header.replace("-", str(n_nonzero))
+        tmp_mat.write(header)
+        st.copyfileobj(mat, tmp_mat)
 
-    os.remove(pre_mat_file)
+    # Replace the matrix file with the one with corrected header
+    os.rename(pre_mat_file, mat_file)
 
 
 def full_pipeline(
@@ -390,7 +424,6 @@ def full_pipeline(
         sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
 
         restrict_table = {}
-        prev_frags = 0
         for record in SeqIO.parse(genome, "fasta"):
             # Get chromosome restriction table
             restrict_table[record.id] = hcd.get_restriction_table(
@@ -407,7 +440,7 @@ def full_pipeline(
         )
         hcf.filter_events(
             pairs_idx,
-            pairs_idx,
+            pairs_filtered,
             uncut_thr,
             loop_thr,
             plot_events=plot,
@@ -418,10 +451,13 @@ def full_pipeline(
     else:
         use_pairs = pairs_idx
 
-    # NOTE: hicstuff.digest module has an "intersect_to_sparse_matrix". Could
-    # start from this and make it work with pairs files.
+    # Build matrix from pairs.
     mat_format = "cooler" if bedgraph else "GRAAL"
-    pairs2matrix(use_pairs, mat, mat_format=mat_format, threads=threads)
+    # Number of fragments is N lines in frag list - 1 for the header
+    n_frags = sum(1 for line in open(fragments_list, "r")) - 1
+    pairs2matrix(
+        use_pairs, mat, n_frags, mat_format=mat_format, threads=threads
+    )
 
     # Clean temporary files
     if not no_cleanup:
