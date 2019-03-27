@@ -21,10 +21,8 @@ DEFAULT_FRAGMENTS_LIST_FILE_NAME = "fragments_list.txt"
 DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
 DEFAULT_SPARSE_MATRIX_FILE_NAME = "abs_fragments_contacts_weighted.txt"
 
-load_raw_matrix = functools.partial(np.loadtxt, skiprows=1, delimiter="\t")
 
-
-def raw_cols_to_sparse(M, dtype=np.float64):
+def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
     """
     Make a coordinate based sparse matrix from columns.
     Convert (3, n) shaped arrays to a sparse matrix. The fist
@@ -35,9 +33,12 @@ def raw_cols_to_sparse(M, dtype=np.float64):
 
     Parameters
     ----------
-    M : array_like
-        An array with exactly three rows representing the sparse
-        matrix in coordinate format.
+    sparse_array : array_like
+        An array with exactly three columns representing the sparse
+        matrix data in coordinate format.
+    shape : tuple of int
+        The total number of rows and columns in the matrix. Will be estimated
+        from nonzero values if omitted.
     dtype : type, optional
         The type of data being loaded. Default is numpy.float64
 
@@ -55,18 +56,26 @@ def raw_cols_to_sparse(M, dtype=np.float64):
          [0. 0. 5. 0.]
          [0. 6. 0. 0.]]
     """
-    n = int(np.amax(M[:, :-1]) + 1)
-    row = M[:, 0]
-    col = M[:, 1]
-    data = M[:, 2]
-    S = coo_matrix((data, (row, col)), shape=(n, n), dtype=dtype)
+    if shape is None:
+        n = int(np.amax(sparse_array[:, :-1]) + 1)
+        shape = (n, n)
+
+    row = sparse_array[:, 0]
+    col = sparse_array[:, 1]
+    data = sparse_array[:, 2]
+    print(row[:-1])
+    print(shape)
+    S = coo_matrix((data, (row, col)), shape=shape, dtype=dtype)
     return S
 
 
-def load_sparse_matrix(mat_path, binning=1):
+def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     """Load sparse matrix
 
-    Load a text file matrix into a sparse matrix object.
+    Load a text file matrix into a sparse matrix object. The expected format is
+    a 3 column file where columns are row_number, col_number, value. The first
+    line consists of 3 values representing the total number of rows, columns
+    and nonzero values.
 
     Parameters
     ----------
@@ -78,15 +87,22 @@ def load_sparse_matrix(mat_path, binning=1):
         will not go beyond (10000, 10000) in shape. That
         can be changed by modifying the DEFAULT_MAX_MATRIX_SHAPE
         value. Default is 1, i.e. no binning is performed
+    dtype : type, optional
+        The type of data being loaded. Default is numpy.float64
 
     Returns
     -------
     sparse_mat : scipy.sparse.coo_matrix
         The output (sparse) matrix in COOrdinate format.
     """
+    raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
 
-    raw_mat = load_raw_matrix(mat_path)
-    sparse_mat = raw_cols_to_sparse(raw_mat)
+    # Get values into an array without the header. Use the header to give size.
+    sparse_mat = raw_cols_to_sparse(
+        raw_mat[1:, :],
+        shape=(int(raw_mat[0, 0]), int(raw_mat[0, 1])),
+        dtype=dtype,
+    )
     if binning == "auto":
         num_bins = max(sparse_mat.shape) + 1
         subsampling_factor = num_bins // DEFAULT_MAX_MATRIX_SHAPE
@@ -98,24 +114,26 @@ def load_sparse_matrix(mat_path, binning=1):
     return sparse_mat
 
 
-def save_sparse_matrix(M, path):
+def save_sparse_matrix(s_mat, path):
     """Save a sparse matrix
 
     Saves a sparse matrix object into tsv format.
 
     Parameters
     ----------
-    M : scipy.sparse.coo_matrix
+    s_mat : scipy.sparse.coo_matrix
         The sparse matrix to save on disk
     path : str
         File path where the matrix will be stored
     """
-    S_arr = np.vstack([M.row, M.col, M.data]).T
+    sparse_arr = np.vstack([s_mat.row, s_mat.col, s_mat.data]).T
 
     np.savetxt(
         path,
-        S_arr,
-        header="id_fragment_a\tid_fragment_b\tn_contact",
+        sparse_arr,
+        header="{nrows}\t{ncols}\t{nonzero}".format(
+            nrows=s_mat.shape[0], ncols=s_mat.shape[1], nonzero=s_mat.nnz
+        ),
         comments="",
         fmt="%i",
         delimiter="\t",
@@ -581,8 +599,10 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
         "pos1": "-k3,3n",
         "chr2": "-k4,4d",
         "pos2": "-k5,5n",
-        "frag1": "-k6,6n",
-        "frag2": "-k7,7n",
+        "strand1": "-k6,6d",
+        "strand2": "-k7,7d",
+        "frag1": "-k8,8n",
+        "frag2": "-k9,9n",
     }
 
     # transform column names to corresponding sort keys
@@ -602,7 +622,6 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
                 output.write(line + "\n")
 
     # Sort pairs and append to file.
-    print(sort_keys)
     with open(out_file, "a") as output:
         grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
         sort_cmd = sp.Popen(
@@ -618,7 +637,7 @@ def get_pairs_header(pairs):
     Parameters
     ----------
     pairs : str or file object
-        Path to the pairs file, or a file handle.
+        Path to the pairs file.
 
     Returns
     -------
@@ -632,8 +651,7 @@ def get_pairs_header(pairs):
     >>> p = NamedTemporaryFile('w', delete=False)
     >>> p.writelines(["## pairs format v1.0\n", "#sorted: chr1-chr2\n", "abcd\n"])
     >>> p.close()
-    >>> p = open(p.name, 'r')
-    >>> h = get_pairs_header(p)
+    >>> h = get_pairs_header(p.name)
     >>> for line in h:
     ...     print([line])
     ['## pairs format v1.0']
@@ -641,19 +659,12 @@ def get_pairs_header(pairs):
     >>> os.unlink(p.name)
     """
     # Open file if needed
-    file_open = False
-    if isinstance(pairs, str):
-        pairs = open(pairs, "r")
-        file_open = True
-
-    # Store header lines into a list
-    header = []
-    line = pairs.readline()
-    while line.startswith("#"):
-        header.append(line.rstrip())
+    with open(pairs, "r") as pairs:
+        # Store header lines into a list
+        header = []
         line = pairs.readline()
-    # Close file if needed
-    if file_open:
-        pairs.close()
+        while line.startswith("#"):
+            header.append(line.rstrip())
+            line = pairs.readline()
 
     return header

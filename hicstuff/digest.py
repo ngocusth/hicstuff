@@ -295,6 +295,8 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
     """
     Writes the indexed pairs file, which has two more columns than the input
     pairs file corresponding to the restriction fragment index of each read.
+    Note that pairs files have 1bp point positions whereas restriction table
+    has 0bp point poisitions.
 
     Parameters
     ----------
@@ -333,7 +335,8 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
     prev_frags = 0
     for rank, chrom in enumerate(chrom_order):
         if rank > 0:
-            prev_frags += len(restriction_table[chrom_order[rank - 1]])
+            # Note the "-1" because there are nfrags + 1 sites in rest table
+            prev_frags += len(restriction_table[chrom_order[rank - 1]]) - 1
         # Idx of each chrom's frags will be shifted by n frags in previous chroms
         shift_frags[chrom] = prev_frags
 
@@ -367,14 +370,16 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
 
         for pair in pairs_reader:
             # Get the 0-based indices of corresponding restriction fragments
+            # Deducing 1 from pair position to get it into 0bp point
             pair["frag1"] = find_frag(
-                int(pair["pos1"]), restriction_table[pair["chr1"]]
+                int(pair["pos1"]) - 1, restriction_table[pair["chr1"]]
             )
             pair["frag2"] = find_frag(
-                int(pair["pos2"]), restriction_table[pair["chr2"]]
+                int(pair["pos2"]) - 1, restriction_table[pair["chr2"]]
             )
             # Shift fragment indices to make them genome-based instead of
             # chromosome-based
+
             pair["frag1"] += shift_frags[pair["chr1"]]
             pair["frag2"] += shift_frags[pair["chr2"]]
 
@@ -483,7 +488,10 @@ def find_frag(pos, r_sites):
             "Read position is larger than last entry in restriction table."
         )
     # binary search for the index of the read
-    index = np.searchsorted(r_sites, pos, side="right") - 1
+    index = max(np.searchsorted(r_sites, pos, side="right") - 1, 0)
+    # Last site = end of the chrom, index of last fragment is last site - 1
+    index = min(len(r_sites) - 2, index)
+
     return index
 
 
@@ -519,7 +527,7 @@ def frag_len(
     nbins = 40
     if plot:
         fig, ax = plt.subplots()
-        n, bins, patches = ax.hist(frags["size"], bins=nbins)
+        _, _, _ = ax.hist(frags["size"], bins=nbins)
 
         ax.set_xlabel("Fragment length [bp]")
         ax.set_ylabel("Log10 number of fragments")
