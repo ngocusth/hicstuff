@@ -623,7 +623,7 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     with open(out_file, "a") as output:
         grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
         sort_cmd = sp.Popen(
-            ["sort", "--parallel=%d" % threads, "-S %s" % buffer, *sort_keys],
+            ["sort", "--parallel=%d" % threads, "-S %s" % buffer] + sort_keys,
             stdin=grep_cmd.stdout,
             stdout=output,
         )
