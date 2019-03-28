@@ -555,6 +555,7 @@ def frag_len(
             plt.savefig(fig_path)
         else:
             plt.show()
+        plt.clf()
     else:
         logger.info(
             "Genome digested into {0} fragments with a median "

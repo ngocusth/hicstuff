@@ -152,8 +152,8 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                             end1.reference_start + 1,
                             end2.reference_name,
                             end2.reference_start + 1,
-                            "+" if end1.is_reverse else "-",
-                            "+" if end2.is_reverse else "-",
+                            "-" if end1.is_reverse else "+",
+                            "-" if end2.is_reverse else "+",
                         ]
                     )
                 else:
@@ -318,12 +318,14 @@ def full_pipeline(
 
     if tmp_dir is None:
         tmp_dir = join(out_dir, "tmp")
+
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(tmp_dir, exist_ok=True)
 
     # Define figures output paths
     if plot:
         fig_dir = join(out_dir, "plots")
+        os.makedirs(fig_dir, exist_ok=True)
         frag_plot = join(fig_dir, "frags_hist.pdf")
         dist_plot = join(fig_dir, "event_distance.pdf")
         pie_plot = join(fig_dir, "event_distribution.pdf")

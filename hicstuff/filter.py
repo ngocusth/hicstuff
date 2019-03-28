@@ -21,6 +21,7 @@ attributed.
 
 import sys
 import numpy as np
+from collections import OrderedDict
 import matplotlib.pyplot as plt
 from hicstuff.log import logger
 
@@ -67,10 +68,10 @@ def process_read_pair(line):
         ['a', 'a', 10, 20, 'readY', '1', +, -, +-']
     """
     # Split line by whitespace
-    p = line.split()
+    p = line.split(" ")
     if len(p) != 9:
         raise ValueError(
-            "Your input file does not have 10 columns. Make sure "
+            "Your input file does not have 9 columns. Make sure "
             "the file has the readID and twice the following 4 fields "
             "(once for each read in the pair): chr pos strand frag."
         )
@@ -121,8 +122,8 @@ def get_thresholds(
 
     Parameters
     ----------
-    in_dat: file object
-        File handle in read mode to the .pairs file containing Hi-C pairs.
+    in_dat: str
+        Path to the .pairs file containing Hi-C pairs.
     interactive: bool
         If True, plots are diplayed and thresholds are required interactively.
     plot_events : bool
@@ -144,28 +145,34 @@ def get_thresholds(
     max_sites = 50
     # Map of event -> legend name of event for intrachromosomal pairs.
     legend = {
-        "++": "++ (weirds)",
-        "--": "-- (weirds)",
+        "++": "++ (weird)",
+        "--": "-- (weird)",
         "+-": "+- (uncuts)",
         "-+": "-+ (loops)",
     }
-    n_events = {event: np.zeros(max_sites) for event in legend.keys()}
+    n_events = {event: np.zeros(max_sites) for event in legend}
     i = 0
     # open the file for reading (just the first 1 000 000 lines)
-    for line in in_dat:
-        i += 1
-        if i == 1000000:
-            break
-        # Process Hi-C pair into a dictionary
-        p = process_read_pair(line)
-        # Type of event and number of restriction site between reads
-        etype = p["type"]
-        nsites = p["nsites"]
-        # Count number of events for intrachrom pairs
-        if etype != "inter" and nsites < max_sites:
-            n_events[etype][nsites] += 1
+    with open(in_dat, "r") as pairs:
+        for line in pairs:
+            # Skip header lines
+            if line.startswith("#"):
+                continue
+            i += 1
+            # Only use the first million pairs to estimate thresholds
+            if i == 1000000:
+                break
+            # Process Hi-C pair into a dictionary
+            p = process_read_pair(line)
+            # Type of event and number of restriction site between reads
+            etype = p["type"]
+            nsites = p["nsites"]
+            # Count number of events for intrachrom pairs
+            if etype != "inter" and nsites < max_sites:
+                n_events[etype][nsites] += 1
 
     def plot_event(n_events, legend, name):
+        """Plot the frequency of a given event types over distance."""
         colors = {"++": "y", "+-": "g", "--": "c", "-+": "r"}
         plt.xlim([-0.5, 15])
         plt.plot(
@@ -181,7 +188,7 @@ def get_thresholds(
         # PLot:
         try:
             plt.figure(0)
-            for event in legend.keys():
+            for event in legend:
                 plot_event(n_events, legend, event)
             plt.grid()
             plt.xlabel("Number of restriction fragment(s)")
@@ -256,24 +263,76 @@ def get_thresholds(
         if plot_events:
             try:
                 plt.figure(1)
-                for event in legend.keys():
-                    plot_event(n_events, legend, event)
-                    plt.grid()
-                    plt.xlabel("Number of restriction fragment(s)")
-                    plt.ylabel("Number of events")
-                    plt.yscale("log")
-                    plt.legend()
-                    plt.axvline(x=thr_loop, color="r")
-                    plt.axvline(x=thr_uncut, color="g")
-                    if prefix:
-                        plt.title(
-                            "Library events by distance in {}".format(prefix)
-                        )
-                    plt.tight_layout()
-                    if fig_path:
-                        plt.savefig(fig_path)
-                    else:
-                        plt.show(block=False)
+                plt.xlim([-0.5, 15])
+                # Draw colored lines for events to discard
+                plt.plot(
+                    range(0, thr_uncut + 1),
+                    n_events["+-"][: thr_uncut + 1],
+                    "o-",
+                    c="g",
+                    label=legend["+-"],
+                )
+                plt.plot(
+                    range(0, thr_loop + 1),
+                    n_events["-+"][: thr_loop + 1],
+                    "o-",
+                    c="r",
+                    label=legend["-+"],
+                )
+                plt.plot(
+                    range(0, 2),
+                    n_events["--"][:2],
+                    "o-",
+                    c="c",
+                    label=legend["--"],
+                )
+                plt.plot(
+                    range(0, 2),
+                    n_events["++"][:2],
+                    "o-",
+                    c="y",
+                    label=legend["++"],
+                )
+                # Draw black lines for events to keep
+                plt.plot(
+                    range(thr_uncut, n_events["+-"].shape[0]),
+                    n_events["+-"][thr_uncut:],
+                    "o-",
+                    range(thr_loop, n_events["-+"].shape[0]),
+                    n_events["-+"][thr_loop:],
+                    "o-",
+                    range(1, n_events["--"].shape[0]),
+                    n_events["--"][1:],
+                    "o-",
+                    range(1, n_events["++"].shape[0]),
+                    n_events["++"][1:],
+                    "o-",
+                    label="kept",
+                    linewidth=2.0,
+                    c="#444444",
+                )
+                plt.grid()
+                plt.xlabel("Number of restriction site(s)")
+                plt.ylabel("Number of events")
+                plt.yscale("log")
+                # Remove duplicate "kept" entries in legend
+                handles, labels = plt.gca().get_legend_handles_labels()
+                by_label = OrderedDict(zip(labels, handles))
+                plt.legend(by_label.values(), by_label.keys())
+                # Show uncut and loop threshold as vertical lines
+                plt.axvline(x=thr_loop, color="r")
+                plt.axvline(x=thr_uncut, color="g")
+
+                if prefix:
+                    plt.title(
+                        "Library events by distance in {}".format(prefix)
+                    )
+                plt.tight_layout()
+                if fig_path:
+                    plt.savefig(fig_path)
+                else:
+                    plt.show(block=False)
+                # plt.clf()
 
             except Exception:
                 logger.error(
@@ -330,42 +389,48 @@ def filter_events(
     lrange_inter = 0
 
     # open the files for reading and writing
-    for line in in_dat:  # iterate over each line
-        p = process_read_pair(line)
-        line_to_write = (
-            " ".join(
-                map(
-                    str,
-                    (
-                        p["readID"],
-                        p["chr1"],
-                        p["pos1"],
-                        p["chr2"],
-                        p["pos2"],
-                        p["strand1"],
-                        p["strand2"],
-                        p["frag1"],
-                        p["frag2"],
-                    ),
-                )
-            )
-            + "\n"
-        )
-        if p["chr1"] == p["chr2"]:
-            # Do not report ++ and -- pairs on the same fragment (impossible)
-            if p["frag1"] == p["frag2"] and p["strand1"] == p["strand2"]:
-                n_weirds += 1
-            elif p["nsites"] <= thr_loop and p["type"] == "-+":
-                n_loops += 1
-            elif p["nsites"] <= thr_uncut and p["type"] == "+-":
-                n_uncuts += 1
-            else:
-                lrange_intra += 1
-                out_filtered.write(line_to_write)
+    with open(in_dat, "r") as pairs, open(out_filtered, "w") as filtered:
+        for line in pairs:  # iterate over each line
+            # Copy header lines to output
+            if line.startswith("#"):
+                filtered.write(line)
+                continue
 
-        if p["chr1"] != p["chr2"]:
-            lrange_inter += 1
-            out_filtered.write(line_to_write)
+            p = process_read_pair(line)
+            line_to_write = (
+                " ".join(
+                    map(
+                        str,
+                        (
+                            p["readID"],
+                            p["chr1"],
+                            p["pos1"],
+                            p["chr2"],
+                            p["pos2"],
+                            p["strand1"],
+                            p["strand2"],
+                            p["frag1"],
+                            p["frag2"],
+                        ),
+                    )
+                )
+                + "\n"
+            )
+            if p["chr1"] == p["chr2"]:
+                # Do not report ++ and -- pairs on the same fragment (impossible)
+                if p["frag1"] == p["frag2"] and p["strand1"] == p["strand2"]:
+                    n_weirds += 1
+                elif p["nsites"] <= thr_loop and p["type"] == "-+":
+                    n_loops += 1
+                elif p["nsites"] <= thr_uncut and p["type"] == "+-":
+                    n_uncuts += 1
+                else:
+                    lrange_intra += 1
+                    filtered.write(line_to_write)
+
+            if p["chr1"] != p["chr2"]:
+                lrange_inter += 1
+                filtered.write(line_to_write)
 
     if lrange_inter > 0:
         ratio_inter = round(
@@ -456,6 +521,7 @@ def filter_events(
                 plt.savefig(fig_path)
             else:
                 plt.show()
+            plt.clf()
         except Exception:
             logger.error(
                 "Unable to show plots. Perhaps there is no Xserver running ?"
