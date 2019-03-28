@@ -16,7 +16,7 @@ import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
 import pysam as ps
-from hicstuff.log import logger
+from hicstuff.log import logger, set_file_handler
 
 
 def align_reads(
@@ -353,6 +353,8 @@ def full_pipeline(
     pairs = _tmp_file("valid.pairs")
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
+    # Enable file logging
+    set_file_handler(log_file)
 
     # Define output file names
     if prefix:

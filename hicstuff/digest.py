@@ -408,9 +408,9 @@ def get_restriction_table(seq, enzyme, circular=False):
     
     >>> from Bio.Seq import Seq
     >>> get_restriction_table(Seq("AAGATCGATCGG"),"DpnII")
-    [0, 2, 6, 12]
+    array([ 0,  2,  6, 12])
     >>> get_restriction_table(Seq("AA"),"DpnII")
-    [0, 2]
+    array([0, 2])
     >>> get_restriction_table(Seq("AA"),"aeiou1")
     Traceback (most recent call last):
         ...

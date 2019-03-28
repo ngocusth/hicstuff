@@ -40,6 +40,7 @@ import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
+import hicstuff.pipeline as hpi
 from scipy.sparse import csr_matrix
 import sys
 import os
@@ -181,7 +182,9 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
+            output_dir=self.args["--outdir"],
+            plot=self.args["--plot"],
+            fig_path=figpath,
         )
 
 
@@ -352,7 +355,9 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
+            reg_pos = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2)
+            )
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -362,7 +367,9 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                    reg_pos = pd.DataFrame(
+                        {0: binned_chrom, 1: binned_frags[:, 0]}
+                    )
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -387,7 +394,8 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 print(
-                    "You must specify a number of standard deviations for " "trimming"
+                    "You must specify a number of standard deviations for "
+                    "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
@@ -453,7 +461,9 @@ class View(AbstractCommand):
             processed_map = hcs.despeckle_simple(processed_map)
         try:
             if self.symmetric:
-                dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
+                dense_map = hcv.sparse_to_dense(
+                    processed_map, remove_diag=False
+                )
             else:
                 dense_map = processed_map.todense()
             self.vmin = 0
@@ -477,31 +487,26 @@ class Pipeline(AbstractCommand):
     individual components of hicstuff.
 
     usage:
-        pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
-                 [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
+        pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
+                 [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
+                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE <input1> [<input2>]
 
     arguments:
-        fq1:             Forward fastq file. Required by default.
-        fq2:             Reverse fastq file. Required by default.
-        sam1:            Forward SAM file. Required if using --sam to skip
-                         mapping.
-        sam2:            Reverse SAM file. Required if using --sam to skip
-                         mapping.
-        bed2D:           Sorted 2D BED file of pairs. Required if using
-                         "--pairs" to only build matrix.
+        input1:             Forward fastq file, if start_stage is "fastq", sam
+                            file for aligned forward reads if start_stage is
+                            "sam", or a .pairs file if start_stage is "pairs".
+        input2:             Reverse fastq file, if start_stage is "fastq", sam
+                            file for aligned reverse reads if start_stage is
+                            "sam", or nothing if start_stage is "pairs".
 
 
     options:
-        -b, --bedgraph                If enabled, generates a sparse matrix in
-                                      2D Bedgraph format (cooler-compatible)
-                                      instead of GRAAL-compatible format.
+        -m, --matfmt=FMT              The format of the output sparse matrix.
+                                      Can be "cooler" for 2D Bedgraph format 
+                                      compatible with cooler, or "GRAAL" for
+                                      GRAAL-compatible format. [default: GRAAL]
         -C, --circular                Enable if the genome is circular.
-        -d, --duplicates:             If enabled, trims (10bp) adapters and
-                                      remove PCR duplicates prior to mapping.
-                                      Only works if reads start with a 10bp
-                                      sequence. Not enabled by default.
         -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
@@ -512,16 +517,17 @@ class Pipeline(AbstractCommand):
                                       uncuts) using hicstuff filter. Requires
                                       "-e" to be a restriction enzyme, not a
                                       chunk size.
-        -S, --sam                     Skip the mapping and start pipeline from
-                                      fragment attribution using SAM files.
+        -S, --start-stage=STAGE       Define the starting point of the pipeline
+                                      to skip some steps. Default is "fastq" to
+                                      run from the start. Can also be "sam" and
+                                      "pairs" to skip the alignment or only
+                                      build the matrix. [default: fastq]
         -i, --iterative               Map reads iteratively using hicstuff
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and
                                       aligning them.
         -m, --minimap2                Use the minimap2 aligner instead of
                                       bowtie2. Not enabled by default.
-        -A, --pairs                   Start from the matrix building step using
-                                      a sorted list of pairs in 2D BED format.
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
@@ -532,7 +538,7 @@ class Pipeline(AbstractCommand):
         -P, --prefix=PREFIX           Overrides default GRAAL-compatible
                                       filenames and use a prefix with
                                       extensions instead.
-        -q, --quality_min=INT         Minimum mapping quality for selecting
+        -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
         -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
@@ -551,10 +557,6 @@ class Pipeline(AbstractCommand):
     """
 
     def execute(self):
-        if self.args["--pairs"] or self.args["--sam"]:
-            # If starting from middle of pipeline, do not remove intermediary
-            # files to prevent deleting input.
-            self.args["--no-cleanup"] = True
 
         if self.args["--filter"] and self.args["--enzyme"].isdigit():
             raise ValueError(
@@ -562,30 +564,26 @@ class Pipeline(AbstractCommand):
             )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
-
-        str_args = " "
-        # Pass formatted arguments to bash
-        for arg, val in self.args.items():
-            # Handle positional arguments individually
-            if arg in {"<fq1>", "<sam1>", "<bed2D>"} and val:
-                str_args += "-1 " + val
-            elif arg in {"<fq2>", "<sam2>"} and val:
-                str_args += "-2 " + val
-            # Ignore value of flags (only add name)
-            elif val is True:
-                str_args += arg
-            # Skip flags that are not specified
-            elif val in (None, False):
-                continue
-            else:
-                str_args += arg + " " + val
-            str_args += " "
-        # Set the pipeline to start from later step if specified
-        if self.args["--pairs"]:
-            str_args += "-S 3"
-        elif self.args["--sam"]:
-            str_args += "-S 2"
-        subprocess.call("bash yahcp" + str_args, shell=True)
+        hpi.full_pipeline(
+            genome=self.args["--fasta"],
+            input1=self.args["<input1>"],
+            input2=self.args["<input2>"],
+            enzyme=self.args["--enzyme"],
+            circular=self.args["--circular"],
+            out_dir=self.args["--outdir"],
+            tmp_dir=self.args["--tmpdir"],
+            plot=self.args["--plot"],
+            min_qual=int(self.args["--quality-min"]),
+            min_size=int(self.args["--size"]),
+            threads=int(self.args["--threads"]),
+            no_cleanup=self.args["--no-cleanup"],
+            iterative=self.args["--iterative"],
+            filter_events=self.args["--filter"],
+            prefix=self.args["--prefix"],
+            start_stage=self.args["--start-stage"],
+            bedgraph=True if self.args["--matfmt"] == "cooler" else False,
+            minimap2=self.args["--minimap2"],
+        )
 
 
 class Plot(AbstractCommand):
@@ -698,7 +696,12 @@ class Plot(AbstractCommand):
                         temp_chr_names[i + 1] = chr_names[i // 2] + "_right"
                     chr_names = temp_chr_names
                 xs, ps = hcs.distance_law_multi(
-                    S.tocsr(), frags, good_bins, centro, log_bins=True, average=False
+                    S.tocsr(),
+                    frags,
+                    good_bins,
+                    centro,
+                    log_bins=True,
+                    average=False,
                 )
             else:
                 # Compute distance law on whole map
@@ -790,12 +793,16 @@ class Rebin(AbstractCommand):
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
-                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                bin_id = (
+                    frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                )
                 frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
                 frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[
+                    0
+                ]
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
@@ -825,7 +832,9 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
+            chromlist.loc[
+                chromlist.contig == chrom, "cumul_length"
+            ] = cumul_bins
             cumul_bins += n_bins
 
         # Write 3 binned output files
@@ -914,9 +923,13 @@ class Convert(AbstractCommand):
             print("not implemented yet, sorry")
         elif out_fmt == "GRAAL":
             mat_name = (
-                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
+                prefix + ".mat.tsv"
+                if prefix
+                else "abs_fragments_contacts_weighted.txt"
             )
-            frag_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            frag_name = (
+                prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            )
             chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
             out_mat = join(out_path, mat_name)
             out_frag = join(out_path, frag_name)

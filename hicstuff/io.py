@@ -63,8 +63,6 @@ def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
     row = sparse_array[:, 0]
     col = sparse_array[:, 1]
     data = sparse_array[:, 2]
-    print(row[:-1])
-    print(shape)
     S = coo_matrix((data, (row, col)), shape=shape, dtype=dtype)
     return S
 
@@ -632,7 +630,7 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
 
 
 def get_pairs_header(pairs):
-    """Retrieves the header of a .pairs file and stores lines into a list.
+    r"""Retrieves the header of a .pairs file and stores lines into a list.
 
     Parameters
     ----------
@@ -646,17 +644,17 @@ def get_pairs_header(pairs):
 
     Examples
     --------
-    >>> import os
-    >>> from tempfile import NamedTemporaryFile
-    >>> p = NamedTemporaryFile('w', delete=False)
-    >>> p.writelines(["## pairs format v1.0\n", "#sorted: chr1-chr2\n", "abcd\n"])
-    >>> p.close()
-    >>> h = get_pairs_header(p.name)
-    >>> for line in h:
-    ...     print([line])
-    ['## pairs format v1.0']
-    ['#sorted: chr1-chr2']
-    >>> os.unlink(p.name)
+        >>> import os
+        >>> from tempfile import NamedTemporaryFile
+        >>> p = NamedTemporaryFile('w', delete=False)
+        >>> p.writelines(["## pairs format v1.0\n", "#sorted: chr1-chr2\n", "abcd\n"])
+        >>> p.close()
+        >>> h = get_pairs_header(p.name)
+        >>> for line in h:
+        ...     print([line])
+        ['## pairs format v1.0']
+        ['#sorted: chr1-chr2']
+        >>> os.unlink(p.name)
     """
     # Open file if needed
     with open(pairs, "r") as pairs:

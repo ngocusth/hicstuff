@@ -56,16 +56,16 @@ def process_read_pair(line):
         ('chr2', 'b')
         ('frag1', 1)
         ('frag2', 3)
+        ('nsites', 2)
         ('pos1', 1)
         ('pos2', 20)
         ('readID', 'readX')
-        ('nsites', 2)
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
         >>> d = process_read_pair('readY a 20 a 10 - + 2 1')
         >>> [d[x] for x in sorted(d.keys())]
-        ['a', 'a', 10, 20, 'readY', '1', +, -, +-']
+        ['a', 'a', 1, 2, 1, 10, 20, 'readY', '+', '-', '+-']
     """
     # Split line by whitespace
     p = line.split(" ")
