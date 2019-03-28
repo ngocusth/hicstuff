@@ -8,7 +8,9 @@
 [![License: GPLv3](https://img.shields.io/badge/License-GPL%203-0298c3.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-A lightweight library that generates and handles Hi-C contact maps in either 2Dbedgraph or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
+A lightweight library that generates and handles Hi-C contact maps in either cooler-compatible 2Dbedgraph or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
+
+The goal is to make generation and manipulation of Hi-C matrices as simple as possible and work for any organism.
 
 ## Table of contents
 
@@ -119,6 +121,21 @@ For example, to run the pipeline with minimap2 using 8 threads and generate a ma
 hicstuff pipeline -t 8 -m -e DpnII -o out/ -f genome.fa reads_for.fq reads_rev.fq
 ```
 
+The pipeline can also be run from python, using the `hicstuff.pipeline` submodule. For example, this would run the pipeline with bowtie2 (default) using iterative alignment and keep all intermediate files.
+
+```python
+from hicstuff import pipeline as hpi
+
+hpi.full_pipeline(
+    'genome.fa', 
+    'end1.fq', 
+    'end2.fq', 
+    no_cleanup=True
+    iterative=True
+    out_dir='out', 
+    enzyme="DpnII")
+```
+
 ### Individual components
 
 For more advanced usage, different scripts can be used independently on the command line to perform individual parts of the pipeline. This readme contains quick descriptions and example usages. To obtain detailed instructions on any subcommand, one can use `hicstuff <subcommand> --help`.
@@ -211,6 +228,7 @@ The output from `hicstuff iteralign` is a SAM file. In order to retrieve Hi-C pa
 
 ```python
 from hicstuff import pipeline as hpi
+import pysam as ps
 # Sort alignments by read names
 ps.sort("-n", "-O", "SAM", "-o", "end1.sam.sorted", "end1.sam")
 ps.sort("-n", "-O", "SAM", "-o", "end2.sam.sorted", "end2.sam")
