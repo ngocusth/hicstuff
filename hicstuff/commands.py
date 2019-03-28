@@ -40,11 +40,11 @@ import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
+from hicstuff.log import logger
 import hicstuff.pipeline as hpi
 from scipy.sparse import csr_matrix
 import sys
 import os
-import subprocess
 import shutil
 from os.path import join, basename
 from matplotlib import pyplot as plt
@@ -231,7 +231,9 @@ class Filter(AbstractCommand):
                 uncut_thr = int(uncut_thr)
                 loop_thr = int(loop_thr)
             except ValueError:
-                print("You must provide integer numbers for the thresholds.")
+                logger.error(
+                    "You must provide integer numbers for the thresholds."
+                )
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
@@ -348,10 +350,9 @@ class View(AbstractCommand):
         # ZOOM REGION
         if self.args["--region"]:
             if not self.args["--frags"]:
-                print(
-                    "Error: A fragment file must be provided to subset "
-                    "genomic regions. See hicstuff view --help",
-                    file=sys.stderr,
+                logger.error(
+                    "A fragment file must be provided to subset "
+                    "genomic regions. See hicstuff view --help"
                 )
                 sys.exit(1)
             # Load positions from fragments list
@@ -393,7 +394,7 @@ class View(AbstractCommand):
             try:
                 trim_std = float(self.args["--trim"])
             except ValueError:
-                print(
+                logger.error(
                     "You must specify a number of standard deviations for "
                     "trimming"
                 )
@@ -416,10 +417,9 @@ class View(AbstractCommand):
         except ValueError:
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
-                    print(
-                        "Error: A fragment file must be provided to perform "
-                        "basepair binning. See hicstuff view --help",
-                        file=sys.stderr,
+                    logger.error(
+                        "A fragment file must be provided to perform "
+                        "basepair binning. See hicstuff view --help"
                     )
                     sys.exit(1)
                 # Load positions from fragments list
@@ -427,9 +427,8 @@ class View(AbstractCommand):
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
-                print(
-                    "Please provide an integer or basepair value for binning.",
-                    file=sys.stderr,
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
                 )
                 raise
 
@@ -441,10 +440,9 @@ class View(AbstractCommand):
             sparse_map2 = hio.load_sparse_matrix(self.args["<contact_map2>"])
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
-                print(
-                    "Error: You cannot compute the ratio of matrices with "
-                    "different dimensions",
-                    file=sys.stderr,
+                logger.error(
+                    "You cannot compute the ratio of matrices with "
+                    "different dimensions"
                 )
             # Get log of values for both maps
             processed_map.data = np.log2(processed_map.data)
@@ -477,7 +475,7 @@ class View(AbstractCommand):
                 cmap=cmap,
             )
         except MemoryError:
-            print("contact map is too large to load, try binning more")
+            logger.error("contact map is too large to load, try binning more")
 
 
 class Pipeline(AbstractCommand):
@@ -771,18 +769,16 @@ class Rebin(AbstractCommand):
             # Basepair binning
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
-                    print(
+                    logger.error(
                         "Error: A fragment file must be provided to perform "
-                        "basepair binning. See hicstuff rebin --help",
-                        file=sys.stderr,
+                        "basepair binning. See hicstuff rebin --help"
                     )
                     sys.exit(1)
                 binning = parse_bin_str(bin_str)
                 bp_unit = True
             else:
-                print(
-                    "Please provide an integer or basepair value for binning.",
-                    file=sys.stderr,
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
                 )
                 raise
         map_path = self.args["<contact_map>"]
@@ -880,73 +876,97 @@ class Convert(AbstractCommand):
     Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
     bedgraph2D (cooler) and DADE.
     usage:
-        convert [--frags=FILE] [--chrom=FILE] [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
+        convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
+                [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
 
     arguments:
         <contact_map> : The file containing the contact frequencies.
 
     options:
-        -f, --frags=FILE    File containing the fragments coordinates. If
-                            not already in the contact map file.
-        -c, --chrom=FILE    File containing the chromosome informations, if not
-                            already in the contact map file.
-        -o, --out=DIR       The directory where output files must be written.
-        -P, --prefix=NAME   A prefix by which the output filenames should start.
-        -F, --from=FORMAT   The format from which to convert. [default: GRAAL]
-        -T, --to=FORMAT     The format to which files should be converted. [default: cooler]
+        -f, --frags=FILE          File containing the fragments coordinates. If
+                                  not already in the contact map file.
+        -b, --binning=INT[k|M|G]b Fixed bin size to use. Help reconstructing
+                                  GRAAL files from a bedgraph2D (cooler) file.
+        -c, --chroms=FILE         File containing the chromosome informations, if not
+                                  already in the contact map file.
+        -o, --out=DIR             The directory where output files must be written.
+        -P, --prefix=NAME         A prefix by which the output filenames should start.
+        -F, --from=FORMAT         The format from which to convert. [default: GRAAL]
+        -T, --to=FORMAT           The format to which files should be converted. [default: cooler]
     """
 
+    def GRAAL_cooler(self):
+        mat = hio.load_sparse_matrix(self.mat_path)
+        frags = pd.read_csv(self.frags_path, delimiter="\t")
+        hio.save_bedgraph2d(mat, frags, self.out_mat)
+
+    def GRAAL_DADE(self):
+        mat = hio.load_sparse_matrix(self.mat_path)
+        frags = pd.read_csv(self.frags_path, delimiter="\t")
+        annot = frags.apply(
+            lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1
+        )
+        hio.to_dade_matrix(mat, annotations=annot, filename=self.out_mat)
+
+    def DADE_GRAAL(self):
+        hio.dade_to_GRAAL(
+            self.mat_path,
+            output_matrix=self.out_mat,
+            output_contigs=self.out_chr,
+            output_frags=self.out_frags,
+        )
+
+    def cooler_GRAAL(self):
+        mat, frags = hio.load_bedgraph2d(self.mat_path, bin_size=self.binning)
+        hio.save_sparse_matrix(mat, self.out_mat)
+        frags.to_csv(self.out_frags, sep="\t", index=False)
+
     def execute(self):
-        accepted_fmt = ["cooler", "GRAAL", "DADE"]
         in_fmt = self.args["--from"]
+        fun_map = {
+            "GRAAL-cooler": self.GRAAL_cooler,
+            "GRAAL-DADE": self.GRAAL_DADE,
+            "DADE-GRAAL": self.DADE_GRAAL,
+            "cooler-GRAAL": self.cooler_GRAAL,
+        }
+        self.mat_path = self.args["<contact_map>"]
+        self.frags_path = self.args["--frags"]
+        self.chroms_path = self.args["--chroms"]
         out_fmt = self.args["--to"]
-        mat_path = self.args["--mat"]
         out_path = self.args["--out"]
+        os.makedirs(out_path, exist_ok=True)
         prefix = self.args["--prefix"]
-        frags_path = 0
-        # Read input files
-        if in_fmt == "GRAAL":
-            M = hio.load_sparse_matrix(mat_path)
-            frags = pd.read_csv(frags_path, delimiter="\t")
-        elif in_fmt == "DADE":
-            if out_fmt != "GRAAL":
-                print("conversion not implemented yet.")
-                sys.exit(1)
-        elif in_fmt == "cooler":
-            M, frags = hio.load_bedgraph2d(mat_path)
-        else:
-            print("Error: unknown input format")
+
+        self.binning = parse_bin_str(self.args["--binning"])
+
+        try:
+            conv = "-".join([in_fmt, out_fmt])
+            conv_fun = fun_map[conv]
+        except KeyError:
+            logger.error("Conversion not implemented or unknown format")
             sys.exit(1)
-        # Write output files
-        if out_fmt == "cooler":
-            pass
-            print("not implemented yet, sorry")
-        elif out_fmt == "GRAAL":
+
+        if out_fmt == "GRAAL":
             mat_name = (
                 prefix + ".mat.tsv"
                 if prefix
                 else "abs_fragments_contacts_weighted.txt"
             )
-            frag_name = (
+            frags_name = (
                 prefix + ".frag.tsv" if prefix else "fragments_list.txt"
             )
             chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
-            out_mat = join(out_path, mat_name)
-            out_frag = join(out_path, frag_name)
-            out_chr = join(out_path, chr_name)
-            if in_fmt == "DADE":
-                hio.dade_to_GRAAL(
-                    mat_path,
-                    output_matrix=out_mat,
-                    output_contigs=out_chr,
-                    output_frags=out_frag,
-                )
-            hio.save_sparse_matrix(M, out_mat)
-            frags.to_csv(out_frag, sep="\t", index=False)
+            self.out_mat = join(out_path, mat_name)
+            self.out_frags = join(out_path, frags_name)
+            self.out_chr = join(out_path, chr_name)
+        elif out_fmt == "cooler":
+            mat_name = prefix + ".mat.2bg" if prefix else "cooler.mat.2bg"
+            self.out_mat = join(out_path, mat_name)
+        elif out_fmt == "DADE":
+            mat_name = prefix + ".DADE.tsv" if prefix else "DADE.mat.tsv"
+            self.out_mat = join(out_path, mat_name)
 
-        else:
-            print("Error: unknown output format")
-            sys.exit(1)
+        conv_fun()
 
 
 def parse_bin_str(bin_str):
@@ -1024,7 +1044,7 @@ def parse_ucsc(ucsc_str, bins):
             start = min(chrombins.id)
             end = max(chrombins.id)
         except ValueError:
-            print("Invalid chromosome")
+            logger.error("Invalid chromosome")
             raise
     coord = (int(start), int(end))
     return coord

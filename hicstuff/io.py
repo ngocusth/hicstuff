@@ -141,6 +141,7 @@ def save_sparse_matrix(s_mat, path):
 def load_pos_col(path, colnum, header=1, dtype=np.int64):
     """
     Loads a single column of a TSV file with header into a numpy array.
+    
     Parameters
     ----------
     path : str
@@ -149,6 +150,7 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         The 0-based index of the column to load.
     header : int
         Number of line to skip. By default the header is a single line.
+
     Returns
     -------
     numpy.array :
@@ -432,7 +434,6 @@ def dade_to_GRAAL(
     to a GRAAL-compatible format. Since DADE matrices contain both fragment
     and contact information all files are generated at the same time.
     """
-    import numpy as np
 
     with open(output_matrix, "w") as sparse_file:
         sparse_file.write("id_frag_a\tid_frag_b\tn_contact")
@@ -520,13 +521,18 @@ def dade_to_GRAAL(
             fragments_list.write(line_to_write)
 
 
-def load_bedgraph2d(filename):
+def load_bedgraph2d(filename, bin_size=None):
     """
-    Loads matrix and fragment information from a 2D bedgraph file.
+    Loads matrix and fragment information from a 2D bedgraph file. Note this
+    function assumes chromosomes are ordered in alphabetical. order
+    
     Parameters
     ----------
     filename : str
         Path to the bedgraph2D file.
+    bin_size : int
+        The size of bins in the case of fixed bin size.
+    
     Returns
     -------
     mat : scipy.sparse.coo_matrix
@@ -537,16 +543,51 @@ def load_bedgraph2d(filename):
         positions.
     """
     bed2d = pd.read_csv(filename, sep=" ", header=None)
-    # Get unique identifiers for fragments (chrom+pos)
+    if bin_size is None:
+        logger.warning(
+            "Please be aware that not all information can be restored from a "
+            "cooler file without fixed bin size; fragments without any contact "
+            "will be lost"
+        )
+    else:
+        # If bin size if provided, retrieve chromosome lengths, this will be
+        # used when regenerating bin coordinates
+        chroms = bed2d[[0, 2]].groupby([0], sort=False).max()
+        chrom_sizes = {}
+        for chrom, size in zip(chroms.index, np.array(chroms)):
+            chrom_sizes[chrom] = size[0]
+
+    # Get all possible fragment chrom-positions into an array
+    frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
+    # Sort by position (least important, col 1)
+    frag_pos = frag_pos[frag_pos[:, 1].argsort(kind="mergesort")]
+    # Then by chrom (most important, col 0)
+    frag_pos = frag_pos[frag_pos[:, 0].argsort(kind="mergesort")]
+    # Get unique names for fragments (chrom+pos)
+    ordered_frag_pos = (
+        pd.DataFrame(frag_pos)
+        .drop_duplicates()
+        .apply(lambda x: "".join(x.astype(str)), axis=1)
+        .tolist()
+    )
     frag_pos_a = np.array(
         bed2d[[0, 1]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
     frag_pos_b = np.array(
         bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
-    # Match position-based identifiers to their index
-    ordered_frag_pos = np.unique(np.concatenate([frag_pos_a, frag_pos_b]))
-    frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
+    if bin_size is None:
+        frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
+    else:
+        # If fixed fragment size available, use it to reconstruct original
+        # fragments ID (even if they are absent from the bedgraph file).
+        frag_map = {}
+        for chrom, size in chrom_sizes.items():
+            prev_frags = len(frag_map)
+            for bin_id, bin_pos in enumerate(range(0, size, bin_size)):
+                frag_map["".join([chrom, str(bin_pos)])] = bin_id + prev_frags
+
+    # Match bin indices to their names
     frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
     frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))
     contacts = np.array(bed2d.iloc[:, 6].tolist())
@@ -563,8 +604,54 @@ def load_bedgraph2d(filename):
     )
     frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
     frags.insert(loc=0, column="id", value=0)
+    frags.id = frags.groupby([0], sort=False).cumcount() + 1
     frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
     return mat, frags
+
+
+def save_bedgraph2d(mat, frags, out_path):
+    """
+    Given a sparse matrix and a corresponding list of fragments, save a file
+    in 2D bedgraph format.
+
+    Parameters
+    ----------
+    mat : scipy.sparse.coo_matrix
+        The sparse contact map.
+    frags : pandas.DataFrame
+        A structure containing the annotations for each matrix bin. Should
+        correspond to the content of the fragments_list.txt file.
+
+    """
+    mat_df = pd.DataFrame(
+        {"row": mat.row, "col": mat.col, "data": mat.data.astype(int)}
+    )
+    # Merge fragments with matrix based on row indices to annotate rows
+    merge_mat = mat_df.merge(
+        frags, left_on="row", right_index=True, how="left", suffixes=("", "")
+    )
+    # Rename annotations to assign to frag1
+    merge_mat.rename(
+        columns={"chrom": "chr1", "start_pos": "start1", "end_pos": "end1"},
+        inplace=True,
+    )
+    # Do the same operation for cols (frag2)
+    merge_mat = merge_mat.merge(
+        frags,
+        left_on="col",
+        right_index=True,
+        how="left",
+        suffixes=("_0", "_2"),
+    )
+    merge_mat.rename(
+        columns={"chrom": "chr2", "start_pos": "start2", "end_pos": "end2"},
+        inplace=True,
+    )
+    # Select only relevant columns in correct order
+    bg2 = merge_mat.loc[
+        :, ["chr1", "start1", "end1", "chr2", "start2", "end2", "data"]
+    ]
+    bg2.to_csv(out_path, header=None, index=False, sep=" ")
 
 
 def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
