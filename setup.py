@@ -61,7 +61,6 @@ setup(
     url=URL,
     packages=find_packages(),
     # package_data={"hicstuff": ("kernels/*")},
-    scripts=["scripts/pcr_duplicates", "scripts/yahcp"],
     python_requires=">=3.5",
     include_package_data=True,
     long_description_content_type="text/markdown",

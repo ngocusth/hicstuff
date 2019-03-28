@@ -130,7 +130,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     )
 
     with open(out_pairs, "w") as pairs:
-        pairs.writelines([format_version, sorting, cols, *chroms])
+        pairs.writelines([format_version, sorting, cols] + chroms])
         pairs_writer = csv.writer(pairs, delimiter=" ")
         # Iterate on both SAM simultaneously
         for end1, end2 in itertools.zip_longest(forward, reverse):
