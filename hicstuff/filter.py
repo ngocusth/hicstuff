@@ -150,6 +150,7 @@ def get_thresholds(
         "+-": "+- (uncuts)",
         "-+": "-+ (loops)",
     }
+    colors = {"++": "#222222", "+-": "r", "--": "#666666", "-+": "tab:orange"}
     n_events = {event: np.zeros(max_sites) for event in legend}
     i = 0
     # open the file for reading (just the first 1 000 000 lines)
@@ -173,7 +174,6 @@ def get_thresholds(
 
     def plot_event(n_events, legend, name):
         """Plot the frequency of a given event types over distance."""
-        colors = {"++": "y", "+-": "g", "--": "c", "-+": "r"}
         plt.xlim([-0.5, 15])
         plt.plot(
             range(n_events[name].shape[0]),
@@ -269,28 +269,28 @@ def get_thresholds(
                     range(0, thr_uncut + 1),
                     n_events["+-"][: thr_uncut + 1],
                     "o-",
-                    c="g",
+                    c=colors["+-"],
                     label=legend["+-"],
                 )
                 plt.plot(
                     range(0, thr_loop + 1),
                     n_events["-+"][: thr_loop + 1],
                     "o-",
-                    c="r",
+                    c=colors["-+"],
                     label=legend["-+"],
                 )
                 plt.plot(
                     range(0, 2),
                     n_events["--"][:2],
                     "o-",
-                    c="c",
+                    c=colors["--"],
                     label=legend["--"],
                 )
                 plt.plot(
                     range(0, 2),
                     n_events["++"][:2],
                     "o-",
-                    c="y",
+                    c=colors["++"],
                     label=legend["++"],
                 )
                 # Draw black lines for events to keep
@@ -309,7 +309,7 @@ def get_thresholds(
                     "o-",
                     label="kept",
                     linewidth=2.0,
-                    c="#444444",
+                    c="g",
                 )
                 plt.grid()
                 plt.xlabel("Number of restriction site(s)")
@@ -320,8 +320,8 @@ def get_thresholds(
                 by_label = OrderedDict(zip(labels, handles))
                 plt.legend(by_label.values(), by_label.keys())
                 # Show uncut and loop threshold as vertical lines
-                plt.axvline(x=thr_loop, color="r")
-                plt.axvline(x=thr_uncut, color="g")
+                plt.axvline(x=thr_loop, color=colors["-+"])
+                plt.axvline(x=thr_uncut, color=colors["+-"])
 
                 if prefix:
                     plt.title(
