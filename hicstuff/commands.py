@@ -502,7 +502,7 @@ class Pipeline(AbstractCommand):
 
 
     options:
-        -m, --matfmt=FMT              The format of the output sparse matrix.
+        -M, --matfmt=FMT              The format of the output sparse matrix.
                                       Can be "cooler" for 2D Bedgraph format 
                                       compatible with cooler, or "GRAAL" for
                                       GRAAL-compatible format. [default: GRAAL]
