@@ -208,16 +208,12 @@ def get_thresholds(
         # Asks the user for appropriate thresholds
         print(
             "Please enter the number of restriction fragments separating "
-            "reads in a Hi-C pair below or at which \033[91mloops\033[0m and "
-            "\033[92muncuts\033[0m events will be excluded\n",
+            "reads in a Hi-C pair below or at which loops and "
+            "uncuts events will be excluded\n",
             file=sys.stderr,
         )
-        thr_uncut = int(
-            input("Enter threshold for the \033[92muncuts\033[0m events (+-):")
-        )
-        thr_loop = int(
-            input("Enter threshold for the \033[91mloops\033[0m events (-+):")
-        )
+        thr_uncut = int(input("Enter threshold for the uncuts events (+-):"))
+        thr_loop = int(input("Enter threshold for the loops events (-+):"))
         try:
             plt.clf()
         except Exception:
@@ -240,15 +236,9 @@ def get_thresholds(
         for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if (
-                abs(np.log(n_events["+-"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["+-"][site]) - event_med[site]) <= exp_stdev:
                 thr_uncut = site
-            if (
-                abs(np.log(n_events["-+"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["-+"][site]) - event_med[site]) <= exp_stdev:
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
@@ -324,9 +314,7 @@ def get_thresholds(
                 plt.axvline(x=thr_uncut, color=colors["+-"])
 
                 if prefix:
-                    plt.title(
-                        "Library events by distance in {}".format(prefix)
-                    )
+                    plt.title("Library events by distance in {}".format(prefix))
                 plt.tight_layout()
                 if fig_path:
                     plt.savefig(fig_path)
@@ -433,9 +421,7 @@ def filter_events(
                 filtered.write(line_to_write)
 
     if lrange_inter > 0:
-        ratio_inter = round(
-            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
-        )
+        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
     else:
         ratio_inter = 0
 
@@ -453,9 +439,7 @@ def filter_events(
         )
     )
     logger.info(
-        "{0} pairs kept ({1}%)".format(
-            kept, round(100 * kept / (kept + discarded), 2)
-        )
+        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2))
     )
 
     # Visualize summary if requested by user

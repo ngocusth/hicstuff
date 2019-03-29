@@ -76,27 +76,19 @@ def check_bt2_index(ref):
         index = index.split(".rev.1.bt2")[0]
     except IndexError:
         logger.error(
-            "Reference index is missing, please build the bowtie2 "
-            "index first."
+            "Reference index is missing, please build the bowtie2 " "index first."
         )
         sys.exit(1)
     return index
 
 
 def iterative_align(
-    fq_in,
-    tmp_dir,
-    ref,
-    n_cpu,
-    sam_out,
-    minimap2=False,
-    min_len=20,
-    min_qual=30,
+    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20, min_qual=30
 ):
     """Iterative alignment
 
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
-    truncated to the 40 first nucleotides and unmapped reads are extended by 20
+    truncated to the 20 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
 
     Parameters
@@ -191,9 +183,7 @@ def iterative_align(
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
-                **map_args
-            )
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
         else:
             cmd = (
                 "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
@@ -205,9 +195,7 @@ def iterative_align(
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
         logger.info("Reporting aligned reads")
-        remaining_reads = filter_samfile(
-            temp_alignment, iter_out[-1], min_qual
-        )
+        remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
         n += 20
 

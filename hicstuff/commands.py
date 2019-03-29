@@ -79,7 +79,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=40]
+        iteralign [--minimap2] [--threads=1] [--min_len=20]
                   [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
@@ -182,9 +182,7 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"],
-            plot=self.args["--plot"],
-            fig_path=figpath,
+            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
         )
 
 
@@ -223,7 +221,6 @@ class Filter(AbstractCommand):
 
     def execute(self):
         figpath = None
-        output_handle = open(self.args["<output>"], "w")
         if self.args["--thresholds"]:
             # Thresholds supplied by user beforehand
             uncut_thr, loop_thr = self.args["--thresholds"].split("-")
@@ -231,38 +228,34 @@ class Filter(AbstractCommand):
                 uncut_thr = int(uncut_thr)
                 loop_thr = int(loop_thr)
             except ValueError:
-                logger.error(
-                    "You must provide integer numbers for the thresholds."
-                )
+                logger.error("You must provide integer numbers for the thresholds.")
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
                 figpath = join(self.args["--figdir"], "event_distance.pdf")
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
-            with open(self.args["<input>"]) as handle_in:
-                uncut_thr, loop_thr = hcf.get_thresholds(
-                    handle_in,
-                    interactive=self.args["--interactive"],
-                    plot_events=self.args["--plot"],
-                    fig_path=figpath,
-                    prefix=self.args["--prefix"],
-                )
+            uncut_thr, loop_thr = hcf.get_thresholds(
+                self.args["<input>"],
+                interactive=self.args["--interactive"],
+                plot_events=self.args["--plot"],
+                fig_path=figpath,
+                prefix=self.args["--prefix"],
+            )
         # Filter library and write to output file
         figpath = None
         if self.args["--figdir"]:
             figpath = join(self.args["--figdir"], "event_distribution.pdf")
 
-        with open(self.args["<input>"]) as handle_in:
-            hcf.filter_events(
-                handle_in,
-                output_handle,
-                uncut_thr,
-                loop_thr,
-                plot_events=self.args["--plot"],
-                fig_path=figpath,
-                prefix=self.args["--prefix"],
-            )
+        hcf.filter_events(
+            self.args["<input>"],
+            self.args["<output>"],
+            uncut_thr,
+            loop_thr,
+            plot_events=self.args["--plot"],
+            fig_path=figpath,
+            prefix=self.args["--prefix"],
+        )
 
 
 class View(AbstractCommand):
@@ -356,9 +349,7 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load positions from fragments list
-            reg_pos = pd.read_csv(
-                self.args["--frags"], delimiter="\t", usecols=(1, 2)
-            )
+            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
             # Readjust bin coords post binning
             if self.binning:
                 if self.bp_unit:
@@ -368,9 +359,7 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame(
-                        {0: binned_chrom, 1: binned_frags[:, 0]}
-                    )
+                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -395,8 +384,7 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 logger.error(
-                    "You must specify a number of standard deviations for "
-                    "trimming"
+                    "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
@@ -427,9 +415,7 @@ class View(AbstractCommand):
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
-                logger.error(
-                    "Please provide an integer or basepair value for binning."
-                )
+                logger.error("Please provide an integer or basepair value for binning.")
                 raise
 
         output_file = self.args["--output"]
@@ -459,9 +445,7 @@ class View(AbstractCommand):
             processed_map = hcs.despeckle_simple(processed_map)
         try:
             if self.symmetric:
-                dense_map = hcv.sparse_to_dense(
-                    processed_map, remove_diag=False
-                )
+                dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
             else:
                 dense_map = processed_map.todense()
             self.vmin = 0
@@ -694,12 +678,7 @@ class Plot(AbstractCommand):
                         temp_chr_names[i + 1] = chr_names[i // 2] + "_right"
                     chr_names = temp_chr_names
                 xs, ps = hcs.distance_law_multi(
-                    S.tocsr(),
-                    frags,
-                    good_bins,
-                    centro,
-                    log_bins=True,
-                    average=False,
+                    S.tocsr(), frags, good_bins, centro, log_bins=True, average=False
                 )
             else:
                 # Compute distance law on whole map
@@ -777,9 +756,7 @@ class Rebin(AbstractCommand):
                 binning = parse_bin_str(bin_str)
                 bp_unit = True
             else:
-                logger.error(
-                    "Please provide an integer or basepair value for binning."
-                )
+                logger.error("Please provide an integer or basepair value for binning.")
                 raise
         map_path = self.args["<contact_map>"]
         hic_map = hio.load_sparse_matrix(map_path)
@@ -789,16 +766,12 @@ class Rebin(AbstractCommand):
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
-                bin_id = (
-                    frags.loc[frags.chrom == chrom, "start_pos"] // binning
-                )
+                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
                 frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
                 frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[
-                    0
-                ]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
@@ -828,9 +801,7 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[
-                chromlist.contig == chrom, "cumul_length"
-            ] = cumul_bins
+            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
             cumul_bins += n_bins
 
         # Write 3 binned output files
@@ -903,9 +874,7 @@ class Convert(AbstractCommand):
     def GRAAL_DADE(self):
         mat = hio.load_sparse_matrix(self.mat_path)
         frags = pd.read_csv(self.frags_path, delimiter="\t")
-        annot = frags.apply(
-            lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1
-        )
+        annot = frags.apply(lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1)
         hio.to_dade_matrix(mat, annotations=annot, filename=self.out_mat)
 
     def DADE_GRAAL(self):
@@ -948,13 +917,9 @@ class Convert(AbstractCommand):
 
         if out_fmt == "GRAAL":
             mat_name = (
-                prefix + ".mat.tsv"
-                if prefix
-                else "abs_fragments_contacts_weighted.txt"
+                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
             )
-            frags_name = (
-                prefix + ".frag.tsv" if prefix else "fragments_list.txt"
-            )
+            frags_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
             chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
             self.out_mat = join(out_path, mat_name)
             self.out_frags = join(out_path, frags_name)
