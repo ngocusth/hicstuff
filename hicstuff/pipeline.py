@@ -206,6 +206,7 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
         prev_pair = ["0", "0"]  # Pairs identified by [frag1, frag2]
         n_occ = 0  # Number of occurences of each frag combination
         n_nonzero = 0  # Total number of nonzero matrix entries
+        n_pairs = 0  # Total number of pairs entered in the matrix
         pairs_reader = csv.reader(pairs, delimiter=" ")
         # First line contains nrows, ncols and number of nonzero entries.
         # Number of nonzero entries is unknown for now
@@ -223,11 +224,13 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
                         "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
                     )
                 prev_pair = curr_pair
+                n_pairs += n_occ
                 n_occ = 1
                 n_nonzero += 1
         # Write the last value
         mat.write("\t".join(map(str, [curr_pair[0], curr_pair[1], n_occ])) + "\n")
         n_nonzero += 1
+        n_pairs += 1
     # Edit header line to fill number of nonzero entries inplace
     with open(mat_file) as mat, open(pre_mat_file, "w") as tmp_mat:
         header = mat.readline()
@@ -237,6 +240,12 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
 
     # Replace the matrix file with the one with corrected header
     os.rename(pre_mat_file, mat_file)
+    logger.info(
+        "%d pairs used to build a contact map of %d bins with %d nonzero entries.",
+        n_pairs,
+        n_frags,
+        n_nonzero,
+    )
 
 
 def full_pipeline(
