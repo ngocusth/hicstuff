@@ -8,7 +8,9 @@
 [![License: GPLv3](https://img.shields.io/badge/License-GPL%203-0298c3.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-A lightweight library that generates and handles Hi-C contact maps in either 2Dbedgraph or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
+A lightweight library that generates and handles Hi-C contact maps in either cooler-compatible 2Dbedgraph or [instaGRAAL](https://github.com/koszullab/instaGRAAL) format. It is essentially a merge of the [yahcp](https://github.com/baudrly/yahcp) pipeline, the [hicstuff](https://github.com/baudrly/hicstuff) library and extra features illustrated in the [3C tutorial](https://github.com/axelcournac/3C_tutorial) and the [DADE pipeline](https://github.com/scovit/dade), all packaged together for extra convenience.
+
+The goal is to make generation and manipulation of Hi-C matrices as simple as possible and work for any organism.
 
 ## Table of contents
 
@@ -119,6 +121,21 @@ For example, to run the pipeline with minimap2 using 8 threads and generate a ma
 hicstuff pipeline -t 8 -m -e DpnII -o out/ -f genome.fa reads_for.fq reads_rev.fq
 ```
 
+The pipeline can also be run from python, using the `hicstuff.pipeline` submodule. For example, this would run the pipeline with bowtie2 (default) using iterative alignment and keep all intermediate files.
+
+```python
+from hicstuff import pipeline as hpi
+
+hpi.full_pipeline(
+    'genome.fa', 
+    'end1.fq', 
+    'end2.fq', 
+    no_cleanup=True
+    iterative=True
+    out_dir='out', 
+    enzyme="DpnII")
+```
+
 ### Individual components
 
 For more advanced usage, different scripts can be used independently on the command line to perform individual parts of the pipeline. This readme contains quick descriptions and example usages. To obtain detailed instructions on any subcommand, one can use `hicstuff <subcommand> --help`.
@@ -173,111 +190,138 @@ For example, to view a 1Mb region of chromosome 1 from a full genome Hi-C matrix
 All components of the hicstuff program can be used as python modules. See the documentation on [reathedocs](https://hicstuff.readthedocs.io). The expected contact map format for the library is a simple CSV file, and the objects handled by the library are simple ```numpy``` arrays. The various submodules of hicstuff contain various utilities.
 
 ```python
-import hicstuff.digest # Functions to work with fragments (digestion, matrix building)
+import hicstuff.digest # Functions to work with restriction fragments
 import hicstuff.iteralign # Functions related to iterative alignment
 import hicstuff.hicstuff # Contains utilities to modify and operate on contact maps as numpy arrays
 import hicstuff.filter # Functions for filtering 3C events by type (uncut, loop)
 import hicstuff.view # Utilities to visualise contact maps
+import hicstuff.io # Reading and writing hicstuff files
+import hicstuff.pipeline # Generation and processing of files to generate matrices.
 ```
 
 ### Connecting the modules
 
-All the steps described here are handled automatically when running the `hicstuff pipeline`. But if you want to connect the different modules manually, the intermediate input and output files must be processed using light bash scripting.
+All the steps described here are handled automatically when running the `hicstuff pipeline`. But if you want to connect the different modules manually, the intermediate input and output files must be processed using light python scripting.
+
+#### Aligning the reads
+
+You can generate SAM files independently using your favorite read mapping software, use the command line utility `hicstuff iteralign`, or use the helper function `align_reads` in the submodule `hicstuff.pipeline`. For example, to perform iterative alignment using minimap2 (instead of bowtie2 by default):
+
+**Using the python function:**
+
+```python
+from hicstuff import pipeline as hpi
+
+hpi.align_reads("end1.fastq", "genome.fasta", "end1.sam", iterative=True, minimap2=True)
+```
+
+**Using the command line tool:**
+
+```bash
+hicstuff iteralign --minimap2 --iterative -f genome.fasta -o end1.sam end1.fastq
+```
+
 
 #### Extracting contacts from the alignment
 
-The output from iteralign is a SAM file. In order to retrieve Hi-C pairs, you need to run iteralign separately on the two fastq files and process the resulting alignment files processed as follows using bedtools and some bash commands.
+The output from `hicstuff iteralign` is a SAM file. In order to retrieve Hi-C pairs, you need to run iteralign separately on the two fastq files and process the resulting alignment files as follows using the `pipeline` submodules of hicstuff.
 
-1. Convert the SAM files into BED format
-
-```bash
-samtools view -bS -F 260 -@ $t -q 30 "for.sam" |
-  bedtools bamtobed -i - |
-  awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-    > contacts_for.bed
-
-samtools view -bS -F 260 -@ $t -q 30 "rev.sam" |
-  bedtools bamtobed -i - |
-  awk 'OFS="\t" { print $1,$2,$3,$4,$6 }' \
-    > contacts_rev.bed
-```
-
-2. Put all forward and reverse reads into a single sorted BED file
-
-```bash
-sort -k1,1d -k2,2n contacts_for.bed contacts_rev.bed \
-  > total_contacts.bed
+```python
+from hicstuff import pipeline as hpi
+import pysam as ps
+# Sort alignments by read names
+ps.sort("-n", "-O", "SAM", "-o", "end1.sam.sorted", "end1.sam")
+ps.sort("-n", "-O", "SAM", "-o", "end2.sam.sorted", "end2.sam")
+# Combine SAM files
+hpi.sam2pairs("end1.sorted.sam", "end2.sorted.sam", "output.pairs", "info_contigs.txt", min_qual=30)
 
 ```
+This will generate a "pairs" file containing all read pairs where both reads have been aligned with a mapping quality of at least 30.
 
 #### Attributing each read to a restriction fragment
-To build a a contact matrix, we need to attribute each read to a fragment in the genome. This is done by intersecting all the reads with the digested genome.
+To build a a contact matrix, we need to attribute each read to a fragment in the genome. This is done under the hood by performing a binary search for each read position against the list of restriction sites in the genome.
 
-1. Extract restriction fragments from the genome using `hicstuff digest`.
+```python
+from hicstuff import digest as hcd
+from Bio import SeqIO
 
-```bash
-# Generate fragments_list.txt
-hicstuff digest --fasta genome.fa \
-  --enzyme DpnII \
-  --output-dir .
+# Build a list of restriction sites for each chromosome
+restrict_table = {}
+for record in SeqIO.parse("genome.fasta", "fasta"):
+    # Get chromosome restriction table
+    restrict_table[record.id] = hcd.get_restriction_table(
+        record.seq, enzyme, circular=circular
+    )
 
-# Make a BED from it
-awk 'NR>1 { print $2"\t"$3"\t"$4"\t"(NR-2) }' fragments_list.txt
-  >fragments_list.bed
+# Add fragment index to pairs (readID, chr1, pos1, chr2,
+# pos2, strand1, strand2, frag1, frag2)
+hcd.attribute_fragments("output.pairs", "output_indexed.pairs", restrict_table)
 
 ```
 
-2. Intersect the BED files of reads and restriction fragments.
+#### Filtering pairs
+The resulting pairs file can then be filtered, either in the command line using the `hicstuff filter` command, or in python using the `hicstuff.filter` submodule. Otherwise, the matrix can be built directly from the unfiltered pairs. 
 
+**Filtering on the command line:**
 ```bash
-bedtools intersect -a total_contacts.bed \
-  -b fragments_list.bed -wa -wb |
-  sort -k4d  \
-  > contact_intersect_sorted.bed
+hicstuff filter output_indexed.pairs output_filtered.pairs
 ```
+**Filtering in python:**
+```python
+from hicstuff import filter as hcf
 
-4. Get reads into a paired BED file (1 pair per line)
-
-```bash
-# Note: F is fragment and R is read
-# This awk snippet allows to convert a sorted BED file with fields:
-#   Rchr Rstart Rend Rname Rstrand Fchr Fstart Fend Fidx
-# to a "2D BED" file with:
-#   F1chr F1start F1end F1idx R1strand F2chr F2start F2end F2idx R2strand
-bed2pairs='
-BEGIN{dir="for"; OFS="\t"}
-{
-  if(dir=="for") {
-    fw["name"]=$4; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; dir="rev" }
-  else {
-    if(fw["name"] == $4) {
-        print fw["coord"],$6,$7,$8,$9,$5; dir="for"}
-    else {
-        dir="rev"; fw["coord"]=$6"\t"$7"\t"$8"\t"$9"\t"$5; fw["name"]=$4}
-    }
-}
-'
-awk "$bed2pairs" contact_intersect_sorted.bed > contact_intersect_sorted.bed2D
+uncut_thr, loop_thr = hcf.get_thresholds("output_indexed.pairs")
+hcf.filter_events("output_indexed.pairs", "output_filtered.pairs", uncut_thr, loop_thr)
 ```
+Note that both the command and the python function have various options to generate figure or tweak the filtering thresholds. These options can be displayed using `hicstuff filter -h`
 
-The resulting 2D BED file can then be filtered by the `hicstuff filter` module if needed, otherwise, the matrix can be built directly from it. To generate a GRAAL-compatible sparse matrix from the 2D bed file:
+#### Matrix generation
+A Hi-C sparse contact matrix can then be generated using the python submodule `hicstuff.pipeline`. The matrix can be generated either in GRAAL format, or bedgraph2 (WIP) for cooler compatibility.
 
-```bash
-# Remove strand information, sort by fragment combination,
-# Count occurrences of each fragment combination and format into csv.
-echo -e "id_fragment_a\tid_fragment_b\tn_contact" > matrix.tsv
-cut -f4,9 "$tmp_dir/contact_intersect_sorted.bed2D" |
-  sort -V |
-  uniq -c |
-  sed 's/^ *//' |
-  tr ' ' '\t' |
-  awk '{print $0,$1}' |
-  cut -f1 --complement >> matrix.tsv
+```python
+from hicstuff import pipeline as hpi
+
+n_frags = sum(1 for line in open(fragments_list, "r")) - 1
+hpi.pairs2matrix("output_filtered.pairs", "abs_fragments_contacts_weighted.txt", n_frags, format="GRAAL")
 ```
 
 ### File formats
 
-* 2D BED: This is the input format for `hicstuff filter`. It has one line per Hi-C pair and the following fields for each read: **chr start end name frag_id strand**.
+* pairs files: This format is used for all intermediate files in the pipeline and is also used by `hicstuff filter`. It is a space-separated format holding informations about Hi-C pairs. It has an [official specification](https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md) defined by the 4D Nucleome data coordination and integration center.
 * 2D bedgraph: This is an optional output format of `hicstuff pipeline` for the sparse matrix. It has two fragment per line, and the number of times they are found together. It has the following fields: **chr1, start1, end1, chr2, start2, end2, occurences**
+* GRAAL sparse matrix: This is a simple tab-separated file with 3 columns: **frag1, frag2, contacts**. The id columns correspond to the absolute id of the restriction fragments (0-indexed). The first row is a header containing the number of rows, number of columns and number of nonzero entries in the matrix. Example:
 
-* GRAAL sparse matrix: This is a simple CSV file with 3 columns: **id_a, id_b, occurrences**. The id columns correspond to the absolute id of the restriction fragments (0-indexed).
+```
+564	564	6978
+0	0	3
+1	2	4
+1	3	3
+
+```
+
+* fragments_list.txt: This tab separated file provides information about restriction fragments positions, size and GC content. Note the coordinates are 0 point basepairs, unlike the pairs format, which has 1 point basepairs. Example:
+   - id: 1 based restriction fragment index within chromosome.
+   - chrom: Chromosome identifier. Order should be the same as in info_contigs.txt or pairs files.
+   - start_pos: 0-based start of fragment, in base pairs.
+   - end_pos: 0-based end of fragment, in base pairs.
+   - size: Size of fragment, in base pairs.
+   - gc_content: Proportion of G and C nucleotide in the fragment.
+```
+id	chrom	start_pos	end_pos	size	gc_content
+1	seq1	0	21	21	0.5238095238095238
+2	seq1	21	80	59	0.576271186440678
+3	seq1	80	328	248	0.5201612903225806
+```
+
+* info_contigs.txt: This tab separated file gives information on contigs, such as number of restriction fragments and size. Example:
+   - contig: Chromosome identified. Order should be the same in pairs files or fragments_list.txt.
+   - length: Chromosome length, in base pairs.
+   - n_frags: Number of restriction fragments in chromosome.
+   - cumul_length: Cumulative length of previous chromosome, in base pairs.
+
+```
+contig	length	n_frags	cumul_length
+seq1	60000	409	0
+seq2	20000	155	409
+```
+

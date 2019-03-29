@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import pandas as pd
 import collections
+import subprocess as sp
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
@@ -20,10 +21,8 @@ DEFAULT_FRAGMENTS_LIST_FILE_NAME = "fragments_list.txt"
 DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
 DEFAULT_SPARSE_MATRIX_FILE_NAME = "abs_fragments_contacts_weighted.txt"
 
-load_raw_matrix = functools.partial(np.loadtxt, skiprows=1, delimiter="\t")
 
-
-def raw_cols_to_sparse(M, dtype=np.float64):
+def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
     """
     Make a coordinate based sparse matrix from columns.
     Convert (3, n) shaped arrays to a sparse matrix. The fist
@@ -34,9 +33,12 @@ def raw_cols_to_sparse(M, dtype=np.float64):
 
     Parameters
     ----------
-    M : array_like
-        An array with exactly three rows representing the sparse
-        matrix in coordinate format.
+    sparse_array : array_like
+        An array with exactly three columns representing the sparse
+        matrix data in coordinate format.
+    shape : tuple of int
+        The total number of rows and columns in the matrix. Will be estimated
+        from nonzero values if omitted.
     dtype : type, optional
         The type of data being loaded. Default is numpy.float64
 
@@ -54,22 +56,28 @@ def raw_cols_to_sparse(M, dtype=np.float64):
          [0. 0. 5. 0.]
          [0. 6. 0. 0.]]
     """
-    n = int(np.amax(M[:, :-1]) + 1)
-    row = M[:, 0]
-    col = M[:, 1]
-    data = M[:, 2]
-    S = coo_matrix((data, (row, col)), shape=(n, n), dtype=dtype)
+    if shape is None:
+        n = int(np.amax(sparse_array[:, :-1]) + 1)
+        shape = (n, n)
+
+    row = sparse_array[:, 0]
+    col = sparse_array[:, 1]
+    data = sparse_array[:, 2]
+    S = coo_matrix((data, (row, col)), shape=shape, dtype=dtype)
     return S
 
 
-def load_sparse_matrix(M, binning=1):
+def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     """Load sparse matrix
 
-    Load a text file matrix into a sparse matrix object.
+    Load a text file matrix into a sparse matrix object. The expected format is
+    a 3 column file where columns are row_number, col_number, value. The first
+    line consists of 3 values representing the total number of rows, columns
+    and nonzero values.
 
     Parameters
     ----------
-    M : file, str or pathlib.Path
+    mat_path : file, str or pathlib.Path
         The input matrix file in instaGRAAL format.
     binning : int or "auto"
         The binning to perform. If "auto", binning will
@@ -77,42 +85,53 @@ def load_sparse_matrix(M, binning=1):
         will not go beyond (10000, 10000) in shape. That
         can be changed by modifying the DEFAULT_MAX_MATRIX_SHAPE
         value. Default is 1, i.e. no binning is performed
+    dtype : type, optional
+        The type of data being loaded. Default is numpy.float64
 
     Returns
     -------
-    N : scipy.sparse.coo_matrix
+    sparse_mat : scipy.sparse.coo_matrix
         The output (sparse) matrix in COOrdinate format.
     """
+    raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
 
-    R = load_raw_matrix(M)
-    S = raw_cols_to_sparse(R)
+    # Get values into an array without the header. Use the header to give size.
+    sparse_mat = raw_cols_to_sparse(
+        raw_mat[1:, :],
+        shape=(int(raw_mat[0, 0]), int(raw_mat[0, 1])),
+        dtype=dtype,
+    )
     if binning == "auto":
-        n = max(S.shape) + 1
-        subsampling_factor = n // DEFAULT_MAX_MATRIX_SHAPE
+        num_bins = max(sparse_mat.shape) + 1
+        subsampling_factor = num_bins // DEFAULT_MAX_MATRIX_SHAPE
     else:
         subsampling_factor = binning
-    B = hcs.bin_sparse(S, subsampling_factor=subsampling_factor)
-    return B
+    sparse_mat = hcs.bin_sparse(
+        sparse_mat, subsampling_factor=subsampling_factor
+    )
+    return sparse_mat
 
 
-def save_sparse_matrix(M, path):
+def save_sparse_matrix(s_mat, path):
     """Save a sparse matrix
 
     Saves a sparse matrix object into tsv format.
 
     Parameters
     ----------
-    M : scipy.sparse.coo_matrix
+    s_mat : scipy.sparse.coo_matrix
         The sparse matrix to save on disk
     path : str
         File path where the matrix will be stored
     """
-    S_arr = np.vstack([M.row, M.col, M.data]).T
+    sparse_arr = np.vstack([s_mat.row, s_mat.col, s_mat.data]).T
 
     np.savetxt(
         path,
-        S_arr,
-        header="id_fragment_a\tid_fragment_b\tn_contact",
+        sparse_arr,
+        header="{nrows}\t{ncols}\t{nonzero}".format(
+            nrows=s_mat.shape[0], ncols=s_mat.shape[1], nonzero=s_mat.nnz
+        ),
         comments="",
         fmt="%i",
         delimiter="\t",
@@ -122,6 +141,7 @@ def save_sparse_matrix(M, path):
 def load_pos_col(path, colnum, header=1, dtype=np.int64):
     """
     Loads a single column of a TSV file with header into a numpy array.
+    
     Parameters
     ----------
     path : str
@@ -130,6 +150,7 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         The 0-based index of the column to load.
     header : int
         Number of line to skip. By default the header is a single line.
+
     Returns
     -------
     numpy.array :
@@ -308,7 +329,9 @@ def to_dade_matrix(M, annotations="", filename=None):
         try:
             np.savetxt(filename, A, fmt="%i")
             logger.info(
-                "I saved input matrix in dade format as " + str(filename)
+                "I saved input matrix in dade format as {0}".format(
+                    str(filename)
+                )
             )
         except ValueError as e:
             logger.warning("I couldn't save input matrix.")
@@ -411,7 +434,6 @@ def dade_to_GRAAL(
     to a GRAAL-compatible format. Since DADE matrices contain both fragment
     and contact information all files are generated at the same time.
     """
-    import numpy as np
 
     with open(output_matrix, "w") as sparse_file:
         sparse_file.write("id_frag_a\tid_frag_b\tn_contact")
@@ -499,13 +521,18 @@ def dade_to_GRAAL(
             fragments_list.write(line_to_write)
 
 
-def load_bedgraph2d(filename):
+def load_bedgraph2d(filename, bin_size=None):
     """
-    Loads matrix and fragment information from a 2D bedgraph file.
+    Loads matrix and fragment information from a 2D bedgraph file. Note this
+    function assumes chromosomes are ordered in alphabetical. order
+    
     Parameters
     ----------
     filename : str
         Path to the bedgraph2D file.
+    bin_size : int
+        The size of bins in the case of fixed bin size.
+    
     Returns
     -------
     mat : scipy.sparse.coo_matrix
@@ -516,16 +543,51 @@ def load_bedgraph2d(filename):
         positions.
     """
     bed2d = pd.read_csv(filename, sep=" ", header=None)
-    # Get unique identifiers for fragments (chrom+pos)
+    if bin_size is None:
+        logger.warning(
+            "Please be aware that not all information can be restored from a "
+            "cooler file without fixed bin size; fragments without any contact "
+            "will be lost"
+        )
+    else:
+        # If bin size if provided, retrieve chromosome lengths, this will be
+        # used when regenerating bin coordinates
+        chroms = bed2d[[0, 2]].groupby([0], sort=False).max()
+        chrom_sizes = {}
+        for chrom, size in zip(chroms.index, np.array(chroms)):
+            chrom_sizes[chrom] = size[0]
+
+    # Get all possible fragment chrom-positions into an array
+    frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
+    # Sort by position (least important, col 1)
+    frag_pos = frag_pos[frag_pos[:, 1].argsort(kind="mergesort")]
+    # Then by chrom (most important, col 0)
+    frag_pos = frag_pos[frag_pos[:, 0].argsort(kind="mergesort")]
+    # Get unique names for fragments (chrom+pos)
+    ordered_frag_pos = (
+        pd.DataFrame(frag_pos)
+        .drop_duplicates()
+        .apply(lambda x: "".join(x.astype(str)), axis=1)
+        .tolist()
+    )
     frag_pos_a = np.array(
         bed2d[[0, 1]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
     frag_pos_b = np.array(
         bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
-    # Match position-based identifiers to their index
-    ordered_frag_pos = np.unique(np.concatenate([frag_pos_a, frag_pos_b]))
-    frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
+    if bin_size is None:
+        frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
+    else:
+        # If fixed fragment size available, use it to reconstruct original
+        # fragments ID (even if they are absent from the bedgraph file).
+        frag_map = {}
+        for chrom, size in chrom_sizes.items():
+            prev_frags = len(frag_map)
+            for bin_id, bin_pos in enumerate(range(0, size, bin_size)):
+                frag_map["".join([chrom, str(bin_pos)])] = bin_id + prev_frags
+
+    # Match bin indices to their names
     frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
     frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))
     contacts = np.array(bed2d.iloc[:, 6].tolist())
@@ -542,5 +604,153 @@ def load_bedgraph2d(filename):
     )
     frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
     frags.insert(loc=0, column="id", value=0)
+    frags.id = frags.groupby([0], sort=False).cumcount() + 1
     frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
     return mat, frags
+
+
+def save_bedgraph2d(mat, frags, out_path):
+    """
+    Given a sparse matrix and a corresponding list of fragments, save a file
+    in 2D bedgraph format.
+
+    Parameters
+    ----------
+    mat : scipy.sparse.coo_matrix
+        The sparse contact map.
+    frags : pandas.DataFrame
+        A structure containing the annotations for each matrix bin. Should
+        correspond to the content of the fragments_list.txt file.
+
+    """
+    mat_df = pd.DataFrame(
+        {"row": mat.row, "col": mat.col, "data": mat.data.astype(int)}
+    )
+    # Merge fragments with matrix based on row indices to annotate rows
+    merge_mat = mat_df.merge(
+        frags, left_on="row", right_index=True, how="left", suffixes=("", "")
+    )
+    # Rename annotations to assign to frag1
+    merge_mat.rename(
+        columns={"chrom": "chr1", "start_pos": "start1", "end_pos": "end1"},
+        inplace=True,
+    )
+    # Do the same operation for cols (frag2)
+    merge_mat = merge_mat.merge(
+        frags,
+        left_on="col",
+        right_index=True,
+        how="left",
+        suffixes=("_0", "_2"),
+    )
+    merge_mat.rename(
+        columns={"chrom": "chr2", "start_pos": "start2", "end_pos": "end2"},
+        inplace=True,
+    )
+    # Select only relevant columns in correct order
+    bg2 = merge_mat.loc[
+        :, ["chr1", "start1", "end1", "chr2", "start2", "end2", "data"]
+    ]
+    bg2.to_csv(out_path, header=None, index=False, sep=" ")
+
+
+def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
+    """
+    Sort a pairs file in batches using UNIX sort.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the unsorted input file
+    out_file : str
+        Path to the sorted output file.
+    keys : list of str
+        list of columns to use as sort keys. Each column can be one of readID,
+        chr1, pos1, chr2, pos2, frag1, frag2. Key priorities are according to
+        the order in the list.
+    tmp_dir : str
+        Path to the directory where temporary files will be created. Defaults
+        to current directory.
+    threads : int
+        Number of parallel sorting threads.
+    buffer : str
+        Buffer size used for sorting. Consists of a number and a unit.
+    """
+    # TODO: Write a pure python implementation to drop GNU coreutils depencency,
+    # could be inspired from: https://stackoverflow.com/q/14465154/8440675
+    key_map = {
+        "readID": "-k1,1d",
+        "chr1": "-k2,2d",
+        "pos1": "-k3,3n",
+        "chr2": "-k4,4d",
+        "pos2": "-k5,5n",
+        "strand1": "-k6,6d",
+        "strand2": "-k7,7d",
+        "frag1": "-k8,8n",
+        "frag2": "-k9,9n",
+    }
+
+    # transform column names to corresponding sort keys
+    try:
+        sort_keys = map(lambda k: key_map[k], keys)
+    except KeyError:
+        print("Unkown column name.")
+        raise
+
+    # Rewrite header with new sorting order
+    header = get_pairs_header(in_file)
+    with open(out_file, "w") as output:
+        for line in header:
+            if line.startswith("#sorted"):
+                output.write("#sorted: {0}\n".format("-".join(keys)))
+            else:
+                output.write(line + "\n")
+
+    # Sort pairs and append to file.
+    with open(out_file, "a") as output:
+        grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
+        sort_cmd = sp.Popen(
+            ["sort", "--parallel=%d" % threads, "-S %s" % buffer]
+            + list(sort_keys),
+            stdin=grep_cmd.stdout,
+            stdout=output,
+        )
+
+
+def get_pairs_header(pairs):
+    r"""Retrieves the header of a .pairs file and stores lines into a list.
+
+    Parameters
+    ----------
+    pairs : str or file object
+        Path to the pairs file.
+
+    Returns
+    -------
+    header : list of str
+        A list of header lines found, in the same order they appear in pairs.
+
+    Examples
+    --------
+        >>> import os
+        >>> from tempfile import NamedTemporaryFile
+        >>> p = NamedTemporaryFile('w', delete=False)
+        >>> p.writelines(["## pairs format v1.0\n", "#sorted: chr1-chr2\n", "abcd\n"])
+        >>> p.close()
+        >>> h = get_pairs_header(p.name)
+        >>> for line in h:
+        ...     print([line])
+        ['## pairs format v1.0']
+        ['#sorted: chr1-chr2']
+        >>> os.unlink(p.name)
+    """
+    # Open file if needed
+    with open(pairs, "r") as pairs:
+        # Store header lines into a list
+        header = []
+        line = pairs.readline()
+        while line.startswith("#"):
+            header.append(line.rstrip())
+            line = pairs.readline()
+
+    return header

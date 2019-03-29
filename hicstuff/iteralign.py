@@ -27,10 +27,12 @@ def generate_temp_dir(path):
     """Temporary directory generation
 
     Generates a temporary file with a random name at the input path.
+    
     Parameters
     ----------
     path : str
         The path at which the temporary directory will be created.
+    
     Returns
     -------
     str
@@ -53,14 +55,42 @@ def generate_temp_dir(path):
     return full_path
 
 
+def check_bt2_index(ref):
+    """
+    Checks for the existence of a bowtie2 index based on the reference
+    file name.
+
+    Parameters
+    ----------
+    ref : str
+        Path to the reference genome.
+
+    Returns
+    -------
+    index : str
+        The bowtie2 index basename.
+    """
+    index = os.path.splitext(ref)[0]
+    try:
+        index = glob.glob(index + "*rev.1.bt2")[0]
+        index = index.split(".rev.1.bt2")[0]
+    except IndexError:
+        logger.error(
+            "Reference index is missing, please build the bowtie2 " "index first."
+        )
+        sys.exit(1)
+    return index
+
+
 def iterative_align(
-    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20
+    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20, min_qual=30
 ):
     """Iterative alignment
 
     Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
-    truncated to the 40 first nucleotides and unmapped reads are extended by 20
+    truncated to the 20 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
+
     Parameters
     ----------
     fq_in : str
@@ -77,6 +107,8 @@ def iterative_align(
         If True, use minimap2 instead of bowtie2 for the alignment.
     min_len : int
         The initial length of the fragments to align.
+    min_qual : int
+        Minimum mapping quality required to keep Hi-C pairs.
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()
@@ -103,17 +135,9 @@ def iterative_align(
         uncomp_path = fq_in
 
     # throw error if index does not exist
-    index = os.path.splitext(ref)[0]
+    index = ""
     if not minimap2:
-        try:
-            index = glob.glob(index + "*rev.1.bt2")[0]
-            index = index.split(".rev.1.bt2")[0]
-        except IndexError:
-            logger.error(
-                "Reference index is missing, please build the bowtie2 "
-                "index first."
-            )
-            sys.exit(1)
+        index = check_bt2_index(ref)
     # Counting reads
     with ct.read_compressed(uncomp_path) as inf:
         for _ in inf:
@@ -159,9 +183,7 @@ def iterative_align(
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
-                **map_args
-            )
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
         else:
             cmd = (
                 "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
@@ -173,7 +195,7 @@ def iterative_align(
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
         logger.info("Reporting aligned reads")
-        remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
+        remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
         n += 20
 
@@ -196,7 +218,7 @@ def iterative_align(
     sp.call(cmd, shell=True)
     logger.info("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
-    remaining_reads = filter_samfile(temp_alignment, iter_out[-1])
+    remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
     # Report unaligned reads as well
     iter_out += [os.path.join(tmp_dir, "unaligned.sam")]
@@ -250,20 +272,25 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
     return outfile
 
 
-def filter_samfile(temp_alignment, filtered_out):
+def filter_samfile(temp_alignment, filtered_out, min_qual=30):
     """Filter alignment SAM files
 
     Reads all the reads in the input SAM alignment file.
     Write reads to the output file if they are aligned with a good
     quality, otherwise add their name in a set to stage them for the next round
     of alignment.
+
     Parameters
     ----------
     temp_alignment : str
         Path to the input temporary alignment.
     outfile : str
         Path to the output filtered temporary alignment.
+    min_qual : int
+        Minimum mapping quality required to keep a Hi-C pair.
+    
     Returns
+    -------
     set:
         Contains the names reads that did not align.
     """
@@ -275,7 +302,7 @@ def filter_samfile(temp_alignment, filtered_out):
     temp_sam = ps.AlignmentFile(temp_alignment, "r")
     outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam)
     for r in temp_sam:
-        if r.flag in [0, 16] and r.mapping_quality >= 30:
+        if r.flag in [0, 16] and r.mapping_quality >= min_qual:
             outf.write(r)
         else:
             unaligned.add(r.query_name)

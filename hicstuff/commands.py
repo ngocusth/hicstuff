@@ -40,10 +40,11 @@ import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
+from hicstuff.log import logger
+import hicstuff.pipeline as hpi
 from scipy.sparse import csr_matrix
 import sys
 import os
-import subprocess
 import shutil
 from os.path import join, basename
 from matplotlib import pyplot as plt
@@ -78,7 +79,7 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=40]
+        iteralign [--minimap2] [--threads=1] [--min_len=20]
                   [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
 
     arguments:
@@ -220,7 +221,6 @@ class Filter(AbstractCommand):
 
     def execute(self):
         figpath = None
-        output_handle = open(self.args["<output>"], "w")
         if self.args["--thresholds"]:
             # Thresholds supplied by user beforehand
             uncut_thr, loop_thr = self.args["--thresholds"].split("-")
@@ -228,36 +228,34 @@ class Filter(AbstractCommand):
                 uncut_thr = int(uncut_thr)
                 loop_thr = int(loop_thr)
             except ValueError:
-                print("You must provide integer numbers for the thresholds.")
+                logger.error("You must provide integer numbers for the thresholds.")
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
                 figpath = join(self.args["--figdir"], "event_distance.pdf")
                 if not os.path.exists(self.args["--figdir"]):
                     os.makedirs(self.args["--figdir"])
-            with open(self.args["<input>"]) as handle_in:
-                uncut_thr, loop_thr = hcf.get_thresholds(
-                    handle_in,
-                    interactive=self.args["--interactive"],
-                    plot_events=self.args["--plot"],
-                    fig_path=figpath,
-                    prefix=self.args["--prefix"],
-                )
+            uncut_thr, loop_thr = hcf.get_thresholds(
+                self.args["<input>"],
+                interactive=self.args["--interactive"],
+                plot_events=self.args["--plot"],
+                fig_path=figpath,
+                prefix=self.args["--prefix"],
+            )
         # Filter library and write to output file
         figpath = None
         if self.args["--figdir"]:
             figpath = join(self.args["--figdir"], "event_distribution.pdf")
 
-        with open(self.args["<input>"]) as handle_in:
-            hcf.filter_events(
-                handle_in,
-                output_handle,
-                uncut_thr,
-                loop_thr,
-                plot_events=self.args["--plot"],
-                fig_path=figpath,
-                prefix=self.args["--prefix"],
-            )
+        hcf.filter_events(
+            self.args["<input>"],
+            self.args["<output>"],
+            uncut_thr,
+            loop_thr,
+            plot_events=self.args["--plot"],
+            fig_path=figpath,
+            prefix=self.args["--prefix"],
+        )
 
 
 class View(AbstractCommand):
@@ -345,10 +343,9 @@ class View(AbstractCommand):
         # ZOOM REGION
         if self.args["--region"]:
             if not self.args["--frags"]:
-                print(
-                    "Error: A fragment file must be provided to subset "
-                    "genomic regions. See hicstuff view --help",
-                    file=sys.stderr,
+                logger.error(
+                    "A fragment file must be provided to subset "
+                    "genomic regions. See hicstuff view --help"
                 )
                 sys.exit(1)
             # Load positions from fragments list
@@ -386,7 +383,7 @@ class View(AbstractCommand):
             try:
                 trim_std = float(self.args["--trim"])
             except ValueError:
-                print(
+                logger.error(
                     "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
@@ -408,10 +405,9 @@ class View(AbstractCommand):
         except ValueError:
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
-                    print(
-                        "Error: A fragment file must be provided to perform "
-                        "basepair binning. See hicstuff view --help",
-                        file=sys.stderr,
+                    logger.error(
+                        "A fragment file must be provided to perform "
+                        "basepair binning. See hicstuff view --help"
                     )
                     sys.exit(1)
                 # Load positions from fragments list
@@ -419,10 +415,7 @@ class View(AbstractCommand):
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
-                print(
-                    "Please provide an integer or basepair value for binning.",
-                    file=sys.stderr,
-                )
+                logger.error("Please provide an integer or basepair value for binning.")
                 raise
 
         output_file = self.args["--output"]
@@ -433,10 +426,9 @@ class View(AbstractCommand):
             sparse_map2 = hio.load_sparse_matrix(self.args["<contact_map2>"])
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
-                print(
-                    "Error: You cannot compute the ratio of matrices with "
-                    "different dimensions",
-                    file=sys.stderr,
+                logger.error(
+                    "You cannot compute the ratio of matrices with "
+                    "different dimensions"
                 )
             # Get log of values for both maps
             processed_map.data = np.log2(processed_map.data)
@@ -467,7 +459,7 @@ class View(AbstractCommand):
                 cmap=cmap,
             )
         except MemoryError:
-            print("contact map is too large to load, try binning more")
+            logger.error("contact map is too large to load, try binning more")
 
 
 class Pipeline(AbstractCommand):
@@ -477,31 +469,26 @@ class Pipeline(AbstractCommand):
     individual components of hicstuff.
 
     usage:
-        pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
-                 [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
+        pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
+                 [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
+                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE <input1> [<input2>]
 
     arguments:
-        fq1:             Forward fastq file. Required by default.
-        fq2:             Reverse fastq file. Required by default.
-        sam1:            Forward SAM file. Required if using --sam to skip
-                         mapping.
-        sam2:            Reverse SAM file. Required if using --sam to skip
-                         mapping.
-        bed2D:           Sorted 2D BED file of pairs. Required if using
-                         "--pairs" to only build matrix.
+        input1:             Forward fastq file, if start_stage is "fastq", sam
+                            file for aligned forward reads if start_stage is
+                            "sam", or a .pairs file if start_stage is "pairs".
+        input2:             Reverse fastq file, if start_stage is "fastq", sam
+                            file for aligned reverse reads if start_stage is
+                            "sam", or nothing if start_stage is "pairs".
 
 
     options:
-        -b, --bedgraph                If enabled, generates a sparse matrix in
-                                      2D Bedgraph format (cooler-compatible)
-                                      instead of GRAAL-compatible format.
+        -M, --matfmt=FMT              The format of the output sparse matrix.
+                                      Can be "cooler" for 2D Bedgraph format 
+                                      compatible with cooler, or "GRAAL" for
+                                      GRAAL-compatible format. [default: GRAAL]
         -C, --circular                Enable if the genome is circular.
-        -d, --duplicates:             If enabled, trims (10bp) adapters and
-                                      remove PCR duplicates prior to mapping.
-                                      Only works if reads start with a 10bp
-                                      sequence. Not enabled by default.
         -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
@@ -512,16 +499,17 @@ class Pipeline(AbstractCommand):
                                       uncuts) using hicstuff filter. Requires
                                       "-e" to be a restriction enzyme, not a
                                       chunk size.
-        -S, --sam                     Skip the mapping and start pipeline from
-                                      fragment attribution using SAM files.
+        -S, --start-stage=STAGE       Define the starting point of the pipeline
+                                      to skip some steps. Default is "fastq" to
+                                      run from the start. Can also be "sam" and
+                                      "pairs" to skip the alignment or only
+                                      build the matrix. [default: fastq]
         -i, --iterative               Map reads iteratively using hicstuff
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and
                                       aligning them.
         -m, --minimap2                Use the minimap2 aligner instead of
                                       bowtie2. Not enabled by default.
-        -A, --pairs                   Start from the matrix building step using
-                                      a sorted list of pairs in 2D BED format.
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
@@ -532,7 +520,7 @@ class Pipeline(AbstractCommand):
         -P, --prefix=PREFIX           Overrides default GRAAL-compatible
                                       filenames and use a prefix with
                                       extensions instead.
-        -q, --quality_min=INT         Minimum mapping quality for selecting
+        -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
         -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
@@ -551,10 +539,6 @@ class Pipeline(AbstractCommand):
     """
 
     def execute(self):
-        if self.args["--pairs"] or self.args["--sam"]:
-            # If starting from middle of pipeline, do not remove intermediary
-            # files to prevent deleting input.
-            self.args["--no-cleanup"] = True
 
         if self.args["--filter"] and self.args["--enzyme"].isdigit():
             raise ValueError(
@@ -562,30 +546,26 @@ class Pipeline(AbstractCommand):
             )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
-
-        str_args = " "
-        # Pass formatted arguments to bash
-        for arg, val in self.args.items():
-            # Handle positional arguments individually
-            if arg in {"<fq1>", "<sam1>", "<bed2D>"} and val:
-                str_args += "-1 " + val
-            elif arg in {"<fq2>", "<sam2>"} and val:
-                str_args += "-2 " + val
-            # Ignore value of flags (only add name)
-            elif val is True:
-                str_args += arg
-            # Skip flags that are not specified
-            elif val in (None, False):
-                continue
-            else:
-                str_args += arg + " " + val
-            str_args += " "
-        # Set the pipeline to start from later step if specified
-        if self.args["--pairs"]:
-            str_args += "-S 3"
-        elif self.args["--sam"]:
-            str_args += "-S 2"
-        subprocess.call("bash yahcp" + str_args, shell=True)
+        hpi.full_pipeline(
+            genome=self.args["--fasta"],
+            input1=self.args["<input1>"],
+            input2=self.args["<input2>"],
+            enzyme=self.args["--enzyme"],
+            circular=self.args["--circular"],
+            out_dir=self.args["--outdir"],
+            tmp_dir=self.args["--tmpdir"],
+            plot=self.args["--plot"],
+            min_qual=int(self.args["--quality-min"]),
+            min_size=int(self.args["--size"]),
+            threads=int(self.args["--threads"]),
+            no_cleanup=self.args["--no-cleanup"],
+            iterative=self.args["--iterative"],
+            filter_events=self.args["--filter"],
+            prefix=self.args["--prefix"],
+            start_stage=self.args["--start-stage"],
+            bedgraph=True if self.args["--matfmt"] == "cooler" else False,
+            minimap2=self.args["--minimap2"],
+        )
 
 
 class Plot(AbstractCommand):
@@ -768,19 +748,15 @@ class Rebin(AbstractCommand):
             # Basepair binning
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
-                    print(
+                    logger.error(
                         "Error: A fragment file must be provided to perform "
-                        "basepair binning. See hicstuff rebin --help",
-                        file=sys.stderr,
+                        "basepair binning. See hicstuff rebin --help"
                     )
                     sys.exit(1)
                 binning = parse_bin_str(bin_str)
                 bp_unit = True
             else:
-                print(
-                    "Please provide an integer or basepair value for binning.",
-                    file=sys.stderr,
-                )
+                logger.error("Please provide an integer or basepair value for binning.")
                 raise
         map_path = self.args["<contact_map>"]
         hic_map = hio.load_sparse_matrix(map_path)
@@ -871,69 +847,91 @@ class Convert(AbstractCommand):
     Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
     bedgraph2D (cooler) and DADE.
     usage:
-        convert [--frags=FILE] [--chrom=FILE] [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
+        convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
+                [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
 
     arguments:
         <contact_map> : The file containing the contact frequencies.
 
     options:
-        -f, --frags=FILE    File containing the fragments coordinates. If
-                            not already in the contact map file.
-        -c, --chrom=FILE    File containing the chromosome informations, if not
-                            already in the contact map file.
-        -o, --out=DIR       The directory where output files must be written.
-        -P, --prefix=NAME   A prefix by which the output filenames should start.
-        -F, --from=FORMAT   The format from which to convert. [default: GRAAL]
-        -T, --to=FORMAT     The format to which files should be converted. [default: cooler]
+        -f, --frags=FILE          File containing the fragments coordinates. If
+                                  not already in the contact map file.
+        -b, --binning=INT[k|M|G]b Fixed bin size to use. Help reconstructing
+                                  GRAAL files from a bedgraph2D (cooler) file.
+        -c, --chroms=FILE         File containing the chromosome informations, if not
+                                  already in the contact map file.
+        -o, --out=DIR             The directory where output files must be written.
+        -P, --prefix=NAME         A prefix by which the output filenames should start.
+        -F, --from=FORMAT         The format from which to convert. [default: GRAAL]
+        -T, --to=FORMAT           The format to which files should be converted. [default: cooler]
     """
 
+    def GRAAL_cooler(self):
+        mat = hio.load_sparse_matrix(self.mat_path)
+        frags = pd.read_csv(self.frags_path, delimiter="\t")
+        hio.save_bedgraph2d(mat, frags, self.out_mat)
+
+    def GRAAL_DADE(self):
+        mat = hio.load_sparse_matrix(self.mat_path)
+        frags = pd.read_csv(self.frags_path, delimiter="\t")
+        annot = frags.apply(lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1)
+        hio.to_dade_matrix(mat, annotations=annot, filename=self.out_mat)
+
+    def DADE_GRAAL(self):
+        hio.dade_to_GRAAL(
+            self.mat_path,
+            output_matrix=self.out_mat,
+            output_contigs=self.out_chr,
+            output_frags=self.out_frags,
+        )
+
+    def cooler_GRAAL(self):
+        mat, frags = hio.load_bedgraph2d(self.mat_path, bin_size=self.binning)
+        hio.save_sparse_matrix(mat, self.out_mat)
+        frags.to_csv(self.out_frags, sep="\t", index=False)
+
     def execute(self):
-        accepted_fmt = ["cooler", "GRAAL", "DADE"]
         in_fmt = self.args["--from"]
+        fun_map = {
+            "GRAAL-cooler": self.GRAAL_cooler,
+            "GRAAL-DADE": self.GRAAL_DADE,
+            "DADE-GRAAL": self.DADE_GRAAL,
+            "cooler-GRAAL": self.cooler_GRAAL,
+        }
+        self.mat_path = self.args["<contact_map>"]
+        self.frags_path = self.args["--frags"]
+        self.chroms_path = self.args["--chroms"]
         out_fmt = self.args["--to"]
-        mat_path = self.args["--mat"]
         out_path = self.args["--out"]
+        os.makedirs(out_path, exist_ok=True)
         prefix = self.args["--prefix"]
-        frags_path = 0
-        # Read input files
-        if in_fmt == "GRAAL":
-            M = hio.load_sparse_matrix(mat_path)
-            frags = pd.read_csv(frags_path, delimiter="\t")
-        elif in_fmt == "DADE":
-            if out_fmt != "GRAAL":
-                print("conversion not implemented yet.")
-                sys.exit(1)
-        elif in_fmt == "cooler":
-            M, frags = hio.load_bedgraph2d(mat_path)
-        else:
-            print("Error: unknown input format")
+
+        self.binning = parse_bin_str(self.args["--binning"])
+
+        try:
+            conv = "-".join([in_fmt, out_fmt])
+            conv_fun = fun_map[conv]
+        except KeyError:
+            logger.error("Conversion not implemented or unknown format")
             sys.exit(1)
-        # Write output files
-        if out_fmt == "cooler":
-            pass
-            print("not implemented yet, sorry")
-        elif out_fmt == "GRAAL":
+
+        if out_fmt == "GRAAL":
             mat_name = (
                 prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
             )
-            frag_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            frags_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
             chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
-            out_mat = join(out_path, mat_name)
-            out_frag = join(out_path, frag_name)
-            out_chr = join(out_path, chr_name)
-            if in_fmt == "DADE":
-                hio.dade_to_GRAAL(
-                    mat_path,
-                    output_matrix=out_mat,
-                    output_contigs=out_chr,
-                    output_frags=out_frag,
-                )
-            hio.save_sparse_matrix(M, out_mat)
-            frags.to_csv(out_frag, sep="\t", index=False)
+            self.out_mat = join(out_path, mat_name)
+            self.out_frags = join(out_path, frags_name)
+            self.out_chr = join(out_path, chr_name)
+        elif out_fmt == "cooler":
+            mat_name = prefix + ".mat.2bg" if prefix else "cooler.mat.2bg"
+            self.out_mat = join(out_path, mat_name)
+        elif out_fmt == "DADE":
+            mat_name = prefix + ".DADE.tsv" if prefix else "DADE.mat.tsv"
+            self.out_mat = join(out_path, mat_name)
 
-        else:
-            print("Error: unknown output format")
-            sys.exit(1)
+        conv_fun()
 
 
 def parse_bin_str(bin_str):
@@ -1011,7 +1009,7 @@ def parse_ucsc(ucsc_str, bins):
             start = min(chrombins.id)
             end = max(chrombins.id)
         except ValueError:
-            print("Invalid chromosome")
+            logger.error("Invalid chromosome")
             raise
     coord = (int(start), int(end))
     return coord

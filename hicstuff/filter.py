@@ -19,23 +19,26 @@ attributed.
 @author: cmdoret (reimplementation of Axel KournaK's code)
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+import numpy as np
+from collections import OrderedDict
+import matplotlib.pyplot as plt
 from hicstuff.log import logger
 
 
 def process_read_pair(line):
-    """Process and order 2D BED based read pairs
+    """Process and order read pairs in a .pairs record.
 
-    Takes a read pair (line) from a 2D BED file as input, reorders the pair
+    Takes a read pair (line) from a .pairs file as input, reorders the pair
     so that read 1 in intrachromosomal pairs always has the smallest genomic
     coordinate.
 
     Parameters
     ----------
     line : str
-        Read pair from a 2D BED file.
+        Record from a pairs file with columns: readID, chr1, pos1, chr2,
+        pos2, strand1, strand2, frag1, frag2
+
     Returns
     -------
     dict
@@ -44,63 +47,60 @@ def process_read_pair(line):
         the type of event are also stored in the dictionary, under keys
         "nsites" and "type".
 
-    Example
-    -------
-        >>> d = process_read_pair("a 1 3 0 - b 2 4 1 -")
+    Examples
+    --------
+        >>> d = process_read_pair("readX a 1 b 20 - - 1 3")
         >>> for u in sorted(d.items()):
         ...     print(u)
         ('chr1', 'a')
         ('chr2', 'b')
-        ('end1', 3)
-        ('end2', 4)
-        ('indice1', 0)
-        ('indice2', 1)
-        ('nsites', 1)
-        ('start1', 1)
-        ('start2', 2)
+        ('frag1', 1)
+        ('frag2', 3)
+        ('nsites', 2)
+        ('pos1', 1)
+        ('pos2', 20)
+        ('readID', 'readX')
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
-        >>> d = process_read_pair('a 2 3 2 - a 1 1 0 +')
+        >>> d = process_read_pair('readY a 20 a 10 - + 2 1')
         >>> [d[x] for x in sorted(d.keys())]
-        ['a', 'a', 1, 3, 0, 2, 2, 1, 2, '+', '-', '+-']
+        ['a', 'a', 1, 2, 1, 10, 20, 'readY', '+', '-', '+-']
     """
     # Split line by whitespace
-    p = line.split()
-    if len(p) != 10:
+    p = line.split(" ")
+    if len(p) != 9:
         raise ValueError(
-            "Your input file does not have 10 columns. Make sure "
-            "the file has twice the following 5 fields (once for each read in "
-            "the pair): chr start end indice strand."
+            "Your input file does not have 9 columns. Make sure "
+            "the file has the readID and twice the following 4 fields "
+            "(once for each read in the pair): chr pos strand frag."
         )
     # Saving each column as a dictionary entry with meaningful key
     cols = [
+        "readID",
         "chr1",
-        "start1",
-        "end1",
-        "indice1",
-        "strand1",
+        "pos1",
         "chr2",
-        "start2",
-        "end2",
-        "indice2",
+        "pos2",
+        "strand1",
         "strand2",
+        "frag1",
+        "frag2",
     ]
     p = {cols[i]: p[i] for i in range(len(cols))}
     # Transforming numeric columns to int
-    for col in ["start1", "end1", "indice1", "start2", "indice2", "end2"]:
+    for col in ["pos1", "pos2", "frag1", "frag2"]:
         p[col] = int(p[col])
 
     # invert records for intrachromosomal pairs where rec2 comes before
     # rec1 in genomic coordinates
-    if p["chr1"] == p["chr2"] and p["start2"] < p["start1"]:
+    if p["chr1"] == p["chr2"] and p["pos2"] < p["pos1"]:
         p["strand1"], p["strand2"] = p["strand2"], p["strand1"]
-        p["start1"], p["start2"] = p["start2"], p["start1"]
-        p["end1"], p["end2"] = p["end2"], p["end1"]
-        p["indice1"], p["indice2"] = p["indice2"], p["indice1"]
+        p["pos1"], p["pos2"] = p["pos2"], p["pos1"]
+        p["frag1"], p["frag2"] = p["frag2"], p["frag1"]
 
     # Number of restriction sites separating reads in the pair
-    p["nsites"] = abs(p["indice2"] - p["indice1"])
+    p["nsites"] = abs(p["frag2"] - p["frag1"])
     # Get event type
     if p["chr1"] == p["chr2"]:
         p["type"] = "".join([p["strand1"], p["strand2"]])
@@ -122,14 +122,18 @@ def get_thresholds(
 
     Parameters
     ----------
-    in_dat: file object
-        File handle in read mode to the 2D BED file containing Hi-C pairs.
+    in_dat: str
+        Path to the .pairs file containing Hi-C pairs.
     interactive: bool
         If True, plots are diplayed and thresholds are required interactively.
     plot_events : bool
         Whether to show the plot
+    fig_path : str
+        Path where the figure will be saved. If None, the figure will be
+        diplayed interactively.
     prefix : str
         If the library has a name, it will be shown on plots.
+    
     Returns
     -------
     dictionary
@@ -141,29 +145,35 @@ def get_thresholds(
     max_sites = 50
     # Map of event -> legend name of event for intrachromosomal pairs.
     legend = {
-        "++": "++ (weirds)",
-        "--": "-- (weirds)",
+        "++": "++ (weird)",
+        "--": "-- (weird)",
         "+-": "+- (uncuts)",
         "-+": "-+ (loops)",
     }
-    n_events = {event: np.zeros(max_sites) for event in legend.keys()}
+    colors = {"++": "#222222", "+-": "r", "--": "#666666", "-+": "tab:orange"}
+    n_events = {event: np.zeros(max_sites) for event in legend}
     i = 0
     # open the file for reading (just the first 1 000 000 lines)
-    for line in in_dat:
-        i += 1
-        if i == 1000000:
-            break
-        # Process Hi-C pair into a dictionary
-        p = process_read_pair(line)
-        # Type of event and number of restriction site between reads
-        etype = p["type"]
-        nsites = p["nsites"]
-        # Count number of events for intrachrom pairs
-        if etype != "inter" and nsites < max_sites:
-            n_events[etype][nsites] += 1
+    with open(in_dat, "r") as pairs:
+        for line in pairs:
+            # Skip header lines
+            if line.startswith("#"):
+                continue
+            i += 1
+            # Only use the first million pairs to estimate thresholds
+            if i == 1000000:
+                break
+            # Process Hi-C pair into a dictionary
+            p = process_read_pair(line)
+            # Type of event and number of restriction site between reads
+            etype = p["type"]
+            nsites = p["nsites"]
+            # Count number of events for intrachrom pairs
+            if etype != "inter" and nsites < max_sites:
+                n_events[etype][nsites] += 1
 
     def plot_event(n_events, legend, name):
-        colors = {"++": "y", "+-": "g", "--": "c", "-+": "r"}
+        """Plot the frequency of a given event types over distance."""
         plt.xlim([-0.5, 15])
         plt.plot(
             range(n_events[name].shape[0]),
@@ -178,7 +188,7 @@ def get_thresholds(
         # PLot:
         try:
             plt.figure(0)
-            for event in legend.keys():
+            for event in legend:
                 plot_event(n_events, legend, event)
             plt.grid()
             plt.xlabel("Number of restriction fragment(s)")
@@ -198,16 +208,12 @@ def get_thresholds(
         # Asks the user for appropriate thresholds
         print(
             "Please enter the number of restriction fragments separating "
-            "reads in a Hi-C pair below or at which \033[91mloops\033[0m and "
-            "\033[92muncuts\033[0m events will be excluded\n",
+            "reads in a Hi-C pair below or at which loops and "
+            "uncuts events will be excluded\n",
             file=sys.stderr,
         )
-        thr_uncut = int(
-            input("Enter threshold for the \033[92muncuts\033[0m events (+-):")
-        )
-        thr_loop = int(
-            input("Enter threshold for the \033[91mloops\033[0m events (-+):")
-        )
+        thr_uncut = int(input("Enter threshold for the uncuts events (+-):"))
+        thr_loop = int(input("Enter threshold for the loops events (-+):"))
         try:
             plt.clf()
         except Exception:
@@ -230,15 +236,9 @@ def get_thresholds(
         for site in range(max_sites)[:1:-1]:
             # For uncuts and loops, keep the last (closest) site where the
             # deviation from other events <= expected_stdev
-            if (
-                abs(np.log(n_events["+-"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["+-"][site]) - event_med[site]) <= exp_stdev:
                 thr_uncut = site
-            if (
-                abs(np.log(n_events["-+"][site]) - event_med[site])
-                <= exp_stdev
-            ):
+            if abs(np.log(n_events["-+"][site]) - event_med[site]) <= exp_stdev:
                 thr_loop = site
         if thr_uncut is None or thr_loop is None:
             raise ValueError(
@@ -253,24 +253,74 @@ def get_thresholds(
         if plot_events:
             try:
                 plt.figure(1)
-                for event in legend.keys():
-                    plot_event(n_events, legend, event)
-                    plt.grid()
-                    plt.xlabel("Number of restriction fragment(s)")
-                    plt.ylabel("Number of events")
-                    plt.yscale("log")
-                    plt.legend()
-                    plt.axvline(x=thr_loop, color="r")
-                    plt.axvline(x=thr_uncut, color="g")
-                    if prefix:
-                        plt.title(
-                            "Library events by distance in {}".format(prefix)
-                        )
-                    plt.tight_layout()
-                    if fig_path:
-                        plt.savefig(fig_path)
-                    else:
-                        plt.show(block=False)
+                plt.xlim([-0.5, 15])
+                # Draw colored lines for events to discard
+                plt.plot(
+                    range(0, thr_uncut + 1),
+                    n_events["+-"][: thr_uncut + 1],
+                    "o-",
+                    c=colors["+-"],
+                    label=legend["+-"],
+                )
+                plt.plot(
+                    range(0, thr_loop + 1),
+                    n_events["-+"][: thr_loop + 1],
+                    "o-",
+                    c=colors["-+"],
+                    label=legend["-+"],
+                )
+                plt.plot(
+                    range(0, 2),
+                    n_events["--"][:2],
+                    "o-",
+                    c=colors["--"],
+                    label=legend["--"],
+                )
+                plt.plot(
+                    range(0, 2),
+                    n_events["++"][:2],
+                    "o-",
+                    c=colors["++"],
+                    label=legend["++"],
+                )
+                # Draw black lines for events to keep
+                plt.plot(
+                    range(thr_uncut, n_events["+-"].shape[0]),
+                    n_events["+-"][thr_uncut:],
+                    "o-",
+                    range(thr_loop, n_events["-+"].shape[0]),
+                    n_events["-+"][thr_loop:],
+                    "o-",
+                    range(1, n_events["--"].shape[0]),
+                    n_events["--"][1:],
+                    "o-",
+                    range(1, n_events["++"].shape[0]),
+                    n_events["++"][1:],
+                    "o-",
+                    label="kept",
+                    linewidth=2.0,
+                    c="g",
+                )
+                plt.grid()
+                plt.xlabel("Number of restriction site(s)")
+                plt.ylabel("Number of events")
+                plt.yscale("log")
+                # Remove duplicate "kept" entries in legend
+                handles, labels = plt.gca().get_legend_handles_labels()
+                by_label = OrderedDict(zip(labels, handles))
+                plt.legend(by_label.values(), by_label.keys())
+                # Show uncut and loop threshold as vertical lines
+                plt.axvline(x=thr_loop, color=colors["-+"])
+                plt.axvline(x=thr_uncut, color=colors["+-"])
+
+                if prefix:
+                    plt.title("Library events by distance in {}".format(prefix))
+                plt.tight_layout()
+                if fig_path:
+                    plt.savefig(fig_path)
+                else:
+                    plt.show(block=False)
+                # plt.clf()
 
             except Exception:
                 logger.error(
@@ -295,8 +345,9 @@ def filter_events(
 
     Filter out spurious intrachromosomal Hi-C pairs from input file. +- pairs
     with reads closer or at the uncut threshold and -+ pairs with reads closer
-    or at the loop thresholds are excluded from the ouput file. All others
-    are written.
+    or at the loop thresholds are excluded from the ouput file. -- and ++ pairs
+    with both mates on the same fragments are also discarded. All others are
+    written.
 
     Parameters
     ----------
@@ -313,6 +364,9 @@ def filter_events(
     plot_events : bool
         If True, a plot showing the proportion of each type of event will be
         shown after filtering.
+    fig_path : str
+        Path where the figure will be saved. If None, figure is displayed
+        interactively.
     prefix : str
         If the library has a name, it will be shown on plots.
     """
@@ -323,51 +377,55 @@ def filter_events(
     lrange_inter = 0
 
     # open the files for reading and writing
-    for line in in_dat:  # iterate over each line
-        p = process_read_pair(line)
-        line_to_write = (
-            "\t".join(
-                map(
-                    str,
-                    (
-                        p["chr1"],
-                        p["start1"],
-                        p["end1"],
-                        p["indice1"],
-                        p["strand1"],
-                        p["chr2"],
-                        p["start2"],
-                        p["end2"],
-                        p["indice2"],
-                        p["strand2"],
-                    ),
-                )
-            )
-            + "\n"
-        )
-        if p["chr1"] == p["chr2"]:
-            if p["indice1"] == p["indice2"] and p["strand1"] == p["strand2"]:
-                n_weirds += 1
-            elif p["nsites"] <= thr_loop and p["type"] == "-+":
-                n_loops += 1
-            elif p["nsites"] <= thr_uncut and p["type"] == "+-":
-                n_uncuts += 1
-            else:
-                lrange_intra += 1
-                out_filtered.write(line_to_write)
+    with open(in_dat, "r") as pairs, open(out_filtered, "w") as filtered:
+        for line in pairs:  # iterate over each line
+            # Copy header lines to output
+            if line.startswith("#"):
+                filtered.write(line)
+                continue
 
-        if p["chr1"] != p["chr2"]:
-            lrange_inter += 1
-            out_filtered.write(line_to_write)
+            p = process_read_pair(line)
+            line_to_write = (
+                " ".join(
+                    map(
+                        str,
+                        (
+                            p["readID"],
+                            p["chr1"],
+                            p["pos1"],
+                            p["chr2"],
+                            p["pos2"],
+                            p["strand1"],
+                            p["strand2"],
+                            p["frag1"],
+                            p["frag2"],
+                        ),
+                    )
+                )
+                + "\n"
+            )
+            if p["chr1"] == p["chr2"]:
+                # Do not report ++ and -- pairs on the same fragment (impossible)
+                if p["frag1"] == p["frag2"] and p["strand1"] == p["strand2"]:
+                    n_weirds += 1
+                elif p["nsites"] <= thr_loop and p["type"] == "-+":
+                    n_loops += 1
+                elif p["nsites"] <= thr_uncut and p["type"] == "+-":
+                    n_uncuts += 1
+                else:
+                    lrange_intra += 1
+                    filtered.write(line_to_write)
+
+            if p["chr1"] != p["chr2"]:
+                lrange_inter += 1
+                filtered.write(line_to_write)
 
     if lrange_inter > 0:
-        ratio_inter = round(
-            100 * lrange_inter / float(lrange_intra + lrange_inter), 2
-        )
+        ratio_inter = round(100 * lrange_inter / float(lrange_intra + lrange_inter), 2)
     else:
         ratio_inter = 0
 
-    # Dump quick summary of operation results into stderr
+    # Log quick summary of operation results
     kept = lrange_intra + lrange_inter
     discarded = n_loops + n_uncuts + n_weirds
     total = kept + discarded
@@ -381,9 +439,7 @@ def filter_events(
         )
     )
     logger.info(
-        "{0} pairs kept ({1}%)".format(
-            kept, round(100 * kept / (kept + discarded), 2)
-        )
+        "{0} pairs kept ({1}%)".format(kept, round(100 * kept / (kept + discarded), 2))
     )
 
     # Visualize summary if requested by user
@@ -449,6 +505,7 @@ def filter_events(
                 plt.savefig(fig_path)
             else:
                 plt.show()
+            plt.clf()
         except Exception:
             logger.error(
                 "Unable to show plots. Perhaps there is no Xserver running ?"

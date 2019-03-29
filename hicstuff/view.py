@@ -28,7 +28,6 @@ DEFAULT_SATURATION_THRESHOLD = 99
 
 
 load_sparse_matrix = hio.load_sparse_matrix
-load_raw_matrix = hio.load_raw_matrix
 raw_cols_to_sparse = hio.raw_cols_to_sparse
 
 
