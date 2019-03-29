@@ -97,18 +97,14 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
 
     # Get values into an array without the header. Use the header to give size.
     sparse_mat = raw_cols_to_sparse(
-        raw_mat[1:, :],
-        shape=(int(raw_mat[0, 0]), int(raw_mat[0, 1])),
-        dtype=dtype,
+        raw_mat[1:, :], shape=(int(raw_mat[0, 0]), int(raw_mat[0, 1])), dtype=dtype
     )
     if binning == "auto":
         num_bins = max(sparse_mat.shape) + 1
         subsampling_factor = num_bins // DEFAULT_MAX_MATRIX_SHAPE
     else:
         subsampling_factor = binning
-    sparse_mat = hcs.bin_sparse(
-        sparse_mat, subsampling_factor=subsampling_factor
-    )
+    sparse_mat = hcs.bin_sparse(sparse_mat, subsampling_factor=subsampling_factor)
     return sparse_mat
 
 
@@ -157,11 +153,7 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         A 1D numpy array with the
     """
     pos_arr = np.genfromtxt(
-        path,
-        delimiter="\t",
-        usecols=(colnum,),
-        skip_header=header,
-        dtype=dtype,
+        path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
     )
     return pos_arr
 
@@ -211,9 +203,7 @@ def read_compressed(filename):
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
-            raise IOError(
-                "Only a single fastq file must be in the zip archive."
-            )
+            raise IOError("Only a single fastq file must be in the zip archive.")
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
@@ -329,9 +319,7 @@ def to_dade_matrix(M, annotations="", filename=None):
         try:
             np.savetxt(filename, A, fmt="%i")
             logger.info(
-                "I saved input matrix in dade format as {0}".format(
-                    str(filename)
-                )
+                "I saved input matrix in dade format as {0}".format(str(filename))
             )
         except ValueError as e:
             logger.warning("I couldn't save input matrix.")
@@ -411,10 +399,7 @@ def load_from_redis(key):
     try:
         M = database.get(key)
     except KeyError:
-        print(
-            "Error! No dataset was found with the supplied key.",
-            file=sys.stderr,
-        )
+        print("Error! No dataset was found with the supplied key.", file=sys.stderr)
         exit(1)
 
     array_dtype, n, m = key.split("|")[1].split("#")
@@ -462,20 +447,13 @@ def dade_to_GRAAL(
         )
 
     header_data = [
-        header_elt.replace("'", "")
-        .replace('"', "")
-        .replace("\n", "")
-        .split("~")
+        header_elt.replace("'", "").replace('"', "").replace("\n", "").split("~")
         for header_elt in header[1:]
     ]
 
-    (
-        global_frag_ids,
-        contig_names,
-        local_frag_ids,
-        frag_starts,
-        frag_ends,
-    ) = np.array(list(zip(*header_data)))
+    (global_frag_ids, contig_names, local_frag_ids, frag_starts, frag_ends) = np.array(
+        list(zip(*header_data))
+    )
 
     frag_starts = frag_starts.astype(np.int32) - 1
     frag_ends = frag_ends.astype(np.int32) - 1
@@ -504,9 +482,7 @@ def dade_to_GRAAL(
 
     with open(output_frags, "w") as fragments_list:
 
-        fragments_list.write(
-            "id\tchrom\tstart_pos\tend_pos" "\tsize\tgc_content\n"
-        )
+        fragments_list.write("id\tchrom\tstart_pos\tend_pos" "\tsize\tgc_content\n")
         bogus_gc = 0.5
 
         for i in range(total_length):
@@ -593,15 +569,8 @@ def load_bedgraph2d(filename, bin_size=None):
     contacts = np.array(bed2d.iloc[:, 6].tolist())
     # Use index to build matrix
     n_frags = len(frag_map.keys())
-    mat = coo_matrix(
-        (contacts, (frag_id_a, frag_id_b)), shape=(n_frags, n_frags)
-    )
-    frags = (
-        bed2d.groupby([0, 1], sort=False)
-        .first()
-        .reset_index()
-        .iloc[:, [0, 1, 2]]
-    )
+    mat = coo_matrix((contacts, (frag_id_a, frag_id_b)), shape=(n_frags, n_frags))
+    frags = bed2d.groupby([0, 1], sort=False).first().reset_index().iloc[:, [0, 1, 2]]
     frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
     frags.insert(loc=0, column="id", value=0)
     frags.id = frags.groupby([0], sort=False).cumcount() + 1
@@ -637,20 +606,14 @@ def save_bedgraph2d(mat, frags, out_path):
     )
     # Do the same operation for cols (frag2)
     merge_mat = merge_mat.merge(
-        frags,
-        left_on="col",
-        right_index=True,
-        how="left",
-        suffixes=("_0", "_2"),
+        frags, left_on="col", right_index=True, how="left", suffixes=("_0", "_2")
     )
     merge_mat.rename(
         columns={"chrom": "chr2", "start_pos": "start2", "end_pos": "end2"},
         inplace=True,
     )
     # Select only relevant columns in correct order
-    bg2 = merge_mat.loc[
-        :, ["chr1", "start1", "end1", "chr2", "start2", "end2", "data"]
-    ]
+    bg2 = merge_mat.loc[:, ["chr1", "start1", "end1", "chr2", "start2", "end2", "data"]]
     bg2.to_csv(out_path, header=None, index=False, sep=" ")
 
 
@@ -710,11 +673,11 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     with open(out_file, "a") as output:
         grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
         sort_cmd = sp.Popen(
-            ["sort", "--parallel=%d" % threads, "-S %s" % buffer]
-            + list(sort_keys),
+            ["sort", "--parallel=%d" % threads, "-S %s" % buffer] + list(sort_keys),
             stdin=grep_cmd.stdout,
             stdout=output,
         )
+        sort_cmd.communicate()
 
 
 def get_pairs_header(pairs):

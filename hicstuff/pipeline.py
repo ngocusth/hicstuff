@@ -7,6 +7,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import shutil as st
 import itertools
+import logging
 from os.path import join
 import subprocess as sp
 from Bio import SeqIO
@@ -15,8 +16,10 @@ import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
+from hicstuff.version import __version__
 import pysam as ps
-from hicstuff.log import logger, set_file_handler
+import hicstuff.log as hcl
+from hicstuff.log import logger
 
 
 def align_reads(
@@ -163,6 +166,18 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     pairs.close()
 
 
+def diffuse_log_info(log_path, input1, input2, genome, enzyme):
+    hcl.set_file_handler(log_path, formatter=logging.Formatter(""))
+    logger.info("## hicstuff: v%s log file", __version__)
+    logger.info("## date: %s", time.strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info("## enzyme: %s", str(enzyme))
+    logger.info("## input1: %s ", input1)
+    logger.info("## input2: %s", input2)
+    logger.info("## ref: %s", genome)
+    logger.info("---")
+    hcl.set_file_handler(log_path, formatter=hcl.logfile_formatter)
+
+
 def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
@@ -184,7 +199,6 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
     pre_mat_file = mat_file + ".pre.pairs"
     hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads)
     header_size = len(hio.get_pairs_header(pre_mat_file))
-    time.sleep(1)  # Crashes if no sleep. File pointer must not be closed. Why ??
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
         for _ in range(header_size):
@@ -342,11 +356,13 @@ def full_pipeline(
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
     # Enable file logging
-    set_file_handler(log_file)
+    hcl.set_file_handler(log_file)
+
+    diffuse_log_info(log_file, input1, input2, genome, enzyme)
 
     # Define output file names
     if prefix:
-        fragments_list = _out_file("mat.tsv")
+        fragments_list = _out_file("frags.tsv")
         info_contigs = _out_file("chr.tsv")
         mat = _out_file("mat.tsv")
     else:
@@ -391,7 +407,7 @@ def full_pipeline(
         ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2)
         st.move(sam2 + ".sorted", sam2)
 
-    if start_stage < 2:
+    if start_stage <= 1:
 
         # Generate info_contigs and fragments_list output files
         hcd.write_frag_info(
