@@ -76,14 +76,22 @@ def check_bt2_index(ref):
         index = index.split(".rev.1.bt2")[0]
     except IndexError:
         logger.error(
-            "Reference index is missing, please build the bowtie2 " "index first."
+            "Reference index is missing, please build the bowtie2 "
+            "index first."
         )
         sys.exit(1)
     return index
 
 
 def iterative_align(
-    fq_in, tmp_dir, ref, n_cpu, sam_out, minimap2=False, min_len=20, min_qual=30
+    fq_in,
+    tmp_dir,
+    ref,
+    n_cpu,
+    sam_out,
+    minimap2=False,
+    min_len=20,
+    min_qual=30,
 ):
     """Iterative alignment
 
@@ -159,21 +167,23 @@ def iterative_align(
             "min_len must be shorter than the reads. Either decrease it or do not use iterative mapping."
         )
         sys.exit(1)
-    logger.info("{0} reads to parse".format(total_reads))
+    logger.info("{0} reads to parse".format(int(total_reads)))
 
     # iterative alignment per se
     while n <= size:
-        logger.info("\n" + "-" * 10 + "\nn = {0}".format(n))
+        logger.info(
+            "Truncating unaligned reads to {0}bp and mapping again.".format(
+                int(n)
+            )
+        )
         iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
         # Generate a temporary input fastq file with the n first nucleotids
         # of the reads.
-        logger.info("Generating truncated reads")
         truncated_reads = truncate_reads(
             tmp_dir, uncomp_path, remaining_reads, n, min_len
         )
 
         # Align the truncated reads on reference genome
-        logger.info("Aligning reads")
         temp_alignment = "{0}/temp_alignment.sam".format(tmp_dir)
         map_args = {
             "fa": ref,
@@ -183,7 +193,9 @@ def iterative_align(
             "idx": index,
         }
         if minimap2:
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
+                **map_args
+            )
         else:
             cmd = (
                 "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
@@ -194,18 +206,21 @@ def iterative_align(
         # filter the reads: the reads whose truncated end was aligned are written
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
-        logger.info("Reporting aligned reads")
-        remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
+        remaining_reads = filter_samfile(
+            temp_alignment, iter_out[-1], min_qual
+        )
 
         n += 20
 
     # one last round without trimming
-    logger.info("\n" + "-" * 10 + "\nn = {0}".format(size))
-    logger.info("Generating truncated reads")
+    logger.info(
+        "Trying to map unaligned reads at full length ({0}bp).".format(
+            int(size)
+        )
+    )
     truncated_reads = truncate_reads(
         tmp_dir, uncomp_path, remaining_reads, size, min_len
     )
-    logger.info("Aligning reads")
     if minimap2:
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
             ref, n_cpu, temp_alignment, truncated_reads
@@ -216,7 +231,6 @@ def iterative_align(
             "--very-sensitive -S {2} {3}"
         ).format(index, n_cpu, temp_alignment, truncated_reads)
     sp.call(cmd, shell=True)
-    logger.info("Reporting aligned reads")
     iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
     remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
@@ -235,7 +249,7 @@ def iterative_align(
     ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out)
     logger.info(
         "{0} reads aligned / {1} total reads.".format(
-            total_reads - len(remaining_reads), total_reads
+            int(total_reads - len(remaining_reads)), int(total_reads)
         )
     )
 

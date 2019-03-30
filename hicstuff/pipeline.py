@@ -136,9 +136,14 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
         pairs.writelines([format_version, sorting, cols] + chroms.tolist())
         pairs_writer = csv.writer(pairs, delimiter=" ")
         # Iterate on both SAM simultaneously
+        n_reads = {"total": 0, "mapped": 0}
         for end1, end2 in itertools.zip_longest(forward, reverse):
+            end1_passed = end1.mapping_quality >= min_qual
+            end2_passed = end2.mapping_quality >= min_qual
+            n_reads["total"] += 2
+            n_reads["mapped"] += sum([end1_passed, end2_passed])
             # Keep only pairs where both reads have good quality
-            if end1.mapping_quality >= min_qual and end2.mapping_quality >= min_qual:
+            if end1_passed and end2_passed:
                 if end1.query_name == end2.query_name:
                     if (
                         end1.reference_start > end2.reference_start
@@ -164,9 +169,16 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                     )
                     sys.exit(1)
     pairs.close()
+    logger.info(
+        "{perc_map}% reads in total mapped with Q >= {qual} ({mapped}/{total})".format(
+            **n_reads,
+            perc_map=round(100 * n_reads["mapped"] / n_reads["total"]),
+            qual=min_qual,
+        )
+    )
 
 
-def diffuse_log_info(log_path, input1, input2, genome, enzyme):
+def generate_log_header(log_path, input1, input2, genome, enzyme):
     hcl.set_file_handler(log_path, formatter=logging.Formatter(""))
     logger.info("## hicstuff: v%s log file", __version__)
     logger.info("## date: %s", time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -197,7 +209,9 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
         Number of threads to use in parallel.
     """
     pre_mat_file = mat_file + ".pre.pairs"
-    hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads)
+    hio.sort_pairs(
+        pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads
+    )
     header_size = len(hio.get_pairs_header(pre_mat_file))
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
@@ -221,14 +235,19 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
             else:
                 if n_occ > 0:
                     mat.write(
-                        "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
+                        "\t".join(
+                            map(str, [prev_pair[0], prev_pair[1], n_occ])
+                        )
+                        + "\n"
                     )
                 prev_pair = curr_pair
                 n_pairs += n_occ
                 n_occ = 1
                 n_nonzero += 1
         # Write the last value
-        mat.write("\t".join(map(str, [curr_pair[0], curr_pair[1], n_occ])) + "\n")
+        mat.write(
+            "\t".join(map(str, [curr_pair[0], curr_pair[1], n_occ])) + "\n"
+        )
         n_nonzero += 1
         n_pairs += 1
     # Edit header line to fill number of nonzero entries inplace
@@ -364,10 +383,10 @@ def full_pipeline(
     pairs = _tmp_file("valid.pairs")
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
+
     # Enable file logging
     hcl.set_file_handler(log_file)
-
-    diffuse_log_info(log_file, input1, input2, genome, enzyme)
+    generate_log_header(log_file, input1, input2, genome, enzyme)
 
     # Define output file names
     if prefix:
@@ -411,9 +430,13 @@ def full_pipeline(
             min_qual=min_qual,
         )
         # Sort alignments by read name
-        ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1
+        )
         st.move(sam1 + ".sorted", sam1)
-        ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2
+        )
         st.move(sam2 + ".sorted", sam2)
 
     if start_stage <= 1:
@@ -429,7 +452,9 @@ def full_pipeline(
         )
 
         # Log fragment size distribution
-        hcd.frag_len(frags_file_name=fragments_list, plot=plot, fig_path=frag_plot)
+        hcd.frag_len(
+            frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
+        )
 
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
@@ -466,7 +491,9 @@ def full_pipeline(
     mat_format = "cooler" if bedgraph else "GRAAL"
     # Number of fragments is N lines in frag list - 1 for the header
     n_frags = sum(1 for line in open(fragments_list, "r")) - 1
-    pairs2matrix(use_pairs, mat, n_frags, mat_format=mat_format, threads=threads)
+    pairs2matrix(
+        use_pairs, mat, n_frags, mat_format=mat_format, threads=threads
+    )
 
     # Clean temporary files
     if not no_cleanup:
