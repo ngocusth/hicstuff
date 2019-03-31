@@ -131,46 +131,54 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     chroms = pd.read_csv(info_contigs, sep="\t").apply(
         lambda x: "#chromsize: %s %d\n" % (x.contig, x.length), axis=1
     )
-
+    # TODO: Change algorithm to: if end1.name < end2.name: end1.next() elif
+    # end1.name > end2.name: end2.next() else read1-read2
     with open(out_pairs, "w") as pairs:
         pairs.writelines([format_version, sorting, cols] + chroms.tolist())
         pairs_writer = csv.writer(pairs, delimiter=" ")
         # Iterate on both SAM simultaneously
         n_reads = {"total": 0, "mapped": 0}
+        # Remember if some read IDs were missing from either file
+        unmatched_reads = 0
         for end1, end2 in itertools.zip_longest(forward, reverse):
+            # Skip read if mate is not present
+            while end1.query_name != end2.query_name:
+                unmatched_reads += 1
+                if end1.query_name < end2.query_name:
+                    end1 = next(forward)
+                elif end1.query_name > end2.query_name:
+                    end2 = next(reverse)
+
             end1_passed = end1.mapping_quality >= min_qual
             end2_passed = end2.mapping_quality >= min_qual
             n_reads["total"] += 2
             n_reads["mapped"] += sum([end1_passed, end2_passed])
             # Keep only pairs where both reads have good quality
             if end1_passed and end2_passed:
-                if end1.query_name == end2.query_name:
-                    if (
-                        end1.reference_start > end2.reference_start
-                        or end1.reference_id > end2.reference_id
-                    ):
-                        end1, end2 = end2, end1
-                    pairs_writer.writerow(
-                        [
-                            end1.query_name,
-                            end1.reference_name,
-                            end1.reference_start + 1,
-                            end2.reference_name,
-                            end2.reference_start + 1,
-                            "-" if end1.is_reverse else "+",
-                            "-" if end2.is_reverse else "+",
-                        ]
-                    )
-                else:
-                    print(
-                        "Error: Reads do not match between SAM files. "
-                        "Verify both files are name-sorted and do not have "
-                        "supplementary alignments."
-                    )
-                    sys.exit(1)
+                # Flipping to get upper triangle
+                if (
+                    end1.reference_start > end2.reference_start
+                    or end1.reference_id > end2.reference_id
+                ):
+                    end1, end2 = end2, end1
+                pairs_writer.writerow(
+                    [
+                        end1.query_name,
+                        end1.reference_name,
+                        end1.reference_start + 1,
+                        end2.reference_name,
+                        end2.reference_start + 1,
+                        "-" if end1.is_reverse else "+",
+                        "-" if end2.is_reverse else "+",
+                    ]
+                )
     pairs.close()
+    if unmatched_reads > 0:
+        logger.warning(
+            "%d reads were only present in one SAM file.", unmatched_reads
+        )
     logger.info(
-        "{perc_map}% reads in total mapped with Q >= {qual} ({mapped}/{total})".format(
+        "{perc_map}% reads (single ends) mapped with Q >= {qual} ({mapped}/{total})".format(
             **n_reads,
             perc_map=round(100 * n_reads["mapped"] / n_reads["total"]),
             qual=min_qual,
