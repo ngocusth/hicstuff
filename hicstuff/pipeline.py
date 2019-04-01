@@ -131,8 +131,6 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     chroms = pd.read_csv(info_contigs, sep="\t").apply(
         lambda x: "#chromsize: %s %d\n" % (x.contig, x.length), axis=1
     )
-    # TODO: Change algorithm to: if end1.name < end2.name: end1.next() elif
-    # end1.name > end2.name: end2.next() else read1-read2
     with open(out_pairs, "w") as pairs:
         pairs.writelines([format_version, sorting, cols] + chroms.tolist())
         pairs_writer = csv.writer(pairs, delimiter=" ")
@@ -140,19 +138,33 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
         n_reads = {"total": 0, "mapped": 0}
         # Remember if some read IDs were missing from either file
         unmatched_reads = 0
+        i = 0
         for end1, end2 in itertools.zip_longest(forward, reverse):
-            # Skip read if mate is not present
-            while end1.query_name != end2.query_name:
-                unmatched_reads += 1
-                if end1.query_name < end2.query_name:
-                    end1 = next(forward)
-                elif end1.query_name > end2.query_name:
-                    end2 = next(reverse)
-
+            # Check if reads pass filter
             end1_passed = end1.mapping_quality >= min_qual
             end2_passed = end2.mapping_quality >= min_qual
             n_reads["total"] += 2
             n_reads["mapped"] += sum([end1_passed, end2_passed])
+            # Skip read if mate is not present until they match
+            while end1.query_name != end2.query_name:
+                try:
+                    # Get next read and check filters again
+                    if end1.query_name < end2.query_name:
+                        end1 = next(forward)
+                        end1_passed = end1.mapping_quality >= min_qual
+                        n_reads["mapped"] += end1_passed
+                    elif end1.query_name > end2.query_name:
+                        end2 = next(reverse)
+                        end2_passed = end2.mapping_quality >= min_qual
+                        n_reads["mapped"] += end2_passed
+
+                # Do nothing if EOF is reached (but still count reads)
+                except (AttributeError, StopIteration):
+                    pass
+                # Count single-read iteration
+                unmatched_reads += 1
+                n_reads["total"] += 1
+
             # Keep only pairs where both reads have good quality
             if end1_passed and end2_passed:
                 # Flipping to get upper triangle
