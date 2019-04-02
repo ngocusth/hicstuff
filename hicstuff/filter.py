@@ -199,11 +199,10 @@ def get_thresholds(
 
         except Exception:
             logger.error(
-                "Unable to show plots. Perhaps there is no Xserver running ? "
-                "(might be due to windows environment). Try running without "
-                "the interactive option."
+                "Unable to show plots, skipping figure generation. Perhaps "
+                "there is no Xserver running ? (might be due to windows "
+                "environment). Try running without the interactive option."
             )
-            raise
 
         # Asks the user for appropriate thresholds
         print(
@@ -324,11 +323,10 @@ def get_thresholds(
 
             except Exception:
                 logger.error(
-                    "Unable to show plots. Is an X server running?"
-                    "(might be due to windows environment)."
-                    "Try running without the plot option."
+                    "Unable to show plots, skipping figure generation. Is "
+                    "an X server running? (might be due to windows "
+                    "environment). Try running without the plot option."
                 )
-                raise
     return thr_uncut, thr_loop
 
 
@@ -522,4 +520,3 @@ def filter_events(
                 "(might be due to windows environment) skipping figure "
                 "generation."
             )
-            raise
