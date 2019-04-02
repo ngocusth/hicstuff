@@ -93,9 +93,9 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     sparse_mat : scipy.sparse.coo_matrix
         The output (sparse) matrix in COOrdinate format.
 
-    Example
-    -------
-    >>> S = load_sparse_matrix('../test_data/abs_fragments_contacts_weighted.txt', binning=1)
+    Examples
+    --------
+    >>> S = load_sparse_matrix('test_data/abs_fragments_contacts_weighted.txt', binning=1)
     >>> S.data
     array([19918.,   490.,   234., 16651.,  1408., 19773.])
     >>> S.shape
@@ -159,6 +159,11 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
     -------
     numpy.array :
         A 1D numpy array with the
+
+    Examples
+    --------
+    >>> load_pos_col('test_data/abs_fragments_contacts_weighted.txt', 0)
+    array([0, 0, 0, 1, 1, 2])
     """
     pos_arr = np.genfromtxt(
         path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
@@ -389,6 +394,7 @@ def load_from_redis(key):
     ----------
     key : str
         The key of the dataset that was stored in redis.
+
     Returns
     -------
     M : numpy.ndarray
@@ -547,7 +553,6 @@ def load_bedgraph2d(filename, bin_size=None):
     frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
     # Sort by position (least important, col 1)
     frag_pos = frag_pos[frag_pos[:, 1].argsort(kind="mergesort")]
-    logger.info(print(frag_pos))
     # Then by chrom (most important, col 0)
     frag_pos = frag_pos[frag_pos[:, 0].argsort(kind="mergesort")]
     # Get unique names for fragments (chrom+pos)
@@ -603,6 +608,7 @@ def save_bedgraph2d(mat, frags, out_path):
         correspond to the content of the fragments_list.txt file.
 
     """
+
     mat_df = pd.DataFrame(
         {"row": mat.row, "col": mat.col, "data": mat.data.astype(int)}
     )
