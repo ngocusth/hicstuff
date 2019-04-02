@@ -537,6 +537,7 @@ def load_bedgraph2d(filename, bin_size=None):
     frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
     # Sort by position (least important, col 1)
     frag_pos = frag_pos[frag_pos[:, 1].argsort(kind="mergesort")]
+    logger.info(print(frag_pos))
     # Then by chrom (most important, col 0)
     frag_pos = frag_pos[frag_pos[:, 0].argsort(kind="mergesort")]
     # Get unique names for fragments (chrom+pos)

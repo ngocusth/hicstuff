@@ -208,7 +208,7 @@ def generate_log_header(log_path, input1, input2, genome, enzyme):
     hcl.set_file_handler(log_path, formatter=hcl.logfile_formatter)
 
 
-def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
+def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
 
@@ -218,14 +218,42 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
         Path to a Hi-C pairs file, with frag1 and frag2 columns added.
     mat_file : str
         Path where the matrix will be written.
-    n_frags : int
-        Total number of restriction fragments in genome. Used to know total
+    fragments_file : str
+        Path to the fragments_list.txt file. Used to know total
         matrix size in case some observations are not observed at the end.
-    mat_format : str
+    mat_fmt : str
         The format to use when writing the matrix. Can be GRAAL or cooler format.
     threads : int
         Number of threads to use in parallel.
     """
+    # Number of fragments is N lines in frag list - 1 for the header
+    n_frags = sum(1 for line in open(fragments_file, "r")) - 1
+    frags = pd.read_csv(fragments_file, delimiter="\t")
+
+    def write_mat_entry(frag1, frag2, contacts):
+        """Write a single sparse matrix entry in either GRAAL or cooler format"""
+        if mat_fmt == "GRAAL":
+            mat.write("\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n")
+        elif mat_fmt == "cooler":
+            frag1, frag2 = int(frag1), int(frag2)
+            mat.write(
+                " ".join(
+                    map(
+                        str,
+                        [
+                            frags.chrom[frag1],
+                            frags.start_pos[frag1],
+                            frags.end_pos[frag1],
+                            frags.chrom[frag2],
+                            frags.start_pos[frag2],
+                            frags.end_pos[frag2],
+                            n_occ,
+                        ],
+                    )
+                )
+                + "\n"
+            )
+
     pre_mat_file = mat_file + ".pre.pairs"
     hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads)
     header_size = len(hio.get_pairs_header(pre_mat_file))
@@ -240,7 +268,8 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
         pairs_reader = csv.reader(pairs, delimiter=" ")
         # First line contains nrows, ncols and number of nonzero entries.
         # Number of nonzero entries is unknown for now
-        mat.write("\t".join(map(str, [n_frags, n_frags, "-"])) + "\n")
+        if mat_fmt == "GRAAL":
+            mat.write("\t".join(map(str, [n_frags, n_frags, "-"])) + "\n")
         for pair in pairs_reader:
             # Fragment ids are field 8 and 9
             curr_pair = [pair[7], pair[8]]
@@ -250,26 +279,26 @@ def pairs2matrix(pairs_file, mat_file, n_frags, mat_format="GRAAL", threads=1):
             # Write previous pair and start a new one
             else:
                 if n_occ > 0:
-                    mat.write(
-                        "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
-                    )
+                    write_mat_entry(prev_pair[0], prev_pair[1], n_occ)
                 prev_pair = curr_pair
                 n_pairs += n_occ
                 n_occ = 1
                 n_nonzero += 1
         # Write the last value
-        mat.write("\t".join(map(str, [curr_pair[0], curr_pair[1], n_occ])) + "\n")
+        write_mat_entry(curr_pair[0], curr_pair[1], n_occ)
         n_nonzero += 1
         n_pairs += 1
-    # Edit header line to fill number of nonzero entries inplace
-    with open(mat_file) as mat, open(pre_mat_file, "w") as tmp_mat:
-        header = mat.readline()
-        header = header.replace("-", str(n_nonzero))
-        tmp_mat.write(header)
-        st.copyfileobj(mat, tmp_mat)
 
-    # Replace the matrix file with the one with corrected header
-    os.rename(pre_mat_file, mat_file)
+    # Edit header line to fill number of nonzero entries inplace in GRAAL header
+    if mat_fmt == "GRAAL":
+        with open(mat_file) as mat, open(pre_mat_file, "w") as tmp_mat:
+            header = mat.readline()
+            header = header.replace("-", str(n_nonzero))
+            tmp_mat.write(header)
+            st.copyfileobj(mat, tmp_mat)
+            # Replace the matrix file with the one with corrected header
+            os.rename(pre_mat_file, mat_file)
+
     logger.info(
         "%d pairs used to build a contact map of %d bins with %d nonzero entries.",
         n_pairs,
@@ -295,7 +324,7 @@ def full_pipeline(
     filter_events=False,
     prefix=None,
     start_stage="fastq",
-    bedgraph=False,
+    mat_fmt="GRAAL",
     minimap2=False,
 ):
     """
@@ -343,9 +372,9 @@ def full_pipeline(
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
         Step at which the pipeline should start. Can be "fastq", "sam" or "pairs".
-    bedgraph : bool
-        Use the cooler-compatible bedgraph2 format instead of GRAAL format when
-        writing the matrix
+    mat_fmt : str
+        Select the output matrix format. Can be either "cooler" for the 
+        cooler-compatible bedgraph2 format, or GRAAL format.
     minimap2 : bool
         Use minimap2 instead of bowtie2 for read alignment.
     """
@@ -493,10 +522,7 @@ def full_pipeline(
         use_pairs = pairs_idx
 
     # Build matrix from pairs.
-    mat_format = "cooler" if bedgraph else "GRAAL"
-    # Number of fragments is N lines in frag list - 1 for the header
-    n_frags = sum(1 for line in open(fragments_list, "r")) - 1
-    pairs2matrix(use_pairs, mat, n_frags, mat_format=mat_format, threads=threads)
+    pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
 
     # Clean temporary files
     if not no_cleanup:

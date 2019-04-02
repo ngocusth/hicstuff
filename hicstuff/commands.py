@@ -546,6 +546,9 @@ class Pipeline(AbstractCommand):
             )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
+        if self.args["--matfmt"] not in ("GRAAL", "cooler"):
+            raise ValueError("matfmt must be either cooler or GRAAL.")
+
         hpi.full_pipeline(
             genome=self.args["--fasta"],
             input1=self.args["<input1>"],
@@ -563,7 +566,7 @@ class Pipeline(AbstractCommand):
             filter_events=self.args["--filter"],
             prefix=self.args["--prefix"],
             start_stage=self.args["--start-stage"],
-            bedgraph=True if self.args["--matfmt"] == "cooler" else False,
+            mat_fmt=self.args["--matfmt"],
             minimap2=self.args["--minimap2"],
         )
 
@@ -905,8 +908,10 @@ class Convert(AbstractCommand):
         out_path = self.args["--out"]
         os.makedirs(out_path, exist_ok=True)
         prefix = self.args["--prefix"]
-
-        self.binning = parse_bin_str(self.args["--binning"])
+        if self.args["--binning"] is not None:
+            self.binning = parse_bin_str(self.args["--binning"])
+        else:
+            self.binning = self.args["--binning"]
 
         try:
             conv = "-".join([in_fmt, out_fmt])
