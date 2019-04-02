@@ -448,13 +448,23 @@ def filter_events(
             # Plot: make a square figure and axes to plot a pieChart:
             plt.figure(2, figsize=(6, 6))
             # The slices will be ordered and plotted counter-clockwise.
-            labels = "Uncuts", "Loops", "Weirds", "3D intra", "3D inter"
             fracs = [n_uncuts, n_loops, n_weirds, lrange_intra, lrange_inter]
-            colors = ["salmon", "lightskyblue", "yellow", "palegreen", "plum"]
-            patches, _, _ = plt.pie(
-                fracs, colors=colors, autopct="%1.1f%%", startangle=90
+            # Format labels to include event names and proportion
+            labels = list(
+                map(
+                    lambda x: (x[0] + ": %.2f%%") % (100 * x[1] / total),
+                    [
+                        ("Uncuts", n_uncuts),
+                        ("Loops", n_loops),
+                        ("Weirds", n_weirds),
+                        ("3D intra", lrange_intra),
+                        ("3D inter", lrange_inter),
+                    ],
+                )
             )
-            plt.legend(patches, labels, loc="best")
+            colors = ["salmon", "lightskyblue", "yellow", "palegreen", "plum"]
+            patches, _ = plt.pie(fracs, colors=colors, startangle=90)
+            plt.legend(patches, labels, loc=2)
             if prefix:
                 plt.title(
                     "Distribution of library events in {}".format(prefix),
