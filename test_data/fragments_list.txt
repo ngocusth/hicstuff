@@ -1,0 +1,4 @@
+id	chrom	start_pos	end_pos	size	gc_content
+1	seq1	0	5000	5000	0.5718
+2	seq1	5000	10000	5000	0.6154
+3	seq1	10000	15000	5000	0.5644
