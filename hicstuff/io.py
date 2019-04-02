@@ -92,6 +92,14 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     -------
     sparse_mat : scipy.sparse.coo_matrix
         The output (sparse) matrix in COOrdinate format.
+
+    Example
+    -------
+    >>> S = load_sparse_matrix('../test_data/abs_fragments_contacts_weighted.txt', binning=1)
+    >>> S.data
+    array([19918.,   490.,   234., 16651.,  1408., 19773.])
+    >>> S.shape
+    (3, 3)
     """
     raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
 
@@ -167,10 +175,12 @@ def read_compressed(filename):
     ----------
     filename : str
         The path to the input file
+
     Returns
     -------
     file-like object
         The handle to access the input file's content
+
     """
 
     # Standard header bytes for diff compression formats
@@ -199,7 +209,7 @@ def read_compressed(filename):
     if comp == "gz":
         return gzip.open(filename, "rt")
     elif comp == "bz2":
-        return bz2.BZ2File(filename, "rt")
+        return bz2.open(filename, "rt")
     elif comp == "zip":
         zip_arch = zipfile.ZipFile(filename, "r")
         if len(zip_arch.namelist()) > 1:
@@ -207,7 +217,7 @@ def read_compressed(filename):
         else:
             # ZipFile opens as bytes by default, using io to read as text
             zip_content = zip_arch.open(zip_arch.namelist()[0], "r")
-            return io.TextIOWrapper(zip_content)
+            return io.TextIOWrapper(zip_content, encoding="utf-8")
     else:
         return open(filename, "r")
 

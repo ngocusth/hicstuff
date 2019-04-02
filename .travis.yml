@@ -26,6 +26,6 @@ script:
   fi
 
 after_success:
-  - codecov -t $CODECOV_TOKEN
+  - codecov
 
 tags: true
