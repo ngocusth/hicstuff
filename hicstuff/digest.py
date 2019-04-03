@@ -82,9 +82,7 @@ def write_frag_info(
 
         with open(frag_list_path, "w") as fragments_list:
 
-            fragments_list.write(
-                "id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n"
-            )
+            fragments_list.write("id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n")
 
             total_frags = 0
 
@@ -95,12 +93,9 @@ def write_frag_info(
                 if contig_length < int(min_size):
                     continue
 
-                sites = get_restriction_table(
-                    contig_seq, enzyme, circular=circular
-                )
+                sites = get_restriction_table(contig_seq, enzyme, circular=circular)
                 fragments = (
-                    contig_seq[sites[i] : sites[i + 1]]
-                    for i in range(len(sites) - 1)
+                    contig_seq[sites[i] : sites[i + 1]] for i in range(len(sites) - 1)
                 )
                 n_frags = 0
 
@@ -142,153 +137,6 @@ def write_frag_info(
                 )
                 total_frags += n_frags
                 info_contigs.write(current_contig_line)
-
-
-def intersect_to_sparse_matrix(
-    intersect_sorted,
-    fragments_list=DEFAULT_SPARSE_MATRIX_FILE_NAME,
-    output_file=DEFAULT_SPARSE_MATRIX_FILE_NAME,
-    output_dir=None,
-    bedgraph=False,
-):
-    """Generate a GRAAL-compatible sparse matrix from a sorted intersection
-    BED file.
-    """
-
-    try:
-        output_file_path = os.path.join(output_dir, output_file)
-    except TypeError:
-        output_file_path = output_file
-
-    logger.info("Building fragment position dictionary...")
-    # Build dictionary of absolute positions and fragment ids
-    ids_and_positions = dict()
-    with open(fragments_list) as fraglist_handle:
-        _ = next(fraglist_handle)
-        my_id = 0
-        for line in fraglist_handle:
-            contig_name, position, end = line.rstrip("\n").split("\t")[1:4]
-            ids_and_positions[(contig_name, position, end)] = my_id
-            my_id += 1
-    logger.info("Done.")
-
-    logger.info("Counting contacts...")
-
-    # Detect and count contacts between fragments
-    contacts = collections.Counter()
-    with open(intersect_sorted) as intersect_handle:
-        is_forward = True
-        for line in intersect_handle:
-            if is_forward:
-                read_forward = line.rstrip("\n").split("\t")
-                is_forward = False
-                continue
-            else:
-                (
-                    _,
-                    start_forward,
-                    end_forward,
-                    name_forward,
-                    orientation_forward,
-                    contig_forward,
-                    start_fragment_forward,
-                    end_fragment_forward,
-                ) = read_forward
-
-                read_reverse = line.rstrip("\n").split("\t")
-                (
-                    _,
-                    start_reverse,
-                    end_reverse,
-                    name_reverse,
-                    orientation_reverse,
-                    contig_reverse,
-                    start_fragment_reverse,
-                    end_fragment_reverse,
-                ) = read_reverse
-
-                # Detect contacts in the form of matching readnames
-                # (last two characters are stripped in case read
-                # name ends with '/1' or '/2')
-                short_name_forward = name_forward.split()[0]
-                short_name_reverse = name_reverse.split()[0]
-                if short_name_forward == short_name_reverse:
-                    abs_position_for = (
-                        contig_forward,
-                        start_fragment_forward,
-                        end_fragment_forward,
-                    )
-                    abs_position_rev = (
-                        contig_reverse,
-                        start_fragment_reverse,
-                        end_fragment_reverse,
-                    )
-                    try:
-                        id_frag_for = ids_and_positions[abs_position_for]
-                        id_frag_rev = ids_and_positions[abs_position_rev]
-                    except KeyError:
-                        logger.warning(
-                            (
-                                "Couldn't find matching fragment "
-                                "id for position {} or position "
-                                "{}".format(abs_position_for, abs_position_rev)
-                            ),
-                            file=sys.stderr,
-                        )
-                    else:
-                        fragment_pair = tuple(
-                            sorted((id_frag_for, id_frag_rev))
-                        )
-                        contacts[fragment_pair] += 1
-                        # print("Successfully added contact between"
-                        #       " {} and {}".format(id_fragment_forward,
-                        #                           id_fragment_reverse))
-                    finally:
-                        is_forward = True
-                else:
-                    # If for some reason some reads are not properly
-                    # interleaved, just skip the previous line and
-                    # move on with the current line
-                    # print("Read name {} does not match successor {}, "
-                    # "reads are not properly interleaved".format(name_forward,
-                    #                                            name_reverse))
-                    read_forward = copy.deepcopy(read_reverse)
-                    is_forward = False
-    logger.info("Done.")
-
-    logger.info("Writing sparse matrix...")
-    if bedgraph:
-        # Get reverse mapping between fragments ids and pos
-        positions_and_ids = {
-            id: pos for pos, id in list(ids_and_positions.items())
-        }
-
-        def parse_coord(coord):
-            return "\t".join(str(x) for x in coord)
-
-        with open(output_file_path, "w") as output_handle:
-            for id_pair in sorted(contacts):
-                id_fragment_a, id_fragment_b = id_pair
-                nb_contacts = contacts[id_pair]
-                coord_a = parse_coord(positions_and_ids[id_fragment_a])
-                coord_b = parse_coord(positions_and_ids[id_fragment_b])
-                line_to_write = "{}\t{}\t{}\n".format(
-                    coord_a, coord_b, nb_contacts
-                )
-                output_handle.write(line_to_write)
-
-    else:
-        with open(output_file_path, "w") as output_handle:
-            output_handle.write("id_frag_a\tid_frag_b\tn_contact\n")
-            for id_pair in sorted(contacts):
-                id_fragment_a, id_fragment_b = id_pair
-                nb_contacts = contacts[id_pair]
-                line_to_write = "{}\t{}\t{}\n".format(
-                    id_fragment_a, id_fragment_b, nb_contacts
-                )
-                output_handle.write(line_to_write)
-
-    logger.info("Done.")
 
 
 def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
@@ -341,32 +189,18 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
         shift_frags[chrom] = prev_frags
 
     # Attribute pairs to fragments and append them to output file (after header)
-    with open(pairs_file, "r") as pairs, open(
-        idx_pairs_file, "a"
-    ) as idx_pairs:
+    with open(pairs_file, "r") as pairs, open(idx_pairs_file, "a") as idx_pairs:
         # Skip header lines
         for _ in range(header_size):
             next(pairs)
 
         # Define input and output fields
-        pairs_cols = [
-            "readID",
-            "chr1",
-            "pos1",
-            "chr2",
-            "pos2",
-            "strand1",
-            "strand2",
-        ]
+        pairs_cols = ["readID", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2"]
         idx_cols = pairs_cols + ["frag1", "frag2"]
 
         # Use csv reader / writer to automatically parse columns into a dict
-        pairs_reader = csv.DictReader(
-            pairs, fieldnames=pairs_cols, delimiter=" "
-        )
-        pairs_writer = csv.DictWriter(
-            idx_pairs, fieldnames=idx_cols, delimiter=" "
-        )
+        pairs_reader = csv.DictReader(pairs, fieldnames=pairs_cols, delimiter=" ")
+        pairs_writer = csv.DictWriter(idx_pairs, fieldnames=idx_cols, delimiter=" ")
 
         for pair in pairs_reader:
             # Get the 0-based indices of corresponding restriction fragments
@@ -480,9 +314,7 @@ def find_frag(pos, r_sites):
 
     """
     if r_sites[0] != 0:
-        raise ValueError(
-            "The first position in the restriction table is not 0."
-        )
+        raise ValueError("The first position in the restriction table is not 0.")
     if pos > r_sites[-1]:
         raise ValueError(
             "Read position is larger than last entry in restriction table."
