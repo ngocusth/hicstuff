@@ -95,11 +95,11 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
 
     Examples
     --------
-    >>> S = load_sparse_matrix('test_data/abs_fragments_contacts_weighted.txt', binning=1)
-    >>> S.data
-    array([19918.,   490.,   234., 16651.,  1408., 19773.])
+    >>> S = load_sparse_matrix('test_data/mat_5kb.tsv', binning=1)
+    >>> S.data[:10]
+    array([84.,  2.,  3.,  2.,  1.,  1., 50.,  1., 66.,  1.])
     >>> S.shape
-    (3, 3)
+    (16, 16)
     """
     raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
 
@@ -162,8 +162,8 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
 
     Examples
     --------
-    >>> load_pos_col('test_data/abs_fragments_contacts_weighted.txt', 0)
-    array([0, 0, 0, 1, 1, 2])
+    >>> load_pos_col('test_data/mat_5kb.tsv', 0)[:10]
+    array([0, 0, 0, 0, 0, 0, 1, 1, 2, 2])
     """
     pos_arr = np.genfromtxt(
         path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
@@ -513,7 +513,7 @@ def dade_to_GRAAL(
             fragments_list.write(line_to_write)
 
 
-def load_bedgraph2d(filename, bin_size=None):
+def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
     """
     Loads matrix and fragment information from a 2D bedgraph file. Note this
     function assumes chromosomes are ordered in alphabetical. order
@@ -524,6 +524,9 @@ def load_bedgraph2d(filename, bin_size=None):
         Path to the bedgraph2D file.
     bin_size : int
         The size of bins in the case of fixed bin size.
+    fragments_file : str
+        Path to a fragments file to explicitely provide fragments positions.
+        If the matrix does not have fixed bin size, this prevents errors.
     
     Returns
     -------
@@ -535,20 +538,19 @@ def load_bedgraph2d(filename, bin_size=None):
         positions.
     """
     bed2d = pd.read_csv(filename, sep=" ", header=None)
-    if bin_size is None:
+    chrom_sizes = {}
+    if bin_size is not None:
+        # If bin size if provided, retrieve chromosome lengths, this will be
+        # used when regenerating bin coordinates
+        chroms = bed2d[[0, 2]].groupby([0], sort=False).max()
+        for chrom, size in zip(chroms.index, np.array(chroms)):
+            chrom_sizes[chrom] = size[0]
+    elif fragments_file is None:
         logger.warning(
             "Please be aware that not all information can be restored from a "
             "cooler file without fixed bin size; fragments without any contact "
             "will be lost"
         )
-    else:
-        # If bin size if provided, retrieve chromosome lengths, this will be
-        # used when regenerating bin coordinates
-        chroms = bed2d[[0, 2]].groupby([0], sort=False).max()
-        chrom_sizes = {}
-        for chrom, size in zip(chroms.index, np.array(chroms)):
-            chrom_sizes[chrom] = size[0]
-
     # Get all possible fragment chrom-positions into an array
     frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
     # Sort by position (least important, col 1)
@@ -568,17 +570,24 @@ def load_bedgraph2d(filename, bin_size=None):
     frag_pos_b = np.array(
         bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
     )
-    if bin_size is None:
-        frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
-    else:
-        # If fixed fragment size available, use it to reconstruct original
-        # fragments ID (even if they are absent from the bedgraph file).
+    # If fragments file is provided, use fragments positions to indices mapping
+    if fragments_file is not None:
+        frags = pd.read_csv(fragments_file, delimiter="\t")
+        frag_map = frags.apply(
+            lambda x: "".join([str(x.chrom), str(x.start_pos)]), axis=1
+        )
+        frag_map = {f_name: f_idx for f_idx, f_name in enumerate(frag_map)}
+    # If fixed fragment size available, use it to reconstruct original
+    # fragments ID (even if they are absent from the bedgraph file).
+    elif bin_size is not None:
         frag_map = {}
         for chrom, size in chrom_sizes.items():
             prev_frags = len(frag_map)
             for bin_id, bin_pos in enumerate(range(0, size, bin_size)):
                 frag_map["".join([chrom, str(bin_pos)])] = bin_id + prev_frags
-
+    # If None available, guess fragments indices from bedgraph (potentially wrong)
+    else:
+        frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
     # Match bin indices to their names
     frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
     frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))

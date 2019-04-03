@@ -5,10 +5,11 @@ import os
 import gzip
 import zipfile
 import bz2
-import hicstuff.io as hio
 import pandas as pd
 import filecmp
 import numpy as np
+import hicstuff.io as hio
+import hicstuff.hicstuff as hcs
 
 
 def test_compress():
@@ -58,15 +59,19 @@ def test_save_bedgraph2d():
     hio.save_bedgraph2d(M, frags, f.name)
     # Check if the file created is identical to the 2D bedgraph matrix
     # containing the same dataset as the GRAAL matrix used as input
-    identical_files = filecmp.cmp(f.name, "test_data/mat.2bg")
-    with open(f.name, "r") as fh:
-        print(fh.read())
-    assert identical_files == True
+    assert filecmp.cmp(f.name, "test_data/mat.2bg")
     os.unlink(f.name)
 
 
 def test_load_bedgraph2d():
     """Test loading sparse matrices from 2D bedgraph files"""
-    mat_bg = hio.load_bedgraph2d("test_data/mat.2bg", bin_size=5000)[0]
+    mat_bg = hio.load_bedgraph2d(
+        "test_data/mat.2bg", fragments_file="test_data/fragments_file.txt"
+    )[0]
     mat_graal = hio.load_sparse_matrix("test_data/abs_fragments_contacts_weighted.txt")
     assert np.allclose(mat_graal.todense(), mat_bg.todense())
+
+    # Load using fixed bin sizes
+    mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.2bg", bin_size=5000)
+    mat_graal = hio.load_sparse_matrix("test_data/mat_5kb.tsv")
+    assert mat_bg.shape == mat_graal.shape
