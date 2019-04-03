@@ -537,7 +537,7 @@ def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
         The list of fragments/bin present in the matrix with their genomic
         positions.
     """
-    bed2d = pd.read_csv(filename, sep=" ", header=None)
+    bed2d = pd.read_csv(filename, sep="\t", header=None)
     chrom_sizes = {}
     if bin_size is not None:
         # If bin size if provided, retrieve chromosome lengths, this will be
@@ -640,7 +640,7 @@ def save_bedgraph2d(mat, frags, out_path):
     )
     # Select only relevant columns in correct order
     bg2 = merge_mat.loc[:, ["chr1", "start1", "end1", "chr2", "start2", "end2", "data"]]
-    bg2.to_csv(out_path, header=None, index=False, sep=" ")
+    bg2.to_csv(out_path, header=None, index=False, sep="\t")
 
 
 def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):

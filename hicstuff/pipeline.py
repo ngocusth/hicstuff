@@ -253,7 +253,7 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
         elif mat_fmt == "cooler":
             frag1, frag2 = int(frag1), int(frag2)
             mat.write(
-                " ".join(
+                "\t".join(
                     map(
                         str,
                         [

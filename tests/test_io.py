@@ -58,19 +58,19 @@ def test_save_bedgraph2d():
     hio.save_bedgraph2d(M, frags, f.name)
     # Check if the file created is identical to the 2D bedgraph matrix
     # containing the same dataset as the GRAAL matrix used as input
-    assert filecmp.cmp(f.name, "test_data/mat.2bg")
+    assert filecmp.cmp(f.name, "test_data/mat.bg2")
     os.unlink(f.name)
 
 
 def test_load_bedgraph2d():
     """Test loading sparse matrices from 2D bedgraph files"""
     mat_bg = hio.load_bedgraph2d(
-        "test_data/mat.2bg", fragments_file="test_data/fragments_list.txt"
+        "test_data/mat.bg2", fragments_file="test_data/fragments_list.txt"
     )[0]
     mat_graal = hio.load_sparse_matrix("test_data/abs_fragments_contacts_weighted.txt")
     assert np.allclose(mat_graal.todense(), mat_bg.todense())
 
     # Load using fixed bin sizes
-    mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.2bg", bin_size=5000)[0]
+    mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.bg2", bin_size=5000)[0]
     mat_graal = hio.load_sparse_matrix("test_data/mat_5kb.tsv")
     assert mat_bg.shape == mat_graal.shape

@@ -932,7 +932,7 @@ class Convert(AbstractCommand):
             self.out_frags = join(out_path, frags_name)
             self.out_chr = join(out_path, chr_name)
         elif out_fmt == "cooler":
-            mat_name = prefix + ".mat.2bg" if prefix else "cooler.mat.2bg"
+            mat_name = prefix + ".mat.bg2" if prefix else "cooler.mat.bg2"
             self.out_mat = join(out_path, mat_name)
         elif out_fmt == "DADE":
             mat_name = prefix + ".DADE.tsv" if prefix else "DADE.mat.tsv"
