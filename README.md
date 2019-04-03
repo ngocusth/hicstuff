@@ -135,6 +135,10 @@ hpi.full_pipeline(
     enzyme="DpnII")
 ```
 
+The general steps of the pipeline are as follows:
+
+![Pipeline flowchart](doc/images/pipeline.svg)
+
 ### Individual components
 
 For more advanced usage, different scripts can be used independently on the command line to perform individual parts of the pipeline. This readme contains quick descriptions and example usages. To obtain detailed instructions on any subcommand, one can use `hicstuff <subcommand> --help`.
