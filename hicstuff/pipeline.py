@@ -134,36 +134,52 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     with open(out_pairs, "w") as pairs:
         pairs.writelines([format_version, sorting, cols] + chroms.tolist())
         pairs_writer = csv.writer(pairs, delimiter=" ")
-        # Iterate on both SAM simultaneously
         n_reads = {"total": 0, "mapped": 0}
         # Remember if some read IDs were missing from either file
         unmatched_reads = 0
+        # Remember if all reads in one sam file have been read
+        exhausted = False
+        # Iterate on both SAM simultaneously
         for end1, end2 in itertools.zip_longest(forward, reverse):
+            # Both file still have reads
             # Check if reads pass filter
-            end1_passed = end1.mapping_quality >= min_qual
-            end2_passed = end2.mapping_quality >= min_qual
-            n_reads["total"] += 2
-            n_reads["mapped"] += sum([end1_passed, end2_passed])
+            try:
+                end1_passed = end1.mapping_quality >= min_qual
+            # Happens if end1 sam file has been exhausted
+            except AttributeError:
+                exhausted = True
+                end1_passed = False
+            try:
+                end2_passed = end2.mapping_quality >= min_qual
+            # Happens if end2 sam file has been exhausted
+            except AttributeError:
+                exhausted = True
+                end2_passed = False
             # Skip read if mate is not present until they match
-            while end1.query_name != end2.query_name:
-                try:
-                    # Get next read and check filters again
-                    if end1.query_name < end2.query_name:
-                        end1 = next(forward)
-                        end1_passed = end1.mapping_quality >= min_qual
-                        n_reads["mapped"] += end1_passed
-                    elif end1.query_name > end2.query_name:
-                        end2 = next(reverse)
-                        end2_passed = end2.mapping_quality >= min_qual
-                        n_reads["mapped"] += end2_passed
+            if not exhausted:
+                while end1.query_name != end2.query_name:
+                    try:
+                        # Get next read and check filters again
+                        if end1.query_name < end2.query_name:
+                            end1 = next(forward)
+                            end1_passed = end1.mapping_quality >= min_qual
+                            n_reads["mapped"] += end1_passed
+                        elif end1.query_name > end2.query_name:
+                            end2 = next(reverse)
+                            end2_passed = end2.mapping_quality >= min_qual
+                            n_reads["mapped"] += end2_passed
 
-                # Do nothing if EOF is reached (but still count reads)
-                except (AttributeError, StopIteration):
-                    pass
-                # Count single-read iteration
-                unmatched_reads += 1
-                n_reads["total"] += 1
+                    # Do nothing if EOF is reached (but still count reads)
+                    except (AttributeError, StopIteration):
+                        continue 
+                    finally:
+                        # Count single-read iteration
+                        unmatched_reads += 1
+                        n_reads["total"] += 1
 
+            # 2 reads processed per iteration, unless one file is exhausted
+            n_reads["total"] += 2 if not exhausted else 1
+            n_reads["mapped"] += sum([end1_passed, end2_passed])
             # Keep only pairs where both reads have good quality
             if end1_passed and end2_passed:
                 # Flipping to get upper triangle
@@ -360,7 +376,7 @@ def full_pipeline(
     min_qual : int
         Minimum mapping quality required to keep a pair of Hi-C reads.
     min_size : int
-        Minimum fragment size required to keep a restriction fragment.
+        Minimum contig size required to keep it.
     threads : int
         Number of threads to use for parallel operations.
     no_cleanup : bool
