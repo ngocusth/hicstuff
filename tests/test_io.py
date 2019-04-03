@@ -66,7 +66,7 @@ def test_save_bedgraph2d():
 def test_load_bedgraph2d():
     """Test loading sparse matrices from 2D bedgraph files"""
     mat_bg = hio.load_bedgraph2d(
-        "test_data/mat.2bg", fragments_file="test_data/fragments_file.txt"
+        "test_data/mat.2bg", fragments_file="test_data/fragments_list.txt"
     )[0]
     mat_graal = hio.load_sparse_matrix("test_data/abs_fragments_contacts_weighted.txt")
     assert np.allclose(mat_graal.todense(), mat_bg.todense())
