@@ -44,70 +44,67 @@ Note for OSX and BSD users: `hicstuff pipeline` relies on the GNU coreutils. If 
 All components of the pipelines can be run at once using the `hicstuff pipeline` command. This allows to generate a contact matrix from reads in a single command. By default, the output sparse matrix is in GRAAL format, but it can be a 2D bedgraph file if required.
 
     usage:
-        pipeline [--quality_min=INT] [--duplicates] [--size=INT] [--no-cleanup]
-                 [--threads=INT] [--minimap2] [--bedgraph] [--prefix=PREFIX]
+        pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
+                 [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] --fasta=FILE
-                 (<fq1> <fq2> | --sam <sam1> <sam2> | --pairs <bed2D>)
+                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE <input1> [<input2>]
 
     arguments:
-        fq1:             Forward fastq file. Required by default.
-        fq2:             Reverse fastq file. Required by default.
-        sam1:            Forward SAM file. Required if using --sam to skip
-                         mapping.
-        sam2:            Reverse SAM file. Required if using --sam to skip
-                         mapping.
-        bed2D:           Sorted 2D BED file of pairs. Required if using
-                         "--pairs" to only build matrix.
+        input1:             Forward fastq file, if start_stage is "fastq", sam
+                            file for aligned forward reads if start_stage is
+                            "sam", or a .pairs file if start_stage is "pairs".
+        input2:             Reverse fastq file, if start_stage is "fastq", sam
+                            file for aligned reverse reads if start_stage is
+                            "sam", or nothing if start_stage is "pairs".
 
 
     options:
-        -b, --bedgraph                If enabled, generates a sparse matrix in
-                                      2D Bedgraph format (cooler-compatible)
-                                      instead of GRAAL-compatible format.
+        -M, --matfmt=FMT              The format of the output sparse matrix.
+                                      Can be "cooler" for 2D Bedgraph format 
+                                      compatible with cooler, or "GRAAL" for
+                                      GRAAL-compatible format. [default: GRAAL]
         -C, --circular                Enable if the genome is circular.
-        -d, --duplicates:             If enabled, trims (10bp) adapters and
-                                      remove PCR duplicates prior to mapping.
-                                      Only works if reads start with a 10bp
-                                      sequence. Not enabled by default.
-        -e ENZ, --enzyme=ENZ          Restriction enzyme if a string, or chunk
+        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
                                       [default: 5000]
-        -f FILE, --fasta=FILE         Reference genome to map against in FASTA
+        -f, --fasta=FILE              Reference genome to map against in FASTA
                                       format
         -F, --filter                  Filter out spurious 3C events (loops and
                                       uncuts) using hicstuff filter. Requires
                                       "-e" to be a restriction enzyme, not a
                                       chunk size.
-        -S, --sam                     Skip the mapping and start pipeline from
-                                      fragment attribution using SAM files.
+        -S, --start-stage=STAGE       Define the starting point of the pipeline
+                                      to skip some steps. Default is "fastq" to
+                                      run from the start. Can also be "sam" to
+                                      skip the alignment, pairs to start from a
+                                      singl pairs file or pairs_idx to skip
+                                      fragment attribution and only build the 
+                                      matrix. [default: fastq]
         -i, --iterative               Map reads iteratively using hicstuff
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and
                                       aligning them.
         -m, --minimap2                Use the minimap2 aligner instead of
                                       bowtie2. Not enabled by default.
-        -A, --pairs                   Start from the matrix building step using
-                                      a sorted list of pairs in 2D BED format.
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
-        -o DIR, --outdir=DIR          Output directory. Defaults to the current
+        -o, --outdir=DIR              Output directory. Defaults to the current
                                       directory.
         -p, --plot                    Generates plots in the output directory
                                       at different steps of the pipeline.
-        -P PREFIX, --prefix=PREFIX    Overrides default GRAAL-compatible
+        -P, --prefix=PREFIX           Overrides default GRAAL-compatible
                                       filenames and use a prefix with
                                       extensions instead.
-        -q INT, --quality_min=INT     Minimum mapping quality for selecting
+        -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
-        -s INT, --size=INT            Minimum size threshold to consider
+        -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
                                       [default: 0]
-        -t INT, --threads=INT         Number of threads to allocate.
+        -t, --threads=INT             Number of threads to allocate.
                                       [default: 1].
-        -T DIR, --tmpdir=DIR          Directory for storing intermediary BED
+        -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
 
@@ -115,6 +112,8 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
         abs_fragments_contacts_weighted.txt: the sparse contact map
         fragments_list.txt: information about restriction fragments (or chunks)
         info_contigs.txt: information about contigs or chromosomes
+        hicstuff.log: details and statistics about the run.
+
 
 For example, to run the pipeline with minimap2 using 8 threads and generate a matrix in instagraal format in the directory `out`:
 ```
@@ -282,7 +281,7 @@ A Hi-C sparse contact matrix can then be generated using the python submodule `h
 from hicstuff import pipeline as hpi
 
 n_frags = sum(1 for line in open(fragments_list, "r")) - 1
-hpi.pairs2matrix("output_filtered.pairs", "abs_fragments_contacts_weighted.txt", n_frags, format="GRAAL")
+hpi.pairs2matrix("output_filtered.pairs", "abs_fragments_contacts_weighted.txt", 'fragments_list.txt', mat_fmt="GRAAL")
 ```
 
 ### File formats
