@@ -9,7 +9,6 @@ import pandas as pd
 import filecmp
 import numpy as np
 import hicstuff.io as hio
-import hicstuff.hicstuff as hcs
 
 
 def test_compress():
@@ -72,6 +71,6 @@ def test_load_bedgraph2d():
     assert np.allclose(mat_graal.todense(), mat_bg.todense())
 
     # Load using fixed bin sizes
-    mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.2bg", bin_size=5000)
+    mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.2bg", bin_size=5000)[0]
     mat_graal = hio.load_sparse_matrix("test_data/mat_5kb.tsv")
     assert mat_bg.shape == mat_graal.shape
