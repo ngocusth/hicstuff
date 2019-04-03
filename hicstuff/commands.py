@@ -501,9 +501,11 @@ class Pipeline(AbstractCommand):
                                       chunk size.
         -S, --start-stage=STAGE       Define the starting point of the pipeline
                                       to skip some steps. Default is "fastq" to
-                                      run from the start. Can also be "sam" and
-                                      "pairs" to skip the alignment or only
-                                      build the matrix. [default: fastq]
+                                      run from the start. Can also be "sam" to
+                                      skip the alignment, pairs to start from a
+                                      singl pairs file or pairs_idx to skip
+                                      fragment attribution and only build the 
+                                      matrix. [default: fastq]
         -i, --iterative               Map reads iteratively using hicstuff
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and

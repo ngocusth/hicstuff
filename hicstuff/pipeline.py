@@ -247,7 +247,7 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
                             frags.chrom[frag2],
                             frags.start_pos[frag2],
                             frags.end_pos[frag2],
-                            n_occ,
+                            contacts,
                         ],
                     )
                 )
@@ -296,8 +296,10 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
             header = header.replace("-", str(n_nonzero))
             tmp_mat.write(header)
             st.copyfileobj(mat, tmp_mat)
-            # Replace the matrix file with the one with corrected header
-            os.rename(pre_mat_file, mat_file)
+        # Replace the matrix file with the one with corrected header
+        os.rename(pre_mat_file, mat_file)
+    else:
+        os.remove(pre_mat_file)
 
     logger.info(
         "%d pairs used to build a contact map of %d bins with %d nonzero entries.",
@@ -371,7 +373,11 @@ def full_pipeline(
     prefix : str or None
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
-        Step at which the pipeline should start. Can be "fastq", "sam" or "pairs".
+        Step at which the pipeline should start. Can be "fastq", "sam", "pairs"
+        or "pairs_idx". With starting from sam allows to skip alignment. With
+        "pairs", a single pairs file is given as input, ans with pairs_idx, the
+        pairs in the input must already be attributed to fragments and fragment
+        attribution is skipped.
     mat_fmt : str
         Select the output matrix format. Can be either "cooler" for the 
         cooler-compatible bedgraph2 format, or GRAAL format.
@@ -380,8 +386,10 @@ def full_pipeline(
     """
     # Pipeline can start from 3 input types
     start_time = datetime.now()
-    stages = {"fastq": 0, "sam": 1, "pairs": 2}
+    stages = {"fastq": 0, "sam": 1, "pairs": 2, "pairs_idx": 3}
     start_stage = stages[start_stage]
+    # Remember whether fragments_file has been generated during this run
+    fragments_updated = False
 
     if out_dir is None:
         out_dir = os.getcwd()
@@ -445,6 +453,8 @@ def full_pipeline(
     elif start_stage == 1:
         sam1, sam2 = input1, input2
     elif start_stage == 2:
+        pairs = input1
+    elif start_stage == 3:
         pairs_idx = input1
 
     # Perform genome alignment
@@ -475,8 +485,10 @@ def full_pipeline(
         ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2)
         st.move(sam2 + ".sorted", sam2)
 
+    # Starting from sam files
     if start_stage <= 1:
 
+        fragments_updated = True
         # Generate info_contigs and fragments_list output files
         hcd.write_frag_info(
             genome,
@@ -493,6 +505,8 @@ def full_pipeline(
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
 
+    # Starting from pairs file
+    if start_stage <= 2:
         restrict_table = {}
         for record in SeqIO.parse(genome, "fasta"):
             # Get chromosome restriction table
@@ -520,6 +534,17 @@ def full_pipeline(
         use_pairs = pairs_filtered
     else:
         use_pairs = pairs_idx
+
+    # Generate fragments file if it has not been already
+    if not fragments_updated:
+        hcd.write_frag_info(
+            genome,
+            enzyme,
+            min_size=min_size,
+            circular=circular,
+            output_contigs=info_contigs,
+            output_frags=fragments_list,
+        )
 
     # Build matrix from pairs.
     pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
