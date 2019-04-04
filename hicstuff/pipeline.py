@@ -138,7 +138,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
         # Remember if some read IDs were missing from either file
         unmatched_reads = 0
         # Remember if all reads in one sam file have been read
-        exhausted = False
+        exhausted = [False, False]
         # Iterate on both SAM simultaneously
         for end1, end2 in itertools.zip_longest(forward, reverse):
             # Both file still have reads
@@ -147,38 +147,42 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                 end1_passed = end1.mapping_quality >= min_qual
             # Happens if end1 sam file has been exhausted
             except AttributeError:
-                exhausted = True
+                exhausted[0] = True
                 end1_passed = False
             try:
                 end2_passed = end2.mapping_quality >= min_qual
             # Happens if end2 sam file has been exhausted
             except AttributeError:
-                exhausted = True
+                exhausted[1] = True
                 end2_passed = False
-            # Skip read if mate is not present until they match
-            if not exhausted:
-                while end1.query_name != end2.query_name:
+            # Skip read if mate is not present until they match or reads
+            # have been exhausted
+            while sum(exhausted) == 0 and end1.query_name != end2.query_name:
+                # Get next read and check filters again
+                # Count single-read iteration
+                unmatched_reads += 1
+                n_reads["total"] += 1
+                if end1.query_name < end2.query_name:
                     try:
-                        # Get next read and check filters again
-                        if end1.query_name < end2.query_name:
-                            end1 = next(forward)
-                            end1_passed = end1.mapping_quality >= min_qual
-                            n_reads["mapped"] += end1_passed
-                        elif end1.query_name > end2.query_name:
-                            end2 = next(reverse)
-                            end2_passed = end2.mapping_quality >= min_qual
-                            n_reads["mapped"] += end2_passed
-
-                    # Do nothing if EOF is reached (but still count reads)
-                    except (AttributeError, StopIteration):
-                        continue 
-                    finally:
-                        # Count single-read iteration
-                        unmatched_reads += 1
-                        n_reads["total"] += 1
+                        end1 = next(forward)
+                        end1_passed = end1.mapping_quality >= min_qual
+                    # If EOF is reached in SAM 1
+                    except (StopIteration, AttributeError):
+                        exhausted[0] = True
+                        end1_passed = False
+                    n_reads["mapped"] += end1_passed
+                elif end1.query_name > end2.query_name:
+                    try:
+                        end2 = next(reverse)
+                        end2_passed = end2.mapping_quality >= min_qual
+                    # If EOF is reached in SAM 2
+                    except (StopIteration, AttributeError):
+                        exhausted[1] = True
+                        end2_passed = False
+                    n_reads["mapped"] += end2_passed
 
             # 2 reads processed per iteration, unless one file is exhausted
-            n_reads["total"] += 2 if not exhausted else 1
+            n_reads["total"] += 2 - sum(exhausted)
             n_reads["mapped"] += sum([end1_passed, end2_passed])
             # Keep only pairs where both reads have good quality
             if end1_passed and end2_passed:
