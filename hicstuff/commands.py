@@ -58,7 +58,7 @@ class AbstractCommand:
     """Abstract base command class
 
     Base class for the commands from which
-    other hicstuff commadns derive.
+    other hicstuff commands derive.
     """
 
     def __init__(self, command_args, global_args):
@@ -472,7 +472,8 @@ class Pipeline(AbstractCommand):
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
                  [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE <input1> [<input2>]
+                 [--enzyme=ENZ] [--plot] [--circular] [--distance_law]
+                 [--centromeres=FILE] --fasta=FILE <input1> [<input2>]
 
     arguments:
         input1:             Forward fastq file, if start_stage is "fastq", sam
@@ -488,7 +489,8 @@ class Pipeline(AbstractCommand):
                                       Can be "cooler" for 2D Bedgraph format 
                                       compatible with cooler, or "GRAAL" for
                                       GRAAL-compatible format. [default: GRAAL]
-        -C, --circular                Enable if the genome is circular.
+        -C, --circular                Enable if the genome is circular. 
+                                      Discordant with the centromeres option.   
         -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
@@ -502,8 +504,8 @@ class Pipeline(AbstractCommand):
         -S, --start-stage=STAGE       Define the starting point of the pipeline
                                       to skip some steps. Default is "fastq" to
                                       run from the start. Can also be "sam" to
-                                      skip the alignment, pairs to start from a
-                                      singl pairs file or pairs_idx to skip
+                                      skip the alignment, "pairs" to start from a
+                                      single pairs file or "pairs_idx" to skip
                                       fragment attribution and only build the 
                                       matrix. [default: fastq]
         -i, --iterative               Map reads iteratively using hicstuff
@@ -532,6 +534,16 @@ class Pipeline(AbstractCommand):
         -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
+        -d, --distance_law            If enabled, generates a distance law file
+                                      with the values of the probabilities to 
+                                      have a contact between two distances for
+                                      each chromosomes or arms if the file with
+                                      the positions has been given. The values
+                                      are not normalized, or averaged.
+        -c, --centromeres=FILE        Positions of the centromeres separated by
+                                      a space and in the same order than the 
+                                      chromosomes. Discordant with the circular
+                                      option.           
 
     output:
         abs_fragments_contacts_weighted.txt: the sparse contact map
@@ -570,6 +582,8 @@ class Pipeline(AbstractCommand):
             start_stage=self.args["--start-stage"],
             mat_fmt=self.args["--matfmt"],
             minimap2=self.args["--minimap2"],
+            distance_law=self.args["--distance_law"],
+            centromeres=self.args["--centromeres"]
         )
 
 
