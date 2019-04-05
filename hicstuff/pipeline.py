@@ -7,17 +7,18 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import shutil as st
 import itertools
+import re
 import logging
 from os.path import join
 import subprocess as sp
 from Bio import SeqIO
 import pandas as pd
+import pysam as ps
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
 from hicstuff.version import __version__
-import pysam as ps
 import hicstuff.log as hcl
 from hicstuff.log import logger
 
@@ -477,6 +478,9 @@ def full_pipeline(
     elif start_stage == 3:
         pairs_idx = input1
 
+    # Detect if multiple enzymes are given
+    if re.search(",", enzyme):
+        enzyme = enzyme.split(",")
     # Perform genome alignment
     if start_stage == 0:
         align_reads(
