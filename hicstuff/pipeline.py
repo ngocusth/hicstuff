@@ -64,15 +64,16 @@ def align_reads(
     tmp_sam = out_sam + ".tmp"
 
     if iterative:
-        hci.temp_directory = hci.generate_temp_dir(tmp_dir)
+        iter_tmp_dir = hci.generate_temp_dir(tmp_dir)
         hci.iterative_align(
             reads,
-            tmp_dir=tmp_dir,
+            tmp_dir=iter_tmp_dir,
             ref=genome,
             n_cpu=threads,
             sam_out=tmp_sam,
             min_qual=min_qual,
         )
+        st.rmtree(iter_tmp_dir)
     else:
         if minimap2:
             map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
