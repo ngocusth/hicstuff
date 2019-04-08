@@ -12,6 +12,7 @@ commands:
      and 'true contacts')
     -view (map visualization)
     -pipeline (whole contact map generation)
+    -distancelaw (Analysis tool and plot for the distance law)
 
 Running 'pipeline' implies running 'digest', but not
 iteralign or filter unless specified, because they can
@@ -42,10 +43,9 @@ import hicstuff.filter as hcf
 import hicstuff.io as hio
 from hicstuff.log import logger
 import hicstuff.pipeline as hpi
+import hicstuff.distance_law as hcdl
 from scipy.sparse import csr_matrix
-import sys
-import os
-import shutil
+import sys, os, shutil, csv
 from os.path import join, basename
 from matplotlib import pyplot as plt
 from matplotlib import cm
@@ -587,43 +587,26 @@ class Pipeline(AbstractCommand):
         )
 
 
-class Plot(AbstractCommand):
+class Scalogram(AbstractCommand):
     """
-    Generate the specified type of plot.
+    Generate a scalogram.
 
     usage:
         plot [--cmap=NAME] [--centromeres=FILE] [--frags=FILE] [--range=INT-INT]
              [--threads=INT] [--output=FILE] [--max=INT] [--process]
-             [--indices=INT-INT] [--despeckle] (--scalogram | --distance_law)
-             <contact_map>
+             [--indices=INT-INT] [--despeckle] <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
 
     options:
-        -c, --centromeres=FILE             Only meaningful in conjunction with
-                                           the frags option. Specify a centromeres
-                                           file. Centromeres files must be a
-                                           single column file with the name of
-                                           the positions of the centromeres, in
-                                           basepairs. Chromosomes must be in the
-                                           same order as in frags.
         -C, --cmap=NAME                    The matplotlib colormap to use for
                                            the plot. [default: viridis]
         -d, --despeckle                    Remove speckles (artifactual spots)
                                            from the matrix.
-        -f, --frags=FILE                   The path to the hicstuff fragments_list
-                                           file containing the coordinates of
-                                           each fragment/bin.
         -i, --indices=INT-INT              The bins of the matrix to use for
                                            the plot (e.g. coordinates of a
                                            single chromosome).
-        -l, --distance_law                 Plot the distance law of the matrix.
-                                           if the info_contigs (chroms) file is
-                                           specified, the law will be computed
-                                           on each chromosome separately. If a
-                                           centromere file is given, it will be
-                                           computed on each chromosomal arm.
         -m, --max=INT                      Saturation threshold in percentile
                                            of pixel values. [default: 99]
         -o, --output=FILE                  Output file where the plot should be
@@ -674,49 +657,9 @@ class Plot(AbstractCommand):
 
         if self.args["--indices"]:
             S = S[start:end, start:end]
-        if self.args["--scalogram"]:
-            D = hcv.sparse_to_dense(S)
-            D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
-            plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
-        elif self.args["--distance_law"]:
-            if self.args["--frags"]:
-                # Compute distance law per chromosome
-                centro = None
-                # Load start pos of fragments/bins from fragments_list
-                frags = hio.load_pos_col(self.args["--frags"], 2)
-                chr_names = np.unique(
-                    hio.load_pos_col(self.args["--frags"], 1, dtype=str)
-                )
-
-                if self.args["--centromeres"]:
-                    # Compute per chromosomal arm
-                    centro = hio.load_pos_col(self.args["--centromeres"], 0, 0)
-                    temp_chr_names = [None] * len(chr_names) * 2
-                    for i in range(0, 2 * len(chr_names), 2):
-                        temp_chr_names[i] = chr_names[i // 2] + "_left"
-                        temp_chr_names[i + 1] = chr_names[i // 2] + "_right"
-                    chr_names = temp_chr_names
-                xs, ps = hcs.distance_law_multi(
-                    S.tocsr(), frags, good_bins, centro, log_bins=True, average=False
-                )
-            else:
-                # Compute distance law on whole map
-                xs, ps = hcs.distance_law(S, log_bins=True)
-            i = 0
-            plots = []
-            colors = iter(cm.rainbow(np.linspace(0, 1, len(chr_names))))
-            for x, y in zip(xs, ps):
-                col = next(colors)
-                # Converting bin indices to kb values
-                x = frags[x.astype(np.int)] / 1000
-                plots.append(plt.loglog(x, y, label=chr_names[i], c=col))
-                plt.legend(plots, labels=chr_names)
-                i += 1
-            plt.xlabel("genomic distance (kb)", fontsize="xx-large")
-            plt.ylabel("Probability of contacts log10", fontsize="xx-large")
-            if self.args["--range"]:
-                # Crop x axis if desired (boundaries converted to kb)
-                plt.xlim(left=lower / 1000, right=upper / 1000)
+        D = hcv.sparse_to_dense(S)
+        D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
+        plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
         if output_file:
             plt.savefig(output_file)
         else:
@@ -867,6 +810,7 @@ class Convert(AbstractCommand):
     """
     Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
     bedgraph2D (cooler) and DADE.
+
     usage:
         convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
                 [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
@@ -955,6 +899,102 @@ class Convert(AbstractCommand):
             self.out_mat = join(out_path, mat_name)
 
         conv_fun()
+
+class Distancelaw(AbstractCommand):
+    """Distance law tools.
+    Take the distance law file from hicstuff and can average it, normalize it compute the
+    slope of the curve and plot it.
+    
+    usage:
+        distancelaw [--average] [--inf=INT] [--sup=INT] [--outdir=DIR] 
+                    [--labels=DIR] --dist-tbl=FILE1[,FILE2,...]
+    
+    options:
+        -a, --average                       If set, calculate the average of the distance 
+                                            law of the different chromosomes/arms in each
+                                            condition. If two file given average is
+                                            mandatory.
+        -i, --inf=INT                       Inferior born to plot the distance law. By 
+                                            default the value is 3000 bp (3 kb). Have to
+                                            be strictly positive.
+        -s, --sup=INT                       Superior born to plot the distance law. By 
+                                            default the value is the maximum length of all
+                                            the dataset given.
+        -o, --outdir=DIR                    Output directory. Defaults to current 
+                                            directory.
+        -l, --labels=STR1,STR2...           List of string of the labels for the plot 
+                                            separated by a coma. If no labels given, give 
+                                            the names "Sample 1", "Sample 2"...
+        -d, --dist-tbl=FILE1[,FILE2,...]    Directory to the file or files containing the 
+                                            compute distance law. File should have the same
+                                            format than the ones made by hicstuff pipeline.
+    """
+
+    def execute(self):
+        # Give the current directory as out_dir if no out_dir is given.
+        if self.args["--outdir"]:
+            out_dir = self.args["--outdir"]
+            out_dir = os.getcwd()
+        else:
+            out_dir = '.'
+        # Put in a list the path or the different paths given.
+        distance_law_file = self.args["--dist-tbl"]
+        distance_law_files  = distance_law_file.split(',')
+        length_files = len(distance_law_files)
+        # Make new lists for the modified distance law.
+        xs = [None] * length_files
+        ps = [None] * length_files
+        names = [None] * length_files
+        # Sanity check : Average mandatory if more than one file.
+        if not self.args["--average"] and length_files > 1:
+            sys.stderr.write("ERROR: You have to average if more than one file.")
+            sys.exit(1)
+        # Iterate on the different file given by the user.
+        for i in range(length_files):
+            xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
+            # Make the average if enabled
+            if self.args["--average"]:
+                xs[i], ps[i] = hcdl.average_distance_law(xs[i], ps[i])
+                # If not average, we should to remove one level of list to have the good dimension.
+        if not self.args["--average"]:
+            names = names[0]
+            xs = xs[0]
+            ps = ps[0]
+        # Normalize and make the derivative
+        ps = hcdl.normalize_distance_law(xs, ps)
+        slope = hcdl.slope_distance_law(xs, ps)
+        # Gave new names for the different samples.
+        if self.args["--labels"]:
+            labels = self.args["--labels"]
+            labels = labels.split(',')
+        else: 
+            if length_files == 1 and not self.args["--average"]:
+                labels = []
+                for i in range(len(names)):
+                    labels.append(names[i][0])
+            else:
+                labels = []
+                for i in range(length_files):
+                    labels.append('Sample ' + str(i))
+        # Make the plot if enabled, if not average plot the different arms or
+        # chromosomes with the initial names else plot the different conditions 
+        # with the names labels.
+        out_dir = out_dir + '/distance_law_plot.svg'
+        if self.args["--inf"]:
+            inf = int(self.args["--inf"])
+        else:
+            inf = 3000
+        if self.args["--sup"]:
+            sup = int(self.args["--sup"])
+        else:
+            sup = max(max(xs, key = len))
+        hcdl.plot_ps_slope(xs, 
+                           ps, 
+                           slope, 
+                           labels, 
+                           out_dir, 
+                           inf, 
+                           sup)
 
 
 def parse_bin_str(bin_str):

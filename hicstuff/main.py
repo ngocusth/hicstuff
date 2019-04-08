@@ -13,13 +13,14 @@ options:
     -v, --version               shows the version
 
 The subcommands are:
-    iteralign   iteratively aligns reads to a reference genome
-    digest      digest genome into a list of fragments
-    filter      filters Hi-C pairs to exclude spurious events
-    rebin       bin the matrix and regenerate files accordingly
-    subsample   bootstrap subsampling of contacts from a Hi-C map.
-    view        visualize a Hi-C matrix
-    pipeline    Hi-C pipeline to generate contact matrix from fastq files
+    digest          Digest genome into a list of fragments.
+    distancelaw     Analyse and plot distance law.
+    filter          Filters Hi-C pairs to exclude spurious events.
+    iteralign       Iteratively aligns reads to a reference genome.
+    pipeline        Hi-C pipeline to generate contact matrix from fastq files.
+    rebin           Bin the matrix and regenerate files accordingly.
+    subsample       Bootstrap subsampling of contacts from a Hi-C map.
+    view            Visualize a Hi-C matrix.    
 """
 
 from docopt import docopt
