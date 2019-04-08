@@ -1741,7 +1741,7 @@ def compartments(M, normalize=True):
         N = np.copy(M)
     # Computation of genomic distance law matrice:
     dist_mat = np.zeros((n, n))
-    _, dist_vals = distance_law(N, log_bins=False)
+    _, dist_vals = hcdl.distance_law_from_mat(N, log_bins=False)
     for i in range(n):
         for j in range(n):
             dist_mat[i, j] = dist_vals[abs(j - i)]
