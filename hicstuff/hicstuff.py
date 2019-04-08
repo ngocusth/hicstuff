@@ -34,6 +34,7 @@ import random
 import multiprocessing as mp
 import pandas as pd
 import sys
+import hicstuff.distance_law as hcdl
 from hicstuff.log import logger
 
 
