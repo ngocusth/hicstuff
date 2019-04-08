@@ -176,7 +176,6 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                     n_reads["mapped"] += end1_passed
                 elif end1.query_name > end2.query_name:
                     try:
-<<<<<<< HEAD
                         end2 = next(reverse)
                         end2_passed = end2.mapping_quality >= min_qual
                     # If EOF is reached in SAM 2
@@ -184,25 +183,6 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                         exhausted[1] = True
                         end2_passed = False
                     n_reads["mapped"] += end2_passed
-=======
-                        # Get next read and check filters again
-                        if end1.query_name < end2.query_name:
-                            end1 = next(forward)
-                            end1_passed = end1.mapping_quality >= min_qual
-                            n_reads["mapped"] += end1_passed
-                        elif end1.query_name > end2.query_name:
-                            end2 = next(reverse)
-                            end2_passed = end2.mapping_quality >= min_qual
-                            n_reads["mapped"] += end2_passed
-
-                    # Do nothing if EOF is reached (but still count reads)
-                    except (AttributeError, StopIteration):
-                        continue
-                    finally:
-                        # Count single-read iteration
-                        unmatched_reads += 1
-                        n_reads["total"] += 1
->>>>>>> Add the distance law options when using hicstuff pipeline. Document distance_law in command and pipeline.
 
             # 2 reads processed per iteration, unless one file is exhausted
             n_reads["total"] += 2 - sum(exhausted)
