@@ -18,6 +18,7 @@ import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
+import hicstuff.distance_law as hcdl
 from hicstuff.version import __version__
 import hicstuff.log as hcl
 from hicstuff.log import logger
@@ -350,6 +351,8 @@ def full_pipeline(
     start_stage="fastq",
     mat_fmt="GRAAL",
     minimap2=False,
+    distance_law=False,
+    centromeres=None,
 ):
     """
     Run the whole hicstuff pipeline. Starting from fastq files and a genome to
@@ -397,7 +400,7 @@ def full_pipeline(
     start_stage : str
         Step at which the pipeline should start. Can be "fastq", "sam", "pairs"
         or "pairs_idx". With starting from sam allows to skip alignment. With
-        "pairs", a single pairs file is given as input, ans with pairs_idx, the
+        "pairs", a single pairs file is given as input, and with "pairs_idx", the
         pairs in the input must already be attributed to fragments and fragment
         attribution is skipped.
     mat_fmt : str
@@ -405,6 +408,14 @@ def full_pipeline(
         cooler-compatible bedgraph2 format, or GRAAL format.
     minimap2 : bool
         Use minimap2 instead of bowtie2 for read alignment.
+    distance_law : bool
+        If True, generates a distance law file with the values of the probabilities 
+        to have a contact between two distances for each chromosomes or arms if the
+        file with the positions has been given. The values are not normalized, or 
+        averaged.
+    centromers : None or str
+        If not None, path of file with Positions of the centromeres separated by a
+        space and in the same order than the chromosomes. 
     """
     # Pipeline can start from 3 input types
     start_time = datetime.now()
@@ -569,6 +580,18 @@ def full_pipeline(
             circular=circular,
             output_contigs=info_contigs,
             output_frags=fragments_list,
+        )
+
+    # Generate distance law table if enabled
+    if distance_law:
+        outdir_distance_law = _out_file("distance_law.txt")
+        hcdl.get_distance_law(
+            pairs_idx,
+            fragments_list,
+            centro_file=centromeres,
+            base=1.1,
+            outdir=outdir_distance_law,
+            circular=circular,
         )
 
     # Build matrix from pairs.

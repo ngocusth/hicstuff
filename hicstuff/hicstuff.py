@@ -37,6 +37,62 @@ import sys
 from hicstuff.log import logger
 
 
+def distance_law_from_mat(matrix, indices=None, log_bins=True, base=1.1):
+    """Compute distance law as a function of the genomic coordinate aka P(s).
+    Bin length increases exponentially with distance if log_bins is True. Works
+    on dense and sparse matrices. Less precise than the one from the pairs.
+    Parameters
+    ----------
+    matrix : numpy.array or scipy.sparse.coo_matrix
+        Hi-C contact map of the chromosome on which the distance law is
+        calculated.
+    indices : None or numpy array
+        List of indices on which to compute the distance law. For example
+        compartments or expressed genes.
+    log_bins : bool
+        Whether the distance law should be computed on exponentially larger
+        bins.
+    Returns
+    -------
+    numpy array of floats :
+        The start index of each bin.
+    numpy array of floats :
+        The distance law computed per bin on the diagonal
+    """
+
+    n = min(matrix.shape)
+    included_bins = np.zeros(n, dtype=bool)
+    if indices is None:
+        included_bins[:] = True
+    else:
+        included_bins[indices] = True
+    D = np.array(
+        [
+            np.average(matrix.diagonal(j)[included_bins[: n - j]])
+            for j in range(n)
+        ]
+    )
+    if not log_bins:
+        return np.array(range(len(D))), D
+    else:
+        n_bins = int(np.log(n) / np.log(base) + 1)
+        logbin = np.unique(
+            np.logspace(0, n_bins - 1, num=n_bins, base=base, dtype=np.int)
+        )
+        logbin = np.insert(logbin, 0, 0)
+        logbin[-1] = min(n, logbin[-1])
+        if n < logbin.shape[0]:
+            print("Not enough bins. Increase logarithm base.")
+            return np.array(range(len(D))), D
+        logD = np.array(
+            [
+                np.average(D[logbin[i - 1] : logbin[i]])
+                for i in range(1, len(logbin))
+            ]
+        )
+        return logbin[:-1], logD
+
+
 def despeckle_simple(B, th2=2, threads=1):
     """Single-chromosome despeckling
 
@@ -1135,7 +1191,6 @@ def to_distance(matrix, alpha=1):
 
     return scipy.sparse.csgraph.floyd_warshall(distances, directed=False)
 
-
 def distance_to_contact(D, alpha=1):
     """Compute contact matrix from input distance matrix. Distance values of
     zeroes are given the largest contact count otherwise inferred non-zero
@@ -1162,198 +1217,6 @@ def distance_to_contact(D, alpha=1):
     M[D != 0] = distance_function(D[D != 0])
     M[D == 0] = m
     return M
-
-
-def distance_law(matrix, indices=None, log_bins=True, base=1.1):
-    """Compute distance law as a function of the genomic coordinate aka P(s).
-    Bin length increases exponentially with distance if log_bins is True. Works
-    on dense and sparse matrices.
-
-    Parameters
-    ----------
-    matrix : numpy.array or scipy.sparse.coo_matrix
-        Hi-C contact map of the chromosome on which the distance law is
-        calculated.
-    indices : None or numpy array
-        List of indices on which to compute the distance law. For example
-        compartments or expressed genes.
-    log_bins : bool
-        Whether the distance law should be computed on exponentially larger
-        bins.
-
-    Returns
-    -------
-    numpy array of floats :
-        The start index of each bin.
-    numpy array of floats :
-        The distance law computed per bin on the diagonal
-    """
-
-    n = min(matrix.shape)
-    included_bins = np.zeros(n, dtype=bool)
-    if indices is None:
-        included_bins[:] = True
-    else:
-        included_bins[indices] = True
-    D = np.array(
-        [
-            np.average(matrix.diagonal(j)[included_bins[: n - j]])
-            for j in range(n)
-        ]
-    )
-    if not log_bins:
-        return np.array(range(len(D))), D
-    else:
-        n_bins = int(np.log(n) / np.log(base) + 1)
-        logbin = np.unique(
-            np.logspace(0, n_bins - 1, num=n_bins, base=base, dtype=np.int)
-        )
-        logbin = np.insert(logbin, 0, 0)
-        logbin[-1] = min(n, logbin[-1])
-        if n < logbin.shape[0]:
-            print("Not enough bins. Increase logarithm base.")
-            return np.array(range(len(D))), D
-        logD = np.array(
-            [
-                np.average(D[logbin[i - 1] : logbin[i]])
-                for i in range(1, len(logbin))
-            ]
-        )
-        return logbin[:-1], logD
-
-
-def distance_law_multi(
-    matrix,
-    frag_pos,
-    indices=None,
-    centro_pos=None,
-    log_bins=True,
-    base=1.1,
-    average=False,
-):
-    """Compute distance law as a function of the genomic coordinate aka P(s).
-    Bin length increases exponentially with distance if log_bins is True. Works
-    on dense and sparse matrices. Use this function if the genome is composed of
-    several chromosomes and provide a file with the positions of centromers
-
-    Parameters
-    ----------
-    matrix : numpy.array or scipy.sparse.csr_matrix
-        Hi-C contact map on which the distance law is calculated.
-    frag_pos : numpy.array
-        The list of fragments or bins start positions, in base pairs.
-    indices : numpy.array of int
-        Indices of bins that must be included. If None, all bins are used.
-        Useful to exclude trimmed bins or compartments.
-    centro_pos: numpy.array
-        List of centromers positions, in base pairs. The order must match those
-        of chromosomes in the fragments positions.
-    log_bins : bool
-        Whether the distance law should be computed on exponentially larger
-        bins. Default is True.
-    average : bool
-        If enabled, all P(s) computed will be averaged and a single array is
-        returned. By default, two list of arrays are returned; the first
-        contains the bins coordinates and the second the P(s) values. If only
-        frag pos is provided, each array will have C values where C is the number
-        of chromosomes. If centromeres is also given, each array will have 2*C
-        values. Chromosomes are returned in the same order as they appear in
-        frag_pos.
-
-    Returns
-    -------
-    list of numpy.array :
-        The start coordinate of each bin one array per chromosome or arm if not
-        averaged.
-    list of numpy.array :
-        The distance law computed per bin on the diagonal. One array per chrom-
-        osome or arm if not averaged
-    """
-
-    # Get bins where chromosomes start
-    chr_bins = np.where(frag_pos == 0)[0]
-    if centro_pos is not None:
-        # Sanity check: as many chroms as centromeres
-        if len(chr_bins) != len(centro_pos):
-            sys.stderr.write(
-                "ERROR: Number of chromosomes and centromeres differ."
-            )
-            sys.exit(1)
-        # Get bins of centromeres
-        centro_bins = np.zeros(len(centro_pos))
-        for i in range(len(chr_bins)):
-            if (i + 1) < len(chr_bins):
-                subfrags = frag_pos[chr_bins[i] : chr_bins[i + 1]]
-            else:
-                subfrags = frag_pos[chr_bins[i] :]
-            # index of last fragment starting before centro in same chrom
-            centro_bins[i] = chr_bins[i] + max(
-                np.where((subfrags // centro_pos[i]) == 0)[0]
-            )
-        # Combine centro and chrom bins into a single array. Values are start bins of arms
-        chr_bins = np.sort(np.concatenate((chr_bins, centro_bins)))
-
-    xs = [None] * len(chr_bins)
-    ps = [None] * len(chr_bins)
-    # Bins to use (e.g. to exclude trimmed bins or compartments)
-    if indices is None:
-        indices = np.array(range(matrix.shape[0]))
-    else:
-        indices = indices.astype(int)
-    # Iterate over chromosome / arm bin indices
-    for chrm in range(len(chr_bins)):
-        # Select bins from chrom / arm
-        if (chrm + 1) < len(chr_bins):
-            chr_start, chr_end = int(chr_bins[chrm]), int(chr_bins[chrm + 1])
-        else:
-            chr_start, chr_end = int(chr_bins[chrm]), matrix.shape[0]
-        # Subset indices and matrices. Shift indices to start in chrom
-        chr_idx_mask = np.where((indices >= chr_start) & (indices < chr_end))[
-            0
-        ]
-        usebins = np.array(indices[chr_idx_mask]) - chr_start
-        chr_mat = matrix[chr_start:chr_end, chr_start:chr_end]
-        # Get the ps for the different arms/chroms
-        chrom_xs, chrom_ps = distance_law(
-            chr_mat, indices=usebins, log_bins=log_bins, base=base
-        )
-        xs[chrm] = chrom_xs
-        ps[chrm] = chrom_ps
-
-    # Take the mean as P(s) and longest bin array
-    if average:
-        arr_len = np.array([len(x) for x in xs])
-        longest = np.where(arr_len == max(arr_len))[0][0]
-        xs = xs[longest]
-        ps = average_ps(ps)
-    return xs, ps
-
-
-def average_ps(ps):
-    """Computes the average of a several lists of floats of different lengths.
-    Values that do not exist in shorter list are not taken into account and do
-    not count as zeros.
-
-    Parameters
-    ----------
-    ps : list of lists of floats
-        The list of all the ps to average
-
-    Returns
-    -------
-    list of floats :
-        The averaged distance law
-    """
-    # Find longest chromosome / arm
-    max_length = max([len(i) for i in ps])
-    ps_values = np.zeros(max_length)
-    ps_occur = np.zeros(max_length)
-    for chrom_ps in ps:
-        ps_occur[: len(chrom_ps)] += 1
-        ps_values[: len(chrom_ps)] += chrom_ps
-    averaged_ps = ps_values / ps_occur
-    return averaged_ps
-
 
 def subsample_contacts(M, prop):
     """Bootstrap sampling of contacts in a sparse Hi-C map.
@@ -1934,7 +1797,7 @@ def compartments(M, normalize=True):
         N = np.copy(M)
     # Computation of genomic distance law matrice:
     dist_mat = np.zeros((n, n))
-    _, dist_vals = distance_law(N, log_bins=False)
+    _, dist_vals = distance_law_from_mat(N, log_bins=False)
     for i in range(n):
         for j in range(n):
             dist_mat[i, j] = dist_vals[abs(j - i)]
@@ -2013,7 +1876,7 @@ def compartments_sparse(M, normalize=True):
         N = copy.copy(M)
     N = N.tocoo()
     # Detrend by the distance law
-    dist_bins, dist_vals = distance_law(N, log_bins=False)
+    dist_bins, dist_vals = distance_law_from_mat(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
     N = N.tocsr()
     # Make matrix symmetric (in case of upper triangle)
