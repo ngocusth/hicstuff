@@ -44,7 +44,6 @@ def export_distance_law(xs, ps, names, out_dir=None):
          or chromosome. The file is createin the directory given by outdir or 
          the current directory if no directory given. 
     """
-    print(len(xs), len(ps), len(names))
     # Give the current directory as out_dir if no out_dir is given.
     if out_dir is None:
         out_dir = os.getcwd()
