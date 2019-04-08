@@ -44,7 +44,10 @@ def export_distance_law(xs, ps, names, out_dir=None):
          or chromosome. The file is createin the directory given by outdir or 
          the current directory if no directory given. 
     """
+<<<<<<< HEAD
     print(len(xs), len(ps), len(names))
+=======
+>>>>>>> 9eb7aa78b8c041094af988a9a10adb57c48b9bb1
     # Give the current directory as out_dir if no out_dir is given.
     if out_dir is None:
         out_dir = os.getcwd()
@@ -679,7 +682,10 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
         plt.savefig(out_dir)
     return fig, ax1, ax2
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9eb7aa78b8c041094af988a9a10adb57c48b9bb1
 def distance_law_from_mat(matrix, indices=None, log_bins=True, base=1.1):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance if log_bins is True. Works
@@ -710,7 +716,14 @@ def distance_law_from_mat(matrix, indices=None, log_bins=True, base=1.1):
     else:
         included_bins[indices] = True
     D = np.array(
+<<<<<<< HEAD
         [np.average(matrix.diagonal(j)[included_bins[: n - j]]) for j in range(n)]
+=======
+        [
+            np.average(matrix.diagonal(j)[included_bins[: n - j]])
+            for j in range(n)
+        ]
+>>>>>>> 9eb7aa78b8c041094af988a9a10adb57c48b9bb1
     )
     if not log_bins:
         return np.array(range(len(D))), D
@@ -725,6 +738,13 @@ def distance_law_from_mat(matrix, indices=None, log_bins=True, base=1.1):
             print("Not enough bins. Increase logarithm base.")
             return np.array(range(len(D))), D
         logD = np.array(
+<<<<<<< HEAD
             [np.average(D[logbin[i - 1] : logbin[i]]) for i in range(1, len(logbin))]
+=======
+            [
+                np.average(D[logbin[i - 1] : logbin[i]])
+                for i in range(1, len(logbin))
+            ]
+>>>>>>> 9eb7aa78b8c041094af988a9a10adb57c48b9bb1
         )
         return logbin[:-1], logD
