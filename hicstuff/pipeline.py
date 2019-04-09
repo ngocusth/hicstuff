@@ -19,6 +19,7 @@ import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
 import hicstuff.io as hio
 import hicstuff.distance_law as hcdl
+import matplotlib
 from hicstuff.version import __version__
 import hicstuff.log as hcl
 from hicstuff.log import logger
@@ -440,6 +441,7 @@ def full_pipeline(
         frag_plot = join(fig_dir, "frags_hist.pdf")
         dist_plot = join(fig_dir, "event_distance.pdf")
         pie_plot = join(fig_dir, "event_distribution.pdf")
+        matplotlib.use("Agg")
     else:
         fig_dir = None
         dist_plot = pie_plot = frag_plot = None
