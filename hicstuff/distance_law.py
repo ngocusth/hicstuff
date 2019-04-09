@@ -142,7 +142,7 @@ def get_chr_segment_bins_index(fragments, centro_file=None):
         # Combine centro and chrom bins into a single array. Values are start
         # bins of arms
         chr_segment_bins = np.sort(np.concatenate((chr_segment_bins, centro_bins)))
-    return chr_segment_bins
+    return list(chr_segment_bins)
 
 
 def get_chr_segment_length(fragments, chr_segment_bins):
@@ -363,7 +363,7 @@ def get_names(fragments, chr_segment_bins):
         second the names of the chromosome in the third and fourth the start 
         position and the end position of the fragment. The file have no header.
         (File like the 'fragments_list.txt' from hicstuff)
-    chr_segment_bins : list of numpy.ndarray
+    chr_segment_bins : list of floats
         The start position of chromosomes/arms to compute the distance law on 
         each chromosome/arm separately.
 
@@ -377,7 +377,7 @@ def get_names(fragments, chr_segment_bins):
     chr_names = np.unique(fragments["chrom"])
     # Case where they are separate in chromosomes
     if len(chr_segment_bins) == len(chr_names):
-        names = chr_names
+        names = list(chr_names)
     # Case where they are separate in arms
     else:
         names = []
