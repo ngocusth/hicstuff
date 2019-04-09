@@ -4,7 +4,6 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-import matplotlib
 import warnings
 from scipy import ndimage
 from matplotlib import cm
@@ -13,7 +12,6 @@ import pandas as pd
 import os as os
 import csv as csv
 
-matplotlib.use("Agg")
 
 
 def export_distance_law(xs, ps, names, out_dir=None):
