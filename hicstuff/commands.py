@@ -920,8 +920,8 @@ class Distancelaw(AbstractCommand):
         -s, --sup=INT                       Superior born to plot the distance law. By 
                                             default the value is the maximum length of all
                                             the dataset given.
-        -o, --outdir=DIR                    Output directory. Defaults to current 
-                                            directory.
+        -o, --outputfile=IMG                Output file. Format must be compatible with 
+                                            plt.savefig. Default : ./disatnce_law_plot.svg.
         -l, --labels=STR1,STR2...           List of string of the labels for the plot 
                                             separated by a coma. If no labels given, give 
                                             the names "Sample 1", "Sample 2"...
@@ -933,10 +933,9 @@ class Distancelaw(AbstractCommand):
     def execute(self):
         # Give the current directory as out_dir if no out_dir is given.
         if self.args["--outdir"]:
-            out_dir = self.args["--outdir"]
-            out_dir = os.getcwd()
+            output_file = self.args["--outputfile"]
         else:
-            out_dir = '.'
+            output_file = './distance_law_plot.svg'
         # Put in a list the path or the different paths given.
         distance_law_file = self.args["--dist-tbl"]
         distance_law_files  = distance_law_file.split(',')
@@ -979,7 +978,6 @@ class Distancelaw(AbstractCommand):
         # Make the plot if enabled, if not average plot the different arms or
         # chromosomes with the initial names else plot the different conditions 
         # with the names labels.
-        out_dir = out_dir + '/distance_law_plot.svg'
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
         else:
@@ -992,7 +990,7 @@ class Distancelaw(AbstractCommand):
                            ps, 
                            slope, 
                            labels, 
-                           out_dir, 
+                           output_file, 
                            inf, 
                            sup)
 
