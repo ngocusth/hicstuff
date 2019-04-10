@@ -583,7 +583,7 @@ class Pipeline(AbstractCommand):
             mat_fmt=self.args["--matfmt"],
             minimap2=self.args["--minimap2"],
             distance_law=self.args["--distance_law"],
-            centromeres=self.args["--centromeres"]
+            centromeres=self.args["--centromeres"],
         )
 
 

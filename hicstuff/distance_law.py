@@ -78,7 +78,7 @@ def import_distance_law(distance_law_file):
         The names of the arms/chromosomes corresponding to the previous 
         list.
     """
-    file = pd.read_csv(distance_law_file, sep="\t", header=0)
+    file = pd.read_csv(distance_law_file, sep="\t", header=None)
     names = np.unique(file.iloc[:, 2])
     xs = [None] * len(names)
     ps = [None] * len(names)
@@ -547,6 +547,10 @@ def average_distance_law(xs, ps):
         List of the xs with the max length.
     numpy.ndarray :
         List of the average_ps.
+        
+    Examples
+    --------
+    
     """
     # Find longest chromosome / arm and make two arrays of this length for the
     # average distance law

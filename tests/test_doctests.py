@@ -1,6 +1,7 @@
 import doctest
 from hicstuff import digest, filter, hicstuff, io, iteralign, log, pipeline, view
 
+
 def test_doctest():
     doctest.testmod(digest)
     doctest.testmod(filter)
