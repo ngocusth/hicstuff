@@ -26,7 +26,7 @@ def test_get_threshold():
     assert thr_uncut == 6
     assert thr_loop == 5
 
-    # Only run if figure works on system 
+    # Only run if figure works on system
     if os.path.isfile(fig_file):
         # Compare the hash of the generated figure to an expected hash
         # (generated on the same data)
@@ -72,5 +72,5 @@ def test_filter_pairs():
         # Test if the hash of generated figures == expected figure
         fig_hash = hash_file(fig_file)
         assert fig_hash == "07cf03c0538728bae8ba5378007b79b3"
-        os.unlink(filt_pairs.name)
         os.remove(fig_file)
+    os.unlink(filt_pairs.name)

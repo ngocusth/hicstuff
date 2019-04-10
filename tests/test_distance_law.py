@@ -2,12 +2,16 @@
 # 20190409
 
 import hicstuff.distance_law as hcdl
+from tempfile import NamedTemporaryFile
+from test_filter import hash_file
 import pandas as pd
 import numpy as np
+import os as os
 
-fragments_file = "test_data/fragments_list.txt"
-fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
-centro_file = "test_data/centromeres.txt"
+# fragments_file = "test_data/fragments_list.txt"
+# fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
+# centro_file = "test_data/centromeres.txt"
+# pairs_reads_file = "test_data/valid_idx_filtered.pairs"
 
 
 def test_get_chr_segment_bins_index():
@@ -52,4 +56,23 @@ def test_get_names():
     # Test without the centromers option
     names = hcdl.get_names(fragments, [0, 409])
     assert names == ["seq1", "seq2"]
+
+
+def test_get_distance_law():
+    """Test the general distance_law function."""
+    distance_law = NamedTemporaryFile("w", delete=False)
+    hcdl.get_distance_law(pairs_reads_file, fragments_file, outdir=distance_law.name)
+    assert hash_file(distance_law.name) == hash_file("/test_data/distance_law.txt")
+    hcdl.get_distance_law(
+        pairs_reads_file, fragments_file, outdir=distance_law.name, circular=True
+    )
+    assert hash_file(distance_law.name) == "495d9c7ccd7edc33441a6bd5d6fcfc1e"
+    hcdl.get_distance_law(
+        pairs_reads_file,
+        fragments_file,
+        centro_file=centro_file,
+        outdir=distance_law.name,
+    )
+    assert hash_file(distance_law.name) == "2d31232f2857460d6236d26d33472496"
+    os.unlink(distance_law.name)
 
