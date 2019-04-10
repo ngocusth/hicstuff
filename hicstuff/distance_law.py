@@ -521,7 +521,7 @@ def normalize_distance_law(xs, ps):
                 sum_values += value
         if sum_values == 0:
             sum_values += 1
-            logger.warnings(
+            logger.warning(
                 "No values of p(s) in the interval 1000 and "
                 + str(xs[j][min_xs])
                 + " base pairs, this list hasn't been normalized"
