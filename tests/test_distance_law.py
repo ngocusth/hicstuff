@@ -3,7 +3,7 @@
 
 import hicstuff.distance_law as hcdl
 from tempfile import NamedTemporaryFile
-from test_filter import hash_file
+from test.test_filter import hash_file
 import pandas as pd
 import numpy as np
 import os as os
