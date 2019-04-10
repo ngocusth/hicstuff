@@ -11,6 +11,7 @@ import hicstuff.io as hio
 import pandas as pd
 import os as os
 import csv as csv
+from hicstuff.log import logger
 
 
 def export_distance_law(xs, ps, names, out_dir=None):
@@ -46,7 +47,7 @@ def export_distance_law(xs, ps, names, out_dir=None):
         out_dir = os.getcwd()
     # Sanity check: as many chromosomes/arms as ps
     if len(xs) != len(names):
-        sys.stderr.write("ERROR: Number of chromosomes/arms and number of ps differ.")
+        logger.error("Number of chromosomes/arms and number of ps differ.")
         sys.exit(1)
     # Create the file and write it
     f = open(out_dir, "w")
@@ -123,7 +124,7 @@ def get_chr_segment_bins_index(fragments, centro_file=None):
             centro_pos = next(centro)
         # Sanity check: as many chroms as centromeres
         if len(chr_segment_bins) != len(centro_pos):
-            sys.stderr.write("ERROR: Number of chromosomes and centromeres differ.")
+            logger.error("Number of chromosomes and centromeres differ.")
             sys.exit(1)
         # Get bins of centromeres
         centro_bins = np.zeros(len(centro_pos))
@@ -423,8 +424,8 @@ def get_distance_law(
     # Sanity check : centro_fileition should be None if chromosomes are
     # circulars (no centromeres is circular chromosomes).
     if circular and centro_file != None:
-        print("Chromosomes cannot have a centromere and be circular")
-        raise ValueError
+        logger.error("Chromosomes cannot have a centromere and be circular")
+        sys.exit(1)
     # Import third columns of fragments file
     fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
     # Calculate the indice of the bins to separate into chromosomes/arms
@@ -504,7 +505,7 @@ def normalize_distance_law(xs, ps):
     # Sanity check: xs and ps have the same dimension
     if np.shape(xs) != np.shape(ps):
         print(np.shape(xs), np.shape(ps))
-        sys.stderr.write("ERROR: xs and ps should have the same dimension.")
+        logger.error("ERROR: xs and ps should have the same dimension.")
         sys.exit(1)
     # Take the mean of xs as superior limit to choose the limits of the
     # interval use for the normalisation
@@ -520,7 +521,8 @@ def normalize_distance_law(xs, ps):
                 sum_values += value
         if sum_values == 0:
             sum_values += 1
-            warnings.warn(
+            logger
+            warnings(
                 "No values of p(s) in the interval 1000 and "
                 + str(xs[j][min_xs])
                 + " base pairs, this list hasn't been normalized"

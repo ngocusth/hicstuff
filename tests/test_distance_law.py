@@ -12,8 +12,8 @@ fragments_file = "test_data/fragments_list.txt"
 fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
 centro_file = "test_data/centromeres.txt"
 pairs_reads_file = "test_data/valid_idx_filtered.pairs"
-distance_low_file = "test_data/distance_law.txt"
-test_xs, test_ps, labels = hcdl.import_distance_law(distance_low_file)
+distance_law_file = "test_data/distance_law.txt"
+test_xs, test_ps, labels = hcdl.import_distance_law(distance_law_file)
 
 
 def hash_file(filename):
@@ -89,7 +89,7 @@ def test_get_distance_law():
     distance_law = NamedTemporaryFile("w", delete=False)
     # Test with default parameters.
     hcdl.get_distance_law(pairs_reads_file, fragments_file, outdir=distance_law.name)
-    assert hash_file(distance_law.name) == hash_file("/test_data/distance_law.txt")
+    assert hash_file(distance_law.name) == hash_file("test_data/distance_law.txt")
     # Test the circular option.
     hcdl.get_distance_law(
         pairs_reads_file, fragments_file, outdir=distance_law.name, circular=True
@@ -124,7 +124,7 @@ def test_normalize_distance_law():
 def test_average_distance_law():
     """Test function making the average of distance law."""
     average_xs, average_ps = hcdl.average_distance_law(test_xs, test_ps)
-    assert average_xs == test_xs[0]
+    assert np.all(average_xs == test_xs[0])
     assert sum(average_ps) == 6.811947623702834e-05
     assert np.std(average_ps) == 3.5803073039989692e-06
 
