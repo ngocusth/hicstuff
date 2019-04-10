@@ -521,8 +521,7 @@ def normalize_distance_law(xs, ps):
                 sum_values += value
         if sum_values == 0:
             sum_values += 1
-            logger
-            warnings(
+            logger.warnings(
                 "No values of p(s) in the interval 1000 and "
                 + str(xs[j][min_xs])
                 + " base pairs, this list hasn't been normalized"
@@ -628,8 +627,8 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
     sup : int 
         Value of the maximum x of the window of the plot. By default None.
 
-
     Returns
+    -------
     matplotlib.plot :
         Plot of the ps with two windows : one with the distance law curves of 
         each arms/chromosomes in loglog scale and the slope (derivative) of 
