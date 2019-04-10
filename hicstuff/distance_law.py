@@ -13,7 +13,6 @@ import os as os
 import csv as csv
 
 
-
 def export_distance_law(xs, ps, names, out_dir=None):
     """ Export the xs and ps from two list of numpy.ndarrays to a table in txt 
     file with three coulumns separated by a tabulation. The first column
@@ -170,10 +169,7 @@ def get_chr_segment_length(fragments, chr_segment_bins):
         # case of arms where the end position of the last fragments doesn't
         # mean th size of arm. If it's the right we have to remove the size of
         # the left arm.
-        if (
-            fragments["start_pos"].iloc[int(chr_segment_bins[i])] == 0
-            or fragments["start_pos"][int(chr_segment_bins[i])] == 1
-        ):
+        if fragments["start_pos"].iloc[int(chr_segment_bins[i])] == 0:
             n = fragments["end_pos"].iloc[int(chr_segment_bins[i + 1]) - 1]
         else:
             n = (
@@ -182,15 +178,12 @@ def get_chr_segment_length(fragments, chr_segment_bins):
             )
         chr_segment_length[i] = n
     # Case of the last xs where we take the last end position
-    if (
-        fragments["start_pos"][int(chr_segment_bins[-2])] == 0
-        or fragments["start_pos"][int(chr_segment_bins[-2])] == 1
-    ):
+    if fragments["start_pos"][int(chr_segment_bins[-1])] == 0:
         n = fragments["end_pos"].iloc[-1]
     else:
         n = (
             fragments["end_pos"].iloc[-1]
-            - fragments["end_pos"].iloc[int(chr_segment_bins[-2]) - 1]
+            - fragments["end_pos"].iloc[int(chr_segment_bins[-1]) - 1]
         )
     chr_segment_length[-1] = n
     return chr_segment_length
@@ -235,11 +228,11 @@ def logbins_xs(
         # are divided by two
         if circular:
             n /= 2
-        n_bins = int(np.log(n) / np.log(base) + 1)
+        n_bins = int(np.log(n) / np.log(base))
         # For each chromosome/arm compute a logspace to have the logbin
         # equivalent to the size of the arms and increasing size of bins
         xs[i] = np.unique(
-            np.logspace(0, n_bins - 1, num=n_bins, base=base, dtype=np.int)
+            np.logspace(0, n_bins, num=n_bins + 1, base=base, dtype=np.int)
         )
     return xs
 
