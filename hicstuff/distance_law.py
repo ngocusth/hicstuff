@@ -476,7 +476,12 @@ def get_distance_law(
             ps[i][j] /= ((2 * n - xs[i][j + 1] - xs[i][j]) / 2) * (
                 (1 / np.sqrt(2)) * (xs[i][j + 1] - xs[i][j])
             )
+            print(
+                ((2 * n - xs[i][j + 1] - xs[i][j]) / 2)
+                * ((1 / np.sqrt(2)) * (xs[i][j + 1] - xs[i][j]))
+            )
         # Case of the last logbin which is an isosceles rectangle triangle
+        print(ps[i][-5:-1], ((n - xs[i][-1]) ** 2) / 2)
         ps[i][-1] /= ((n - xs[i][-1]) ** 2) / 2
     names = get_names(fragments, chr_segment_bins)
     export_distance_law(xs, ps, names, outdir)
@@ -505,7 +510,7 @@ def normalize_distance_law(xs, ps):
     # Sanity check: xs and ps have the same dimension
     if np.shape(xs) != np.shape(ps):
         print(np.shape(xs), np.shape(ps))
-        logger.error("ERROR: xs and ps should have the same dimension.")
+        logger.error("xs and ps should have the same dimension.")
         sys.exit(1)
     # Take the mean of xs as superior limit to choose the limits of the
     # interval use for the normalisation
@@ -531,7 +536,7 @@ def normalize_distance_law(xs, ps):
     return normed_ps
 
 
-def average_distance_law(xs, ps):
+def average_distance_law(xs, ps, sup, big_arm_only=False):
     """Compute the average distance law between the file the different distance
     law of the chromosomes/arms.
 
@@ -541,6 +546,12 @@ def average_distance_law(xs, ps):
         The list of logbins.
     ps : list of lists of floats
         The list of numpy.ndarray.
+    sup : int
+        Value given to set the minimum size of the chromosomes/arms to make the
+        average.
+    big_arm_only : bool
+        By default False. If True, will only take into account the arms/chromosomes 
+        longer than the value of sup. Sup mandatory if set.
 
     Returns
     -------
@@ -548,13 +559,9 @@ def average_distance_law(xs, ps):
         List of the xs with the max length.
     numpy.ndarray :
         List of the average_ps.
-        
-    Examples
-    --------
-    
     """
     # Find longest chromosome / arm and make two arrays of this length for the
-    # average distance law
+    # average distance law and remove the last value.
     xs = max(xs, key=len)
     max_length = len(xs)
     ps_values = np.zeros(max_length)
@@ -563,8 +570,19 @@ def average_distance_law(xs, ps):
         # Iterate on ps in order to calculate the number of occurences (all the
         # chromossomes/arms are not as long as the longest one) and the sum of
         # the values of distance law.
-        ps_occur[: len(chrom_ps)] += 1
-        ps_values[: len(chrom_ps)] += chrom_ps
+        # Sanity check : sup strictly inferior to maw length arms.
+        if big_arm_only:
+            if sup >= xs[-1]:
+                logger.error(
+                    "sup have to be inferior to the max length of arms/chromsomes if big arm only set"
+                )
+                sys.exit(1)
+            if sup <= xs[len(chrom_ps) - 1]:
+                ps_occur[: len(chrom_ps)] += 1
+                ps_values[: len(chrom_ps)] += chrom_ps
+        else:
+            ps_occur[: len(chrom_ps)] += 1
+            ps_values[: len(chrom_ps)] += chrom_ps
     # Make the mean
     averaged_ps = ps_values / ps_occur
     return xs, averaged_ps
@@ -595,10 +613,55 @@ def slope_distance_law(xs, ps):
         slope_temp = np.log(np.array(ps[i][1:]) / np.array(ps[i][:-1])) / np.log(
             np.array(xs[i][1:]) / np.array(xs[i][:-1])
         )
-        # The 2 is the intensity of the normalisation, it could be adapted.
+        # The 1.8 is the intensity of the normalisation, it could be adapted.
         slope_temp[slope_temp == np.nan] = 10 ** (-15)
-        slope[i] = ndimage.filters.gaussian_filter1d(slope_temp, 2)
+        slope[i] = ndimage.filters.gaussian_filter1d(slope_temp, 1.8)
     return slope
+
+
+def get_ylim(xs, curve, inf, sup):
+    """Compute the max and the min of the list of list between the borns 
+    inferior (inf) and superior (sup).
+
+    Parameters
+    ----------
+    xs : list of numpy.ndarray
+        The list of the logbins starting position in basepair.
+    curve : list of numpy.ndarray
+        A list of numpy.ndarray from which you want to extract minimum and
+        maximum values in a given interval.
+    inf : int
+        Born inferior of the interval in basepair.
+    sup : int
+        Born superior of the interval in basepair.
+
+    Returns
+    -------
+    min_tot : float
+        Minimum value of the list of list in this interval.
+    max_tot : float
+        Maximum value of the list of list in this interval.
+
+    Examples
+    --------
+    >>> get_ylim([np.array([1, 4, 15]), np.array([1, 4, 15, 40])],
+    ... [np.array([5.5, 3.2, 17.10]), np.array([24, 32, 1.111, 18.5])],
+    ... 2,
+    ... 15
+    ... )
+    (1.111, 32.0)
+    """
+    flatten_list = []
+    for i, logbins in enumerate(xs):
+        min_value = min(logbins[logbins[:] >= inf])
+        min_index = np.where(logbins == min_value)
+        max_value = max(logbins[logbins[:] <= sup])
+        max_index = np.where(logbins == max_value)
+        for j in range(int(min_index[0]), int(max_index[0]) + 1):
+            flatten_list.append(curve[i][j])
+    min_tot = min(flatten_list)
+    max_tot = max(flatten_list)
+    return min_tot, max_tot
 
 
 def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
@@ -620,7 +683,7 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
         different curves in the order in which they are given.
     out_dir : str
         Directory to create the file. By default it's None, and do not 
-        create the file.
+        create the file, it will be plot in an interacting windows.
     inf : int 
         Value of the mimimum x of the window of the plot. Have to be strictly
         positive. By default 3000.
@@ -645,32 +708,29 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
     ax1.set_xlabel("Distance (pb)", fontsize="x-large")
     ax1.set_ylabel("P(s)", fontsize="x-large")
     ax1.set_title("Distance law", fontsize="xx-large")
+    ylim = get_ylim(xs, ps, inf, sup)
+    ax1.set_ylim(0.9 * ylim[0], 1.1 * ylim[1])
     for i in range(len(ps)):
         # Iterate on the different distance law array and take them by order of
         # size in order to have the color scale equivalent to the size scale
         col = next(cols)
-        ax1.loglog(xs[i], ps[i], label=labels[i], color=col, linewidth=0.8)
+        ax1.loglog(xs[i], ps[i], label=labels[i])
     # Make the same plot with the slope
     cols = iter(cm.rainbow(np.linspace(0, 1, len(slope))))
     ax2.set_xlabel("Distance (pb)", fontsize="x-large")
     ax2.set_ylabel("Slope", fontsize="x-large")
     ax2.set_title("Slope of the distance law", fontsize="xx-large")
     ax2.set_xlim([inf, sup])
+    ylim = get_ylim(xs, slope, inf, sup)
+    ax2.set_ylim(1.1 * ylim[0], 0.9 * ylim[1])
     xs2 = [None] * len(xs)
     for i in range(len(slope)):
         xs2[i] = xs[i][:-1]
         col = next(cols)
-        ax2.semilogx(
-            xs2[i],
-            slope[i],
-            label=labels[i],
-            color=col,
-            linewidth=0.8,
-            subsx=[2, 3, 4, 5, 6, 7, 8, 9],
-        )
+        ax2.semilogx(xs2[i], slope[i], label=labels[i], subsx=[2, 3, 4, 5, 6, 7, 8, 9])
     ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1.00), ncol=1, fontsize="large")
     # Save the figure in svg
     if out_dir is not None:
         plt.savefig(out_dir)
-    return fig, ax1, ax2
-
+    else:
+        plt.show()

@@ -123,7 +123,7 @@ def test_normalize_distance_law():
 
 def test_average_distance_law():
     """Test function making the average of distance law."""
-    average_xs, average_ps = hcdl.average_distance_law(test_xs, test_ps)
+    average_xs, average_ps = hcdl.average_distance_law(test_xs, test_ps, None)
     assert np.all(average_xs == test_xs[0])
     assert sum(average_ps) == 6.811947623702834e-05
     assert np.std(average_ps) == 3.5803073039989692e-06
@@ -133,7 +133,7 @@ def test_slope_distance_law():
     """Test function calculating the slope of the distance law."""
     slope = hcdl.slope_distance_law(test_xs, test_ps)
     assert len(slope) == 2
-    assert sum(slope[0]) == 18.93299339474387 and sum(slope[1]) == -2.745928125307417
+    assert sum(slope[0]) == 18.93299339474383 and sum(slope[1]) == -2.7459281253074317
     assert (
-        np.std(slope[0]) == 3.557841028356665 and np.std(slope[1]) == 4.396905331586865
+        np.std(slope[0]) == 3.922655526971996 and np.std(slope[1]) == 5.0451145659894285
     )

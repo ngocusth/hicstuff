@@ -906,7 +906,7 @@ class Distancelaw(AbstractCommand):
     slope of the curve and plot it.
     
     usage:
-        distancelaw [--average] [--inf=INT] [--sup=INT] [--outdir=DIR] 
+        distancelaw [--average] [--big-arm-only] [--inf=INT] [--sup=INT] [--outputfile=IMG] 
                     [--labels=DIR] --dist-tbl=FILE1[,FILE2,...]
     
     options:
@@ -914,28 +914,42 @@ class Distancelaw(AbstractCommand):
                                             law of the different chromosomes/arms in each
                                             condition. If two file given average is
                                             mandatory.
-        -i, --inf=INT                       Inferior born to plot the distance law. By 
-                                            default the value is 3000 bp (3 kb). Have to
-                                            be strictly positive.
-        -s, --sup=INT                       Superior born to plot the distance law. By 
-                                            default the value is the maximum length of all
-                                            the dataset given.
-        -o, --outputfile=IMG                Output file. Format must be compatible with 
-                                            plt.savefig. Default : ./disatnce_law_plot.svg.
-        -l, --labels=STR1,STR2...           List of string of the labels for the plot 
-                                            separated by a coma. If no labels given, give 
-                                            the names "Sample 1", "Sample 2"...
+        -b, --big-arm-only                  If set will take only the arms bigger than sup.
+                                            You have to give a value for sup is set.
         -d, --dist-tbl=FILE1[,FILE2,...]    Directory to the file or files containing the 
                                             compute distance law. File should have the same
                                             format than the ones made by hicstuff pipeline.
+        -i, --inf=INT                       Inferior born to plot the distance law. By 
+                                            default the value is 3000 bp (3 kb). Have to
+                                            be strictly positive.
+        -l, --labels=STR1,STR2...           List of string of the labels for the plot 
+                                            separated by a coma. If no labels given, give 
+                                            the names "Sample 1", "Sample 2"...
+        -o, --outputfile=IMG                Output file. Format must be compatible with 
+                                            plt.savefig. Default : ./disatnce_law_plot.svg.
+        -s, --sup=INT                       Superior born to plot the distance law. By 
+                                            default the value is the maximum length of all
+                                            the dataset given. Also if big arm only set, it
+                                            will be the minimum size of the arms/chromosomes
+                                            taken to make the average.
     """
 
     def execute(self):
         # Give the current directory as out_dir if no out_dir is given.
-        if self.args["--outdir"]:
+        if self.args["--outputfile"]:
             output_file = self.args["--outputfile"]
         else:
-            output_file = './distance_law_plot.svg'
+            output_file = None
+        # Add the option big army only.         
+        if self.args["--big-arm-only"]:
+            big_arm_only = True
+        # Put the inf and sup according to the arguments given.
+        if self.args["--inf"]:
+            inf = int(self.args["--inf"])
+        else:
+            inf = 3000
+        if self.args["--sup"]:
+            sup = int(self.args["--sup"])
         # Put in a list the path or the different paths given.
         distance_law_file = self.args["--dist-tbl"]
         distance_law_files  = distance_law_file.split(',')
@@ -946,14 +960,14 @@ class Distancelaw(AbstractCommand):
         names = [None] * length_files
         # Sanity check : Average mandatory if more than one file.
         if not self.args["--average"] and length_files > 1:
-            sys.stderr.write("ERROR: You have to average if more than one file.")
+            logger.error("You have to average if more than one file.")
             sys.exit(1)
         # Iterate on the different file given by the user.
         for i in range(length_files):
             xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
             # Make the average if enabled
             if self.args["--average"]:
-                xs[i], ps[i] = hcdl.average_distance_law(xs[i], ps[i])
+                xs[i], ps[i] = hcdl.average_distance_law(xs[i], ps[i], sup, big_arm_only)
                 # If not average, we should to remove one level of list to have the good dimension.
         if not self.args["--average"]:
             names = names[0]
@@ -978,13 +992,7 @@ class Distancelaw(AbstractCommand):
         # Make the plot if enabled, if not average plot the different arms or
         # chromosomes with the initial names else plot the different conditions 
         # with the names labels.
-        if self.args["--inf"]:
-            inf = int(self.args["--inf"])
-        else:
-            inf = 3000
-        if self.args["--sup"]:
-            sup = int(self.args["--sup"])
-        else:
+        if not self.args["--sup"]:
             sup = max(max(xs, key = len))
         hcdl.plot_ps_slope(xs, 
                            ps, 
@@ -992,7 +1000,8 @@ class Distancelaw(AbstractCommand):
                            labels, 
                            output_file, 
                            inf, 
-                           sup)
+                           sup,
+                           )
 
 
 def parse_bin_str(bin_str):
