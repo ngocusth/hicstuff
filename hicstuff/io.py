@@ -171,6 +171,38 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
     return pos_arr
 
 
+def generate_temp_dir(path):
+    """Temporary directory generation
+
+    Generates a temporary file with a random name at the input path.
+    
+    Parameters
+    ----------
+    path : str
+        The path at which the temporary directory will be created.
+    
+    Returns
+    -------
+    str
+        The path of the newly created temporary directory.
+    """
+    exist = True
+    while exist:
+        # Keep trying random directory names if they already exist
+        directory = str(hex(getrandbits(32)))[2:]
+        full_path = os.path.join(path, directory)
+        if not os.path.exists(full_path):
+            exist = False
+    try:
+        os.makedirs(full_path)
+    except PermissionError:
+        raise PermissionError(
+            "The temporary directory cannot be created in {}. "
+            "Make sure you have write permission.".format(path)
+        )
+    return full_path
+
+
 def read_compressed(filename):
     """Read compressed file
 

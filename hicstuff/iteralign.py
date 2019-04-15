@@ -23,38 +23,6 @@ import contextlib
 from hicstuff.log import logger
 
 
-def generate_temp_dir(path):
-    """Temporary directory generation
-
-    Generates a temporary file with a random name at the input path.
-    
-    Parameters
-    ----------
-    path : str
-        The path at which the temporary directory will be created.
-    
-    Returns
-    -------
-    str
-        The path of the newly created temporary directory.
-    """
-    exist = True
-    while exist:
-        # Keep trying random directory names if they already exist
-        directory = str(hex(getrandbits(32)))[2:]
-        full_path = os.path.join(path, directory)
-        if not os.path.exists(full_path):
-            exist = False
-    try:
-        os.makedirs(full_path)
-    except PermissionError:
-        raise PermissionError(
-            "The temporary directory cannot be created in {}. "
-            "Make sure you have write permission.".format(path)
-        )
-    return full_path
-
-
 def check_bt2_index(ref):
     """
     Checks for the existence of a bowtie2 index based on the reference
@@ -76,22 +44,14 @@ def check_bt2_index(ref):
         index = index.split(".rev.1.bt2")[0]
     except IndexError:
         logger.error(
-            "Reference index is missing, please build the bowtie2 "
-            "index first."
+            "Reference index is missing, please build the bowtie2 " "index first."
         )
         sys.exit(1)
     return index
 
 
 def iterative_align(
-    fq_in,
-    tmp_dir,
-    ref,
-    n_cpu,
-    sam_out,
-    aligner="bowtie2",
-    min_len=20,
-    min_qual=30,
+    fq_in, tmp_dir, ref, n_cpu, sam_out, aligner="bowtie2", min_len=20, min_qual=30
 ):
     """Iterative alignment
 
@@ -178,9 +138,7 @@ def iterative_align(
     # iterative alignment per se
     while n <= size:
         logger.info(
-            "Truncating unaligned reads to {0}bp and mapping again.".format(
-                int(n)
-            )
+            "Truncating unaligned reads to {0}bp and mapping again.".format(int(n))
         )
         iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
         # Generate a temporary input fastq file with the n first nucleotids
@@ -198,10 +156,8 @@ def iterative_align(
             "fq": truncated_reads,
             "idx": index,
         }
-        if aligner == "minimap2" or aligner == "Minimap2" :
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
-                **map_args
-            )
+        if aligner == "minimap2" or aligner == "Minimap2":
+            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(**map_args)
         else:
             cmd = (
                 "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
@@ -212,22 +168,18 @@ def iterative_align(
         # filter the reads: the reads whose truncated end was aligned are written
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
-        remaining_reads = filter_samfile(
-            temp_alignment, iter_out[-1], min_qual
-        )
+        remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
 
         n += 20
 
     # one last round without trimming
     logger.info(
-        "Trying to map unaligned reads at full length ({0}bp).".format(
-            int(size)
-        )
+        "Trying to map unaligned reads at full length ({0}bp).".format(int(size))
     )
     truncated_reads = truncate_reads(
         tmp_dir, uncomp_path, remaining_reads, size, min_len
     )
-    if aligner == "minimap2" or aligner == "Minimap2" :
+    if aligner == "minimap2" or aligner == "Minimap2":
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
             ref, n_cpu, temp_alignment, truncated_reads
         )
