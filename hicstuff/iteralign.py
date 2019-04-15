@@ -17,8 +17,7 @@ import glob
 import subprocess as sp
 import pysam as ps
 import shutil as st
-from random import getrandbits
-import hicstuff.io as ct
+import hicstuff.io as hio
 import contextlib
 from hicstuff.log import logger
 
@@ -100,9 +99,9 @@ def iterative_align(
             raise
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
-    if aligner == "bowtie2" and ct.is_compressed(fq_in):
+    if aligner == "bowtie2" and hio.is_compressed(fq_in):
         uncomp_path = os.path.join(tmp_dir, os.path.basename(fq_in) + ".tmp")
-        with ct.read_compressed(fq_in) as inf:
+        with hio.read_compressed(fq_in) as inf:
             with open(uncomp_path, "w") as uncomp:
                 st.copyfileobj(inf, uncomp)
     else:
@@ -113,13 +112,13 @@ def iterative_align(
     if aligner == "bowtie2":
         index = ref
     # Counting reads
-    with ct.read_compressed(uncomp_path) as inf:
+    with hio.read_compressed(uncomp_path) as inf:
         for _ in inf:
             total_reads += 1
     total_reads /= 4
 
     # Use first read to guess read length.
-    with ct.read_compressed(uncomp_path) as inf:
+    with hio.read_compressed(uncomp_path) as inf:
         size = inf.readline()
         # Stripping newline.
         size = len(inf.readline().rstrip())
