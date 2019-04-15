@@ -79,20 +79,23 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--minimap2] [--threads=1] [--min_len=20]
-                  [--tempdir DIR] --out_sam=FILE --fasta=FILE <reads.fq>
+        iteralign [--aligner=bowtie2] [--threads=1] [--min_len=20]
+                  [--tempdir DIR] --out_sam=FILE --genome=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
 
     options:
-        -f, --fasta=FILE         The fasta file on which to map the reads.
+        -g, --genome=FILE        The genome on which to map the reads. Must be
+                                 The path to the bowtie2 index if using bowtie2
+                                 or to the genome in fasta format if using
+                                 minimap2.
         -t, --threads=INT        Number of parallel threads allocated for the
                                  alignment [default: 1].
         -T, --tempdir=DIR        Temporary directory. Defaults to current
                                  directory.
-        -m, --minimap2           If set, use minimap2 instead of bowtie2 for
-                                 the alignment.
+        -a, --aligner            Choose alignment software between bowtie2 and
+                                 minimap2. [default: bowtie2]
         -l, --min_len=INT        Length to which the reads should be
                                  truncated [default: 20].
         -o, --out_sam=FILE       Path where the alignment will be written in
@@ -102,16 +105,14 @@ class Iteralign(AbstractCommand):
     def execute(self):
         if not self.args["--tempdir"]:
             self.args["--tempdir"] = "."
-        if not self.args["--minimap2"]:
-            self.args["--minimap2"] = False
-        temp_directory = hci.generate_temp_dir(self.args["--tempdir"])
+        temp_directory = hio.generate_temp_dir(self.args["--tempdir"])
         hci.iterative_align(
             self.args["<reads.fq>"],
             temp_directory,
-            self.args["--fasta"],
+            self.args["--genome"],
             self.args["--threads"],
             self.args["--out_sam"],
-            self.args["--minimap2"],
+            aligner=self.args["--aligner"],
             min_len=int(self.args["--min_len"]),
         )
         # Deletes the temporary folder
@@ -470,10 +471,10 @@ class Pipeline(AbstractCommand):
 
     usage:
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
-                 [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
+                 [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
                  [--enzyme=ENZ] [--plot] [--circular] [--distance_law]
-                 [--centromeres=FILE] --fasta=FILE <input1> [<input2>]
+                 [--centromeres=FILE] --genome=FILE <input1> [<input2>]
 
     arguments:
         input1:             Forward fastq file, if start_stage is "fastq", sam
@@ -495,8 +496,9 @@ class Pipeline(AbstractCommand):
                                       size (i.e. resolution) if a number. Can
                                       also be multiple comma-separated enzymes.
                                       [default: 5000]
-        -f, --fasta=FILE              Reference genome to map against in FASTA
-                                      format
+        -g, --genome=FILE             Reference genome to map against. Path to
+                                      the bowtie2 index if using bowtie2, or to
+                                      a FASTA file if using minimap2.
         -F, --filter                  Filter out spurious 3C events (loops and
                                       uncuts) using hicstuff filter. Requires
                                       "-e" to be a restriction enzyme, not a
@@ -512,8 +514,8 @@ class Pipeline(AbstractCommand):
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and
                                       aligning them.
-        -m, --minimap2                Use the minimap2 aligner instead of
-                                      bowtie2. Not enabled by default.
+        -a, --aligner                 Alignment software to use. Can be either
+                                      bowtie2 or minmap2. [default: bowtie2]
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
@@ -564,7 +566,7 @@ class Pipeline(AbstractCommand):
             raise ValueError("matfmt must be either cooler or GRAAL.")
 
         hpi.full_pipeline(
-            genome=self.args["--fasta"],
+            genome=self.args["--genome"],
             input1=self.args["<input1>"],
             input2=self.args["<input2>"],
             enzyme=self.args["--enzyme"],
@@ -581,7 +583,7 @@ class Pipeline(AbstractCommand):
             prefix=self.args["--prefix"],
             start_stage=self.args["--start-stage"],
             mat_fmt=self.args["--matfmt"],
-            minimap2=self.args["--minimap2"],
+            aligner=self.args["--aligner"],
             distance_law=self.args["--distance_law"],
             centromeres=self.args["--centromeres"],
         )
@@ -900,6 +902,7 @@ class Convert(AbstractCommand):
 
         conv_fun()
 
+
 class Distancelaw(AbstractCommand):
     """Distance law tools.
     Take the distance law file from hicstuff and can average it, normalize it compute the
@@ -940,7 +943,7 @@ class Distancelaw(AbstractCommand):
             output_file = self.args["--outputfile"]
         else:
             output_file = None
-        # Add the option big army only.         
+        # Add the option big army only.
         if self.args["--big-arm-only"]:
             big_arm_only = True
         # Put the inf and sup according to the arguments given.
@@ -952,7 +955,7 @@ class Distancelaw(AbstractCommand):
             sup = int(self.args["--sup"])
         # Put in a list the path or the different paths given.
         distance_law_file = self.args["--dist-tbl"]
-        distance_law_files  = distance_law_file.split(',')
+        distance_law_files = distance_law_file.split(",")
         length_files = len(distance_law_files)
         # Make new lists for the modified distance law.
         xs = [None] * length_files
@@ -967,7 +970,9 @@ class Distancelaw(AbstractCommand):
             xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
             # Make the average if enabled
             if self.args["--average"]:
-                xs[i], ps[i] = hcdl.average_distance_law(xs[i], ps[i], sup, big_arm_only)
+                xs[i], ps[i] = hcdl.average_distance_law(
+                    xs[i], ps[i], sup, big_arm_only
+                )
                 # If not average, we should to remove one level of list to have the good dimension.
         if not self.args["--average"]:
             names = names[0]
@@ -979,8 +984,8 @@ class Distancelaw(AbstractCommand):
         # Gave new names for the different samples.
         if self.args["--labels"]:
             labels = self.args["--labels"]
-            labels = labels.split(',')
-        else: 
+            labels = labels.split(",")
+        else:
             if length_files == 1 and not self.args["--average"]:
                 labels = []
                 for i in range(len(names)):
@@ -988,20 +993,13 @@ class Distancelaw(AbstractCommand):
             else:
                 labels = []
                 for i in range(length_files):
-                    labels.append('Sample ' + str(i))
+                    labels.append("Sample " + str(i))
         # Make the plot if enabled, if not average plot the different arms or
-        # chromosomes with the initial names else plot the different conditions 
+        # chromosomes with the initial names else plot the different conditions
         # with the names labels.
         if not self.args["--sup"]:
-            sup = max(max(xs, key = len))
-        hcdl.plot_ps_slope(xs, 
-                           ps, 
-                           slope, 
-                           labels, 
-                           output_file, 
-                           inf, 
-                           sup,
-                           )
+            sup = max(max(xs, key=len))
+        hcdl.plot_ps_slope(xs, ps, slope, labels, output_file, inf, sup)
 
 
 def parse_bin_str(bin_str):

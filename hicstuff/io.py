@@ -5,12 +5,15 @@ import gzip
 import zipfile
 import bz2
 import io
+import os
 import functools
 import sys
 import numpy as np
 import pandas as pd
 import collections
 import subprocess as sp
+from os.path import join, exists
+from random import getrandbits
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
@@ -190,8 +193,8 @@ def generate_temp_dir(path):
     while exist:
         # Keep trying random directory names if they already exist
         directory = str(hex(getrandbits(32)))[2:]
-        full_path = os.path.join(path, directory)
-        if not os.path.exists(full_path):
+        full_path = join(path, directory)
+        if not exists(full_path):
             exist = False
     try:
         os.makedirs(full_path)
