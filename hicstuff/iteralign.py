@@ -118,6 +118,11 @@ def iterative_align(
         The initial length of the fragments to align.
     min_qual : int
         Minimum mapping quality required to keep Hi-C pairs.
+        
+    Examples
+    --------
+    iterative_align(fq_in='example_for.fastq', ref='example_bt2_index', sam_out='example_for.sam', aligner="bowtie2")
+    iterative_align(fq_in='example_for.fastq', ref='example_genome.fa', sam_out='example_for.sam', aligner="mminimap2")
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()
