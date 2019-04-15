@@ -232,6 +232,50 @@ def generate_log_header(log_path, input1, input2, genome, enzyme):
     hcl.set_file_handler(log_path, formatter=hcl.logfile_formatter)
 
 
+def filter_pcr_dup(pairs_file, filtered_file):
+    """
+    Filter out PCR duplicates from a pairs file using overrrepresented 
+    exact coordinates. If multiple fragments have two reads with the exact
+    same coordinates, only one of those fragments is kept.
+
+    Parameters
+    ----------
+    pairs_file : str
+        Path to a pairs file containing the Hi-C reads.
+    filtered_file : str
+        Path to the output pairs file after removing duplicates.
+    """
+    # Keep count of how many reads are filtered
+    filter_count = 0
+    reads_count = 0
+    # Store header lines
+    header = io.get_pairs_header(pairs_file)
+    with open(pairs_file, 'r') as pairs, open(filtered_file, 'w') as filtered:
+        # Copy header lines to filtered file
+        for head_line in header:
+                filtered.write(head_line)
+                next(pairs)
+
+        # Use csv methods to easily access columns
+        paircols = ["readID", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2"]
+        pair_reader = csv.DictReader(pairs, delimiter=" ", fieldnames=paircols)
+        filt_writer = csv.DictWriter(filtered, delimiter=" ", fieldnames=paircols)
+
+        # Initialise a variable to store coordinates of reads in previous pair
+        prev = {k: 0 for k in paircols}
+        for pair in pair_reader:
+            reads_count += 1
+            # If coordinates are the same as before, skip pair
+            if all(pair[pair_var] == prev[pair_var] for pair_var in paircols):
+                filter_count += 1
+                continue
+            # Else write pair and store new coordinates as previous
+            else:
+                filtered.writerow(pair)
+                prev = pair
+        logger.info("%d %% PCR duplicates have been filtered out (%d / %d reads) " 
+                    % (round(filter_count / reads_count, 3), filter_count, reads_count))
+
 def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a 2D BED file.
