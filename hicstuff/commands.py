@@ -94,7 +94,7 @@ class Iteralign(AbstractCommand):
                                  alignment [default: 1].
         -T, --tempdir=DIR        Temporary directory. Defaults to current
                                  directory.
-        -a, --aligner            Choose alignment software between bowtie2 and
+        -a, --aligner=bowtie2    Choose alignment software between bowtie2 and
                                  minimap2. [default: bowtie2]
         -l, --min_len=INT        Length to which the reads should be
                                  truncated [default: 20].
@@ -514,7 +514,7 @@ class Pipeline(AbstractCommand):
                                       iteralign, by truncating reads to 20bp
                                       and then repeatedly extending and
                                       aligning them.
-        -a, --aligner                 Alignment software to use. Can be either
+        -a, --aligner=bowtie2         Alignment software to use. Can be either
                                       bowtie2 or minmap2. [default: bowtie2]
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.

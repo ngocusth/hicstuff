@@ -2,12 +2,11 @@
 Handle generation of GRAAL-compatible contact maps from fastq files.
 cmdoret, 20190322
 """
-import os, time, csv
+import os, time, csv, sys, re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import shutil as st
 import itertools
-import re
 import logging
 from os.path import join
 import subprocess as sp
@@ -514,10 +513,22 @@ def full_pipeline(
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
 
-    # If the person used bowtie2 and supplied an index, extract fasta from it
+    # If the user chose bowtie2 and supplied an index, extract fasta from it
     if aligner == "bowtie2":
         fasta = _tmp_file("genome.fasta")
-        sp.call("bowtie2-inspect {index} > {fasta}".format(index=genome, fasta=fasta))
+        bt2fa = sp.Popen(
+            ["bowtie2-inspect", genome], stdout=open(fasta, "w"), stderr=sp.PIPE
+        )
+        _, bt2err = bt2fa.communicate()
+        # bowtie2-inspect still has return code 0 when crashing, need to
+        # actively look for error in stderr
+        if re.search(r"[Ee]rror", bt2err.decode()):
+            logger.error(bt2err)
+            logger.error(
+                "bowtie2-inspect has failed, make sure you provided "
+                "the path to the bowtie2 index without the extension."
+            )
+            sys.exit(1)
     else:
         fasta = genome
 
