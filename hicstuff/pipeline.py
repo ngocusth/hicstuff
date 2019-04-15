@@ -31,7 +31,7 @@ def align_reads(
     out_sam,
     tmp_dir=None,
     threads=1,
-    minimap2=False,
+    aligner="bowtie2",
     iterative=False,
     min_qual=30,
 ):
@@ -44,7 +44,8 @@ def align_reads(
     reads : str
         Path to the fastq file with Hi-C reads.
     genome : str
-        Path to the genome in fasta format
+        Path to the genome bowtie2 index prefix if using bowtie2 or to the 
+        fasta if using minimap2.
     out_sam : str
         Path to the output SAM file containing mapped Hi-C reads.
     tmp_dir : str
@@ -66,7 +67,7 @@ def align_reads(
     tmp_sam = out_sam + ".tmp"
 
     if iterative:
-        iter_tmp_dir = hci.generate_temp_dir(tmp_dir)
+        iter_tmp_dir = hio.generate_temp_dir(tmp_dir)
         hci.iterative_align(
             reads,
             tmp_dir=iter_tmp_dir,
@@ -74,10 +75,11 @@ def align_reads(
             n_cpu=threads,
             sam_out=tmp_sam,
             min_qual=min_qual,
+            aligner=aligner,
         )
         st.rmtree(iter_tmp_dir)
     else:
-        if minimap2:
+        if aligner == "minimap2":
             map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
         else:
             index = hci.check_bt2_index(genome)
@@ -395,7 +397,7 @@ def full_pipeline(
     prefix=None,
     start_stage="fastq",
     mat_fmt="GRAAL",
-    minimap2=False,
+    aligner="bowtie2",
     distance_law=False,
     centromeres=None,
 ):
@@ -406,7 +408,8 @@ def full_pipeline(
     Parameters
     ----------
     genome : str
-        Path to the genome in fasta format.
+        Path to the bowtie2 index prefix if using bowtie2 or to the genome in
+        fasta format if using minimap2.
     input1 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
         in SAM format, or the pairs file, depending on the value of start_stage.
@@ -451,8 +454,8 @@ def full_pipeline(
     mat_fmt : str
         Select the output matrix format. Can be either "cooler" for the 
         cooler-compatible bedgraph2 format, or GRAAL format.
-    minimap2 : bool
-        Use minimap2 instead of bowtie2 for read alignment.
+    aligner : str
+        Read alignment software to use. Can be either "minimap2" or "bowtie2".
     distance_law : bool
         If True, generates a distance law file with the values of the probabilities 
         to have a contact between two distances for each chromosomes or arms if the
@@ -511,6 +514,13 @@ def full_pipeline(
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
 
+    # If the person used bowtie2 and supplied an index, extract fasta from it
+    if aligner == "bowtie2":
+        fasta = _tmp_file("genome.fasta")
+        sp.call("bowtie2-inspect {index} > {fasta}".format(index=genome, fasta=fasta))
+    else:
+        fasta = genome
+
     # Enable file logging
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)
@@ -547,7 +557,7 @@ def full_pipeline(
             sam1,
             tmp_dir=tmp_dir,
             threads=threads,
-            minimap2=minimap2,
+            aligner=aligner,
             iterative=iterative,
             min_qual=min_qual,
         )
@@ -557,7 +567,7 @@ def full_pipeline(
             sam2,
             tmp_dir=tmp_dir,
             threads=threads,
-            minimap2=minimap2,
+            aligner=aligner,
             iterative=iterative,
             min_qual=min_qual,
         )
@@ -573,7 +583,7 @@ def full_pipeline(
         fragments_updated = True
         # Generate info_contigs and fragments_list output files
         hcd.write_frag_info(
-            genome,
+            fasta,
             enzyme,
             min_size=min_size,
             circular=circular,
@@ -590,7 +600,7 @@ def full_pipeline(
     # Starting from pairs file
     if start_stage <= 2:
         restrict_table = {}
-        for record in SeqIO.parse(genome, "fasta"):
+        for record in SeqIO.parse(fasta, "fasta"):
             # Get chromosome restriction table
             restrict_table[record.id] = hcd.get_restriction_table(
                 record.seq, enzyme, circular=circular
@@ -620,7 +630,7 @@ def full_pipeline(
     # Generate fragments file if it has not been already
     if not fragments_updated:
         hcd.write_frag_info(
-            genome,
+            fasta,
             enzyme,
             min_size=min_size,
             circular=circular,
