@@ -89,7 +89,7 @@ def iterative_align(
     ref,
     n_cpu,
     sam_out,
-    minimap2=False,
+    aligner="bowtie2",
     min_len=20,
     min_qual=30,
 ):
@@ -106,13 +106,14 @@ def iterative_align(
     tmp_dir : str
         Path where temporary files should be written.
     ref : str
-        Path to the reference genome.
+        Path to the reference genome if Minimap2 is used for alignment.
+        Path to the index genome if Bowtie2 is used for alignment. 
     n_cpu : int
         The number of CPUs to use for the iterative alignment.
     sam_out : str
         Path where the final alignment should be written in SAM format.
-    minimap2 : bool
-        If True, use minimap2 instead of bowtie2 for the alignment.
+    aligner : str
+        Choose between minimap2 or bowtie2 for the alignment.
     min_len : int
         The initial length of the fragments to align.
     min_qual : int
@@ -139,7 +140,7 @@ def iterative_align(
             raise
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
-    if not minimap2 and ct.is_compressed(fq_in):
+    if aligner == "bowtie2" and ct.is_compressed(fq_in):
         uncomp_path = os.path.join(tmp_dir, os.path.basename(fq_in) + ".tmp")
         with ct.read_compressed(fq_in) as inf:
             with open(uncomp_path, "w") as uncomp:
@@ -149,8 +150,8 @@ def iterative_align(
 
     # throw error if index does not exist
     index = ""
-    if not minimap2:
-        index = check_bt2_index(ref)
+    if aligner == "bowtie2":
+        index = ref
     # Counting reads
     with ct.read_compressed(uncomp_path) as inf:
         for _ in inf:
@@ -197,7 +198,7 @@ def iterative_align(
             "fq": truncated_reads,
             "idx": index,
         }
-        if minimap2:
+        if aligner == "minimap2" or aligner == "Minimap2" :
             cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
                 **map_args
             )
@@ -226,7 +227,7 @@ def iterative_align(
     truncated_reads = truncate_reads(
         tmp_dir, uncomp_path, remaining_reads, size, min_len
     )
-    if minimap2:
+    if aligner == "minimap2" or aligner == "Minimap2" :
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
             ref, n_cpu, temp_alignment, truncated_reads
         )
