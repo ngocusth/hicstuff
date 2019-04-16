@@ -5,12 +5,15 @@ import gzip
 import zipfile
 import bz2
 import io
+import os
 import functools
 import sys
 import numpy as np
 import pandas as pd
 import collections
 import subprocess as sp
+from os.path import join, exists
+from random import getrandbits
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
@@ -169,6 +172,38 @@ def load_pos_col(path, colnum, header=1, dtype=np.int64):
         path, delimiter="\t", usecols=(colnum,), skip_header=header, dtype=dtype
     )
     return pos_arr
+
+
+def generate_temp_dir(path):
+    """Temporary directory generation
+
+    Generates a temporary file with a random name at the input path.
+    
+    Parameters
+    ----------
+    path : str
+        The path at which the temporary directory will be created.
+    
+    Returns
+    -------
+    str
+        The path of the newly created temporary directory.
+    """
+    exist = True
+    while exist:
+        # Keep trying random directory names if they already exist
+        directory = str(hex(getrandbits(32)))[2:]
+        full_path = join(path, directory)
+        if not exists(full_path):
+            exist = False
+    try:
+        os.makedirs(full_path)
+    except PermissionError:
+        raise PermissionError(
+            "The temporary directory cannot be created in {}. "
+            "Make sure you have write permission.".format(path)
+        )
+    return full_path
 
 
 def read_compressed(filename):
