@@ -250,12 +250,12 @@ def filter_pcr_dup(pairs_file, filtered_file):
     filter_count = 0
     reads_count = 0
     # Store header lines
-    header = io.get_pairs_header(pairs_file)
-    with open(pairs_file, 'r') as pairs, open(filtered_file, 'w') as filtered:
+    header = hio.get_pairs_header(pairs_file)
+    with open(pairs_file, "r") as pairs, open(filtered_file, "w") as filtered:
         # Copy header lines to filtered file
         for head_line in header:
-                filtered.write(head_line)
-                next(pairs)
+            filtered.write(head_line)
+            next(pairs)
 
         # Use csv methods to easily access columns
         paircols = ["readID", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2"]
@@ -272,10 +272,13 @@ def filter_pcr_dup(pairs_file, filtered_file):
                 continue
             # Else write pair and store new coordinates as previous
             else:
-                filtered.writerow(pair)
+                filt_writer.writerow(pair)
                 prev = pair
-        logger.info("%d %% PCR duplicates have been filtered out (%d / %d reads) " 
-                    % (round(filter_count / reads_count, 3), filter_count, reads_count))
+        logger.info(
+            "%d %% PCR duplicates have been filtered out (%d / %d reads) "
+            % (round(filter_count / reads_count, 3), filter_count, reads_count)
+        )
+
 
 def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
