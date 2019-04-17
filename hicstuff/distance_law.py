@@ -519,6 +519,10 @@ def normalize_distance_law(xs, ps):
     for j, my_list in enumerate(ps):
         # Iterate on the different ps to normalize each of theme separately
         sum_values = 0
+        # Change the last value to have something continuous because the last
+        # one is much bigger.
+        if my_list[-1] != my_list[-2]:
+            my_list[-1] = my_list[-2]
         for i, value in enumerate(my_list):
             # Keep only the value between 1kb and the length of the shorter
             # object given in the list
@@ -570,6 +574,10 @@ def average_distance_law(xs, ps, sup, big_arm_only=False):
         # Iterate on ps in order to calculate the number of occurences (all the
         # chromossomes/arms are not as long as the longest one) and the sum of
         # the values of distance law.
+        # Change the last value to have something continuous because the last
+        # one is much bigger.
+        if chrom_ps[-1] != chrom_ps[-2]:
+            chrom_ps[-1] = chrom_ps[-2]
         # Sanity check : sup strictly inferior to maw length arms.
         if big_arm_only:
             if sup >= xs[-1]:
@@ -651,14 +659,24 @@ def get_ylim(xs, curve, inf, sup):
     ... )
     (1.111, 32.0)
     """
+    # Create a list in order to add all the interesting values
     flatten_list = []
     for i, logbins in enumerate(xs):
+        # Iterate on xs.
+        # Search for the minimum index corresponding to the smallest bin
+        # superior or equal to inf (in pair base).
         min_value = min(logbins[logbins[:] >= inf])
-        min_index = np.where(logbins == min_value)
+        min_index = np.where(logbins == min_value)[0]
+        # Search for the maximum index corresponding to the biggest bin
+        # inferior or equal to sup (in pair base).
         max_value = max(logbins[logbins[:] <= sup])
-        max_index = np.where(logbins == max_value)
-        for j in range(int(min_index[0]), int(max_index[0]) + 1):
+        max_index = np.where(logbins == max_value)[0]
+        # Add the values in the interval in the flattened list.
+        if int(max_index) != len(logbins) - 1:
+            max_index += 1
+        for j in range(int(min_index), int(max_index)):
             flatten_list.append(curve[i][j])
+    # Caluclate the min and the max of this list.
     min_tot = min(flatten_list)
     max_tot = max(flatten_list)
     return min_tot, max_tot
