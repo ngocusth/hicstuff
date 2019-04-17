@@ -946,6 +946,8 @@ class Distancelaw(AbstractCommand):
         # Add the option big army only.
         if self.args["--big-arm-only"]:
             big_arm_only = True
+        else:
+            big_arm_only = False
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
