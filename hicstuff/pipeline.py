@@ -553,6 +553,25 @@ def full_pipeline(
     else:
         fasta = genome
 
+    # If the user chose bowtie2 and supplied an index, extract fasta from it
+    if aligner == "bowtie2":
+        fasta = _tmp_file("genome.fasta")
+        bt2fa = sp.Popen(
+            ["bowtie2-inspect", genome], stdout=open(fasta, "w"), stderr=sp.PIPE
+        )
+        _, bt2err = bt2fa.communicate()
+        # bowtie2-inspect still has return code 0 when crashing, need to
+        # actively look for error in stderr
+        if re.search(r"[Ee]rror", bt2err.decode()):
+            logger.error(bt2err)
+            logger.error(
+                "bowtie2-inspect has failed, make sure you provided "
+                "the path to the bowtie2 index without the extension."
+            )
+            sys.exit(1)
+    else:
+        fasta = genome
+
     # Enable file logging
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)
