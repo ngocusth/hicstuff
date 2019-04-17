@@ -536,12 +536,14 @@ class Pipeline(AbstractCommand):
         -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
-        -d, --distance_law            If enabled, generates a distance law file
+        -d, --distance-law            If enabled, generates a distance law file
                                       with the values of the probabilities to 
                                       have a contact between two distances for
                                       each chromosomes or arms if the file with
                                       the positions has been given. The values
                                       are not normalized, or averaged.
+        -D, --duplicates              Filter out PCR duplicates based on read
+                                      positions.
         -c, --centromeres=FILE        Positions of the centromeres separated by
                                       a space and in the same order than the 
                                       chromosomes. Discordant with the circular
@@ -584,6 +586,7 @@ class Pipeline(AbstractCommand):
             start_stage=self.args["--start-stage"],
             mat_fmt=self.args["--matfmt"],
             aligner=self.args["--aligner"],
+            pcr_duplicates=self.args["--duplicates"],
             distance_law=self.args["--distance_law"],
             centromeres=self.args["--centromeres"],
         )
