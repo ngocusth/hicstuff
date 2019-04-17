@@ -410,7 +410,7 @@ def full_pipeline(
     start_stage="fastq",
     mat_fmt="GRAAL",
     aligner="bowtie2",
-    pcr_filter=False,
+    pcr_duplicates=False,
     distance_law=False,
     centromeres=None,
 ):
@@ -469,7 +469,7 @@ def full_pipeline(
         cooler-compatible bedgraph2 format, or GRAAL format.
     aligner : str
         Read alignment software to use. Can be either "minimap2" or "bowtie2".
-    pcr_filter : bool
+    pcr_duplicates : bool
         If True, PCR duplicates will be filtered based on genomic positions.
         Pairs where both reads have exactly the same coordinates are considered
         duplicates and only one of those will be conserved.
@@ -683,7 +683,7 @@ def full_pipeline(
         )
 
     # Filter out PCR duplicates if requested
-    if pcr_filter:
+    if pcr_duplicates:
         filter_pcr_dup(use_pairs, pairs_pcr)
         use_pairs = pairs_pcr
 
