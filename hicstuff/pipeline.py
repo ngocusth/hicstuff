@@ -233,7 +233,7 @@ def generate_log_header(log_path, input1, input2, genome, enzyme):
     hcl.set_file_handler(log_path, formatter=hcl.logfile_formatter)
 
 
-def filter_pcr_dup(pairs_file, filtered_file):
+def filter_pcr_dup(pairs_idx_file, filtered_file):
     """
     Filter out PCR duplicates from a pairs file using overrrepresented 
     exact coordinates. If multiple fragments have two reads with the exact
@@ -241,8 +241,8 @@ def filter_pcr_dup(pairs_file, filtered_file):
 
     Parameters
     ----------
-    pairs_file : str
-        Path to a pairs file containing the Hi-C reads.
+    pairs_idx_file : str
+        Path to an indexed pairs file containing the Hi-C reads.
     filtered_file : str
         Path to the output pairs file after removing duplicates.
     """
@@ -250,15 +250,25 @@ def filter_pcr_dup(pairs_file, filtered_file):
     filter_count = 0
     reads_count = 0
     # Store header lines
-    header = hio.get_pairs_header(pairs_file)
-    with open(pairs_file, "r") as pairs, open(filtered_file, "w") as filtered:
+    header = hio.get_pairs_header(pairs_idx_file)
+    with open(pairs_idx_file, "r") as pairs, open(filtered_file, "w") as filtered:
         # Copy header lines to filtered file
         for head_line in header:
-            filtered.write(head_line)
+            filtered.write(head_line + "\n")
             next(pairs)
 
         # Use csv methods to easily access columns
-        paircols = ["readID", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2"]
+        paircols = [
+            "readID",
+            "chr1",
+            "pos1",
+            "chr2",
+            "pos2",
+            "strand1",
+            "strand2",
+            "frag1",
+            "frag2",
+        ]
         pair_reader = csv.DictReader(pairs, delimiter=" ", fieldnames=paircols)
         filt_writer = csv.DictWriter(filtered, delimiter=" ", fieldnames=paircols)
 
@@ -275,8 +285,8 @@ def filter_pcr_dup(pairs_file, filtered_file):
                 filt_writer.writerow(pair)
                 prev = pair
         logger.info(
-            "%d %% PCR duplicates have been filtered out (%d / %d reads) "
-            % (round(filter_count / reads_count, 3), filter_count, reads_count)
+            "%d%% PCR duplicates have been filtered out (%d / %d pairs) "
+            % (100 * round(filter_count / reads_count, 3), filter_count, reads_count)
         )
 
 
@@ -400,6 +410,7 @@ def full_pipeline(
     start_stage="fastq",
     mat_fmt="GRAAL",
     aligner="bowtie2",
+    pcr_filter=False,
     distance_law=False,
     centromeres=None,
 ):
@@ -458,6 +469,10 @@ def full_pipeline(
         cooler-compatible bedgraph2 format, or GRAAL format.
     aligner : str
         Read alignment software to use. Can be either "minimap2" or "bowtie2".
+    pcr_filter : bool
+        If True, PCR duplicates will be filtered based on genomic positions.
+        Pairs where both reads have exactly the same coordinates are considered
+        duplicates and only one of those will be conserved.
     distance_law : bool
         If True, generates a distance law file with the values of the probabilities 
         to have a contact between two distances for each chromosomes or arms if the
@@ -510,21 +525,24 @@ def full_pipeline(
 
     # Define temporary file names
     log_file = _out_file("hicstuff_" + now + ".log")
+    tmp_genome = _tmp_file("genome.fasta")
     sam1 = _tmp_file("for.sam")
     sam2 = _tmp_file("rev.sam")
     pairs = _tmp_file("valid.pairs")
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
+    pairs_pcr = _tmp_file("valid_idx_pcrfree.pairs")
 
     # If the user chose bowtie2 and supplied an index, extract fasta from it
+    # For later steps of the pipeline (digestion / frag attribution)
     if aligner == "bowtie2":
-        fasta = _tmp_file("genome.fasta")
         bt2fa = sp.Popen(
-            ["bowtie2-inspect", genome], stdout=open(fasta, "w"), stderr=sp.PIPE
+            ["bowtie2-inspect", genome], stdout=open(tmp_genome, "w"), stderr=sp.PIPE
         )
         _, bt2err = bt2fa.communicate()
         # bowtie2-inspect still has return code 0 when crashing, need to
         # actively look for error in stderr
+        fasta = tmp_genome
         if re.search(r"[Ee]rror", bt2err.decode()):
             logger.error(bt2err)
             logger.error(
@@ -664,12 +682,25 @@ def full_pipeline(
             circular=circular,
         )
 
+    # Filter out PCR duplicates if requested
+    if pcr_filter:
+        filter_pcr_dup(use_pairs, pairs_pcr)
+        use_pairs = pairs_pcr
+
     # Build matrix from pairs.
     pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
 
     # Clean temporary files
     if not no_cleanup:
-        tempfiles = [pairs, pairs_idx, pairs_filtered, sam1, sam2]
+        tempfiles = [
+            pairs,
+            pairs_idx,
+            pairs_filtered,
+            sam1,
+            sam2,
+            pairs_pcr,
+            tmp_genome,
+        ]
         # Do not delete files that were given as input
         try:
             tempfiles.remove(input1)
