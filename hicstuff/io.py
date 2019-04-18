@@ -702,6 +702,22 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     """
     # TODO: Write a pure python implementation to drop GNU coreutils depencency,
     # could be inspired from: https://stackoverflow.com/q/14465154/8440675
+
+    # Check if UNIX sort version supports parallelism
+    parallel_ok = True
+    sort_ver = sp.Popen(["sort", "--version"], stdout=sp.PIPE)
+    sort_ver = (
+        sort_ver.communicate()[0].decode().split("\n")[0].split(" ")[-1].split(".")
+    )
+    sort_ver = list(map(int, sort_ver))
+    # If so, specify threads, otherwise don't mention it in the command line
+    if sort_ver[0] < 8 or (sort_ver[0] == 8 and sort_ver[1] < 23):
+        logger.warning(
+            "GNU sort version is {0} but >8.23 is required for parallel "
+            "sort. Sorting on a single thread.".format(".".join(map(str, sort_ver)))
+        )
+        parallel_ok = False
+
     key_map = {
         "readID": "-k1,1d",
         "chr1": "-k2,2d",
@@ -720,7 +736,6 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     except KeyError:
         print("Unkown column name.")
         raise
-
     # Rewrite header with new sorting order
     header = get_pairs_header(in_file)
     with open(out_file, "w") as output:
@@ -732,13 +747,12 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
 
     # Sort pairs and append to file.
     with open(out_file, "a") as output:
-        grep_cmd = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
-        sort_cmd = sp.Popen(
-            ["sort", "--parallel=%d" % threads, "-S %s" % buffer] + list(sort_keys),
-            stdin=grep_cmd.stdout,
-            stdout=output,
-        )
-        sort_cmd.communicate()
+        grep_proc = sp.Popen(["grep", "-v", "^#", in_file], stdout=sp.PIPE)
+        sort_cmd = ["sort", "-S %s" % buffer] + list(sort_keys)
+        if parallel_ok:
+            sort_cmd.append("--parallel={0}".format(threads))
+        sort_proc = sp.Popen(sort_cmd, stdin=grep_proc.stdout, stdout=output)
+        sort_proc.communicate()
 
 
 def get_pairs_header(pairs):
