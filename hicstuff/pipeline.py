@@ -235,9 +235,9 @@ def generate_log_header(log_path, input1, input2, genome, enzyme):
 
 def filter_pcr_dup(pairs_idx_file, filtered_file):
     """
-    Filter out PCR duplicates from a pairs file using overrrepresented 
-    exact coordinates. If multiple fragments have two reads with the exact
-    same coordinates, only one of those fragments is kept.
+    Filter out PCR duplicates from a coordinate-sorted pairs file using
+    overrrepresented exact coordinates. If multiple fragments have two reads
+    with the exact same coordinates, only one of those fragments is kept.
 
     Parameters
     ----------
@@ -292,7 +292,7 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
 
 def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
-    combination of restriction fragments in a 2D BED file.
+    combination of restriction fragments in a pairs file.
 
     Parameters
     ----------
@@ -660,6 +660,15 @@ def full_pipeline(
         # Add fragment index to pairs (readID, chr1, pos1, chr2,
         # pos2, strand1, strand2, frag1, frag2)
         hcd.attribute_fragments(pairs, pairs_idx, restrict_table)
+
+    # Sort pairs file by coordinates for next steps
+    hio.sort_pairs(
+        pairs_idx,
+        pairs_idx + ".sorted",
+        keys=["chr1", "pos1", "chr2", "pos2"],
+        threads=threads,
+    )
+    os.rename(pairs_idx + ".sorted", pairs_idx)
 
     if filter_events:
         uncut_thr, loop_thr = hcf.get_thresholds(
