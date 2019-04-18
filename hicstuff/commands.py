@@ -268,7 +268,7 @@ class View(AbstractCommand):
 
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
-             [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP]
+             [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP] [--dpi=INT]
              [--log] [--circular] [--region=STR] <contact_map> [<contact_map2>]
 
     arguments:
@@ -288,6 +288,7 @@ class View(AbstractCommand):
         -d, --despeckle                  Remove sharp increases in long range
                                          contact by averaging surrounding
                                          values.
+        -D, --dpi=INT                    Map resolution in DPI (dots per inch).
         -f, --frags=FILE                 Required for bp binning. Tab-separated
                                          file with headers, containing
                                          fragments start position in the 3rd
@@ -457,6 +458,7 @@ class View(AbstractCommand):
                 filename=output_file,
                 vmin=self.vmin,
                 vmax=self.vmax,
+                dpi=self.args["--dpi"],
                 cmap=cmap,
             )
         except MemoryError:
