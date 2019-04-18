@@ -49,7 +49,7 @@ def process_read_pair(line):
 
     Examples
     --------
-        >>> d = process_read_pair("readX a 1 b 20 - - 1 3")
+        >>> d = process_read_pair("readX\ta\t1\tb\t20\t-\t-\t1\t3")
         >>> for u in sorted(d.items()):
         ...     print(u)
         ('chr1', 'a')
@@ -63,7 +63,7 @@ def process_read_pair(line):
         ('strand1', '-')
         ('strand2', '-')
         ('type', 'inter')
-        >>> d = process_read_pair('readY a 20 a 10 - + 2 1')
+        >>> d = process_read_pair('readY\ta\t20\ta\t10\t-\t+\t2\t1')
         >>> [d[x] for x in sorted(d.keys())]
         ['a', 'a', 1, 2, 1, 10, 20, 'readY', '+', '-', '+-']
     """
