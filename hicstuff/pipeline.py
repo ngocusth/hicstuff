@@ -138,7 +138,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     )
     with open(out_pairs, "w") as pairs:
         pairs.writelines([format_version, sorting, cols] + chroms.tolist())
-        pairs_writer = csv.writer(pairs, delimiter=" ")
+        pairs_writer = csv.writer(pairs, delimiter="\t")
         n_reads = {"total": 0, "mapped": 0}
         # Remember if some read IDs were missing from either file
         unmatched_reads = 0
@@ -269,8 +269,8 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
             "frag1",
             "frag2",
         ]
-        pair_reader = csv.DictReader(pairs, delimiter=" ", fieldnames=paircols)
-        filt_writer = csv.DictWriter(filtered, delimiter=" ", fieldnames=paircols)
+        pair_reader = csv.DictReader(pairs, delimiter="\t", fieldnames=paircols)
+        filt_writer = csv.DictWriter(filtered, delimiter="\t", fieldnames=paircols)
 
         # Initialise a variable to store coordinates of reads in previous pair
         prev = {k: 0 for k in paircols}
@@ -347,7 +347,7 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
         n_occ = 0  # Number of occurences of each frag combination
         n_nonzero = 0  # Total number of nonzero matrix entries
         n_pairs = 0  # Total number of pairs entered in the matrix
-        pairs_reader = csv.reader(pairs, delimiter=" ")
+        pairs_reader = csv.reader(pairs, delimiter="\t")
         # First line contains nrows, ncols and number of nonzero entries.
         # Number of nonzero entries is unknown for now
         if mat_fmt == "GRAAL":

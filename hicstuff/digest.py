@@ -199,8 +199,8 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
         idx_cols = pairs_cols + ["frag1", "frag2"]
 
         # Use csv reader / writer to automatically parse columns into a dict
-        pairs_reader = csv.DictReader(pairs, fieldnames=pairs_cols, delimiter=" ")
-        pairs_writer = csv.DictWriter(idx_pairs, fieldnames=idx_cols, delimiter=" ")
+        pairs_reader = csv.DictReader(pairs, fieldnames=pairs_cols, delimiter="\t")
+        pairs_writer = csv.DictWriter(idx_pairs, fieldnames=idx_cols, delimiter="\t")
 
         for pair in pairs_reader:
             # Get the 0-based indices of corresponding restriction fragments

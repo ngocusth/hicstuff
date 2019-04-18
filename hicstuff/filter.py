@@ -68,7 +68,7 @@ def process_read_pair(line):
         ['a', 'a', 1, 2, 1, 10, 20, 'readY', '+', '-', '+-']
     """
     # Split line by whitespace
-    p = line.split(" ")
+    p = line.split("\t")
     if len(p) != 9:
         raise ValueError(
             "Your input file does not have 9 columns. Make sure "
@@ -384,7 +384,7 @@ def filter_events(
 
             p = process_read_pair(line)
             line_to_write = (
-                " ".join(
+                "\t".join(
                     map(
                         str,
                         (

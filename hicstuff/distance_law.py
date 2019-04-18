@@ -460,7 +460,7 @@ def get_distance_law(
                 "frag1",
                 "frag2",
             ],
-            delimiter=" ",
+            delimiter="\t",
         )
         for line in reader:
             # Iterate in each line of the file after the header
