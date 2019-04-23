@@ -458,7 +458,7 @@ class View(AbstractCommand):
                 filename=output_file,
                 vmin=self.vmin,
                 vmax=self.vmax,
-                dpi=self.args["--dpi"],
+                dpi=int(self.args["--dpi"]),
                 cmap=cmap,
             )
         except MemoryError:
