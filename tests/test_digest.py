@@ -40,7 +40,7 @@ def test_attribute_fragments():
     idx_pairs = NamedTemporaryFile(delete=False)
     idx_pairs.close()
     restriction_table = {}
-    for record in SeqIO.parse("test_data/seq.fa", "fasta"):
+    for record in SeqIO.parse("test_data/genome/seq.fa", "fasta"):
         # Get chromosome restriction table
         restriction_table[record.id] = hcd.get_restriction_table(record.seq, "DpnII")
     hcd.attribute_fragments("test_data/valid.pairs", idx_pairs.name, restriction_table)
