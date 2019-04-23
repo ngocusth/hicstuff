@@ -27,7 +27,7 @@ from hicstuff.log import logger
 
 
 def process_read_pair(line):
-    """Process and order read pairs in a .pairs record.
+    r"""Process and order read pairs in a .pairs record.
 
     Takes a read pair (line) from a .pairs file as input, reorders the pair
     so that read 1 in intrachromosomal pairs always has the smallest genomic
