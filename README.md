@@ -112,12 +112,11 @@ named "info_contigs.txt" and "fragments_list.txt"
 
 #### Filtering of 3C events
 
-Filters spurious 3C events such as loops and uncuts from the library based
-on a minimum distance threshold automatically estimated from the library by default. Can also plot 3C library statistics.
+Filters spurious 3C events such as loops and uncuts from the library based on a minimum distance threshold automatically estimated from the library by default. Can also plot 3C library statistics. This module takes a pairs file with 9 columns as input (readID, chr1, pos1, chr2, pos2, strand1, strand2, frag1, frag2) and filters it. 
 
     usage:
         filter [--interactive | --thresholds INT-INT] [--plot]
-               [--figdir FILE] <input> <output>
+               [--figdir FILE] <input.pairs> <output.pairs>
 
 #### Viewing the contact map
 
