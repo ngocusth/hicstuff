@@ -41,76 +41,7 @@ or, for the latest development version:
 
 All components of the pipelines can be run at once using the `hicstuff pipeline` command. This allows to generate a contact matrix from reads in a single command. By default, the output sparse matrix is in GRAAL format, but it can be a 2D bedgraph file if required.
 
-    usage:
-        pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
-                 [--threads=INT] [--minimap2] [--matfmt=FMT] [--prefix=PREFIX]
-                 [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter]
-                 [--enzyme=ENZ] [--plot] [--circular] --fasta=FILE <input1> [<input2>]
-
-    arguments:
-        input1:             Forward fastq file, if start_stage is "fastq", sam
-                            file for aligned forward reads if start_stage is
-                            "sam", or a .pairs file if start_stage is "pairs".
-        input2:             Reverse fastq file, if start_stage is "fastq", sam
-                            file for aligned reverse reads if start_stage is
-                            "sam", or nothing if start_stage is "pairs".
-
-
-    options:
-        -M, --matfmt=FMT              The format of the output sparse matrix.
-                                      Can be "cooler" for 2D Bedgraph format 
-                                      compatible with cooler, or "GRAAL" for
-                                      GRAAL-compatible format. [default: GRAAL]
-        -C, --circular                Enable if the genome is circular.
-        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
-                                      size (i.e. resolution) if a number. Can
-                                      also be multiple comma-separated enzymes.
-                                      [default: 5000]
-        -f, --fasta=FILE              Reference genome to map against in FASTA
-                                      format
-        -F, --filter                  Filter out spurious 3C events (loops and
-                                      uncuts) using hicstuff filter. Requires
-                                      "-e" to be a restriction enzyme, not a
-                                      chunk size.
-        -S, --start-stage=STAGE       Define the starting point of the pipeline
-                                      to skip some steps. Default is "fastq" to
-                                      run from the start. Can also be "sam" to
-                                      skip the alignment, pairs to start from a
-                                      singl pairs file or pairs_idx to skip
-                                      fragment attribution and only build the 
-                                      matrix. [default: fastq]
-        -i, --iterative               Map reads iteratively using hicstuff
-                                      iteralign, by truncating reads to 20bp
-                                      and then repeatedly extending and
-                                      aligning them.
-        -m, --minimap2                Use the minimap2 aligner instead of
-                                      bowtie2. Not enabled by default.
-        -n, --no-cleanup              If enabled, intermediary BED files will
-                                      be kept after generating the contact map.
-                                      Disabled by defaut.
-        -o, --outdir=DIR              Output directory. Defaults to the current
-                                      directory.
-        -p, --plot                    Generates plots in the output directory
-                                      at different steps of the pipeline.
-        -P, --prefix=PREFIX           Overrides default GRAAL-compatible
-                                      filenames and use a prefix with
-                                      extensions instead.
-        -q, --quality-min=INT         Minimum mapping quality for selecting
-                                      contacts. [default: 30].
-        -s, --size=INT                Minimum size threshold to consider
-                                      contigs. Keep all contigs by default.
-                                      [default: 0]
-        -t, --threads=INT             Number of threads to allocate.
-                                      [default: 1].
-        -T, --tmpdir=DIR              Directory for storing intermediary BED
-                                      files and temporary sort files. Defaults
-                                      to the output directory.
-
-    output:
-        abs_fragments_contacts_weighted.txt: the sparse contact map
-        fragments_list.txt: information about restriction fragments (or chunks)
-        info_contigs.txt: information about contigs or chromosomes
-        hicstuff.log: details and statistics about the run.    usage:
+usage:
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
                  [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
