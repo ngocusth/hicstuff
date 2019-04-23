@@ -556,9 +556,10 @@ def full_pipeline(
     # If the user chose bowtie2 and supplied an index, extract fasta from it
     if aligner == "bowtie2":
         fasta = _tmp_file("genome.fasta")
-        bt2fa = sp.Popen(
-            ["bowtie2-inspect", genome], stdout=open(fasta, "w"), stderr=sp.PIPE
-        )
+        with open(fasta, "w") as temp_genome:
+            bt2fa = sp.Popen(
+                ["bowtie2-inspect", genome], stdout=temp_genome, stderr=sp.PIPE
+            )
         _, bt2err = bt2fa.communicate()
         # bowtie2-inspect still has return code 0 when crashing, need to
         # actively look for error in stderr
