@@ -288,7 +288,7 @@ class View(AbstractCommand):
         -d, --despeckle                  Remove sharp increases in long range
                                          contact by averaging surrounding
                                          values.
-        -D, --dpi=INT                    Map resolution in DPI (dots per inch).
+        -D, --dpi=INT                    Map resolution in DPI (dots per inch). [default: 300]
         -f, --frags=FILE                 Required for bp binning. Tab-separated
                                          file with headers, containing
                                          fragments start position in the 3rd
