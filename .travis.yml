@@ -7,7 +7,6 @@ env:
 
 matrix:
   include:
-    - python: "3.4"
     - python: "3.5"
     - python: "3.6"
     - python: "3.7"
@@ -20,9 +19,6 @@ install:
 - pip install -Ur requirements.txt
 - pip install pytest pylint pytest-pylint
 - pip install pytest-cov codecov
-- if [[ $PYVER == "3.4" ]]; then
-    pip install typing requests;
-  fi
 - python setup.py install
 script:
 - pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules hicstuff
