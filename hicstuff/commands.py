@@ -599,9 +599,9 @@ class Scalogram(AbstractCommand):
     Generate a scalogram.
 
     usage:
-        plot [--cmap=NAME] [--centromeres=FILE] [--frags=FILE] [--range=INT-INT]
-             [--threads=INT] [--output=FILE] [--max=INT] [--process]
-             [--indices=INT-INT] [--despeckle] <contact_map>
+        scalogram [--cmap=NAME] [--centromeres=FILE] [--frags=FILE] [--range=INT-INT]
+                  [--threads=INT] [--output=FILE] [--max=INT] [--process]
+                  [--indices=INT-INT] [--despeckle] <contact_map>
 
     argument:
         <contact_map> The sparse Hi-C contact matrix.
