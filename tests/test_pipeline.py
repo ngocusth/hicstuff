@@ -43,4 +43,30 @@ def test_filter_pcr_dup():
 
 
 def test_full_pipeline():
-    ...
+    """Crash Test for the whole pipeline"""
+    # Set of parameters #1
+    hpi.full_pipeline(
+        input1="test_data/sample.reads_for.fastq.gz",
+        input2="sample.reads_rev.fastq.gz",
+        genome="test_data/genome/seq",
+        enzyme="DpnII",
+        out_dir="test_out",
+        plot=True,
+        pcr_duplicates=True,
+        filter_events=True,
+        no_cleanup=True,
+    )
+    # Set of parameters #2
+    hpi.full_pipeline(
+        input1="test_data/sample.reads_for.fastq.gz",
+        input2="sample.reads_rev.fastq.gz",
+        genome="test_data/genome/seq.fa",
+        enzyme=5000,
+        out_dir="test_out",
+        aligner="minimap2",
+        iterative=True,
+        prefix="test",
+        distance_law=True,
+        tmp_dir="test_out/tmp",
+        mat_fmt="cooler",
+    )

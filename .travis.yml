@@ -15,6 +15,12 @@ matrix:
     
 os:
 - linux
+
+before_install:
+- sudo apt install bowtie2
+- git clone https://github.com/lh3/minimap2
+- cd minimap2 && make && cd ..
+- export PATH="$PATH:minimap2/"
 install:
 - pip install -Ur requirements.txt
 - pip install pytest pylint pytest-pylint
