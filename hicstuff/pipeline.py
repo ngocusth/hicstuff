@@ -12,6 +12,7 @@ from os.path import join
 import subprocess as sp
 from Bio import SeqIO
 import pandas as pd
+import numpy as np
 import pysam as ps
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
@@ -505,6 +506,7 @@ def full_pipeline(
         frag_plot = join(fig_dir, "frags_hist.pdf")
         dist_plot = join(fig_dir, "event_distance.pdf")
         pie_plot = join(fig_dir, "event_distribution.pdf")
+        distance_law_plot = join(fig_dir, "distance_law.pdf")
         matplotlib.use("Agg")
     else:
         fig_dir = None
@@ -701,15 +703,22 @@ def full_pipeline(
 
     # Generate distance law table if enabled
     if distance_law:
-        outdir_distance_law = _out_file("distance_law.txt")
-        hcdl.get_distance_law(
+        out_distance_law = _out_file("distance_law.txt")
+        xs, ps = hcdl.get_distance_law(
             pairs_idx,
             fragments_list,
             centro_file=centromeres,
             base=1.1,
-            outdir=outdir_distance_law,
+            out_file=out_distance_law,
             circular=circular,
         )
+        # Generate distance law figure is plots are enabled
+        if plot:
+            # Retrieve chrom labels from distance law file
+            chr_labels = hio.load_pos_col(out_distance_law, 2, header=None, dtype=str)
+            chr_labels = np.unique(chr_labels)
+            ps = hcdl.normalize_distance_law(xs, ps)
+            hcdl.plot_ps_slope(xs, ps, labels=chr_labels, fig_path=distance_law_plot)
 
     # Filter out PCR duplicates if requested
     if pcr_duplicates:

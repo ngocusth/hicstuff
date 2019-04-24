@@ -88,11 +88,11 @@ def test_get_distance_law():
     # Create a temporary file.
     distance_law = NamedTemporaryFile("w", delete=False)
     # Test with default parameters.
-    hcdl.get_distance_law(pairs_reads_file, fragments_file, outdir=distance_law.name)
+    hcdl.get_distance_law(pairs_reads_file, fragments_file, out_file=distance_law.name)
     assert hash_file(distance_law.name) == hash_file("test_data/distance_law.txt")
     # Test the circular option.
     hcdl.get_distance_law(
-        pairs_reads_file, fragments_file, outdir=distance_law.name, circular=True
+        pairs_reads_file, fragments_file, out_file=distance_law.name, circular=True
     )
     assert hash_file(distance_law.name) == "495d9c7ccd7edc33441a6bd5d6fcfc1e"
     # Test the centromere option.
@@ -100,7 +100,7 @@ def test_get_distance_law():
         pairs_reads_file,
         fragments_file,
         centro_file=centro_file,
-        outdir=distance_law.name,
+        out_file=distance_law.name,
     )
     assert hash_file(distance_law.name) == "2d31232f2857460d6236d26d33472496"
     # Unlink the temporary file

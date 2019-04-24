@@ -987,7 +987,6 @@ class Distancelaw(AbstractCommand):
             ps = ps[0]
         # Normalize and make the derivative
         ps = hcdl.normalize_distance_law(xs, ps)
-        slope = hcdl.slope_distance_law(xs, ps)
         # Gave new names for the different samples.
         if self.args["--labels"]:
             labels = self.args["--labels"]
@@ -1006,7 +1005,7 @@ class Distancelaw(AbstractCommand):
         # with the names labels.
         if not self.args["--sup"]:
             sup = max(max(xs, key=len))
-        hcdl.plot_ps_slope(xs, ps, slope, labels, output_file, inf, sup)
+        hcdl.plot_ps_slope(xs, ps, labels, output_file, inf, sup)
 
 
 def parse_bin_str(bin_str):

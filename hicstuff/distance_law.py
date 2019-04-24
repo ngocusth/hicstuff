@@ -384,7 +384,7 @@ def get_distance_law(
     fragments_file,
     centro_file=None,
     base=1.1,
-    outdir=None,
+    out_file=None,
     circular=False,
 ):
     """Compute distance law as a function of the genomic coordinate aka P(s).
@@ -414,12 +414,19 @@ def get_distance_law(
         line.
     base : float
         Base use to construct the logspace of the bins - 1.1 by default.
-    outdir : None or str
-        Directory of the output file. If no directory given, will be replace by
-        the current directory.
+    out_file : None or str
+        Path of the output file. If no path given, the output is returned.
     circular : bool
         If True, calculate the distance as the chromosome is circular. Default 
-        value is False. Cannot be True if centro_file is not None     
+        value is False. Cannot be True if centro_file is not None
+
+    Returns
+    -------
+    xs : list of numpy.ndarray
+        Basepair coordinates of log bins used to compute distance law.
+    ps : list of numpy.ndarray
+        Contacts value, in arbitrary units, at increasingly long genomic ranges
+        given by xs.
     """
     # Sanity check : centro_fileition should be None if chromosomes are
     # circulars (no centromeres is circular chromosomes).
@@ -476,15 +483,17 @@ def get_distance_law(
             ps[i][j] /= ((2 * n - xs[i][j + 1] - xs[i][j]) / 2) * (
                 (1 / np.sqrt(2)) * (xs[i][j + 1] - xs[i][j])
             )
-            print(
-                ((2 * n - xs[i][j + 1] - xs[i][j]) / 2)
-                * ((1 / np.sqrt(2)) * (xs[i][j + 1] - xs[i][j]))
-            )
+            # print(
+            #    ((2 * n - xs[i][j + 1] - xs[i][j]) / 2)
+            #    * ((1 / np.sqrt(2)) * (xs[i][j + 1] - xs[i][j]))
+            # )
         # Case of the last logbin which is an isosceles rectangle triangle
-        print(ps[i][-5:-1], ((n - xs[i][-1]) ** 2) / 2)
+        # print(ps[i][-5:-1], ((n - xs[i][-1]) ** 2) / 2)
         ps[i][-1] /= ((n - xs[i][-1]) ** 2) / 2
     names = get_names(fragments, chr_segment_bins)
-    export_distance_law(xs, ps, names, outdir)
+    if out_file:
+        export_distance_law(xs, ps, names, out_file)
+    return xs, ps
 
 
 def normalize_distance_law(xs, ps):
@@ -682,10 +691,10 @@ def get_ylim(xs, curve, inf, sup):
     return min_tot, max_tot
 
 
-def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
+def plot_ps_slope(xs, ps, labels, fig_path=None, inf=3000, sup=None):
     """Compute two plots, one with the different distance law of each 
-    arm/chromosome and one with the slope of these curves. Generate a 
-    svg file with savefig.
+    arm/chromosome in loglog scale and one with the slope (derivative) of these
+    curves. Generate a svg file with savefig.
 
     Parameters
     ----------
@@ -693,31 +702,24 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
         The list of the logbins of each ps.
     ps : list of numpy.ndarray
         The list of ps.
-    slope : list of numpy.ndarray
-        The list of slope of the ps loglog curves, each list have one value 
-        less than the xs and ps list.
-    labels_file : List of string
-        File of one column without header containing the names of the 
-        different curves in the order in which they are given.
-    out_dir : str
-        Directory to create the file. By default it's None, and do not 
-        create the file, it will be plot in an interacting windows.
+    labels_file : list of strings
+        Names of the different curves in the order in which they are given.
+    fig_path : str
+        Path where the figure will be created. If None (default), the plot is
+        shown in an interactive window.
     inf : int 
         Value of the mimimum x of the window of the plot. Have to be strictly
         positive. By default 3000.
     sup : int 
         Value of the maximum x of the window of the plot. By default None.
-
-    Returns
-    -------
-    matplotlib.plot :
-        Plot of the ps with two windows : one with the distance law curves of 
-        each arms/chromosomes in loglog scale and the slope (derivative) of 
-        these curves in the second windows.
+        
     """
     # Give the max value for sup if no value have been attributed
-    if sup == "None":
+    if sup is None:
         sup = max(max(xs, key=len))
+
+    # Compute slopes from the curves
+    slope = slope_distance_law(xs, ps)
     # Make the plot of distance law
     # Give a range of color
     cols = iter(cm.rainbow(np.linspace(0, 1, len(ps))))
@@ -740,6 +742,7 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
     ax2.set_title("Slope of the distance law", fontsize="xx-large")
     ax2.set_xlim([inf, sup])
     ylim = get_ylim(xs, slope, inf, sup)
+    print(slope)
     ax2.set_ylim(1.1 * ylim[0], 0.9 * ylim[1])
     xs2 = [None] * len(xs)
     for i in range(len(slope)):
@@ -748,7 +751,7 @@ def plot_ps_slope(xs, ps, slope, labels, out_dir=None, inf=3000, sup=None):
         ax2.semilogx(xs2[i], slope[i], label=labels[i], subsx=[2, 3, 4, 5, 6, 7, 8, 9])
     ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1.00), ncol=1, fontsize="large")
     # Save the figure in svg
-    if out_dir is not None:
-        plt.savefig(out_dir)
+    if fig_path is not None:
+        plt.savefig(fig_path)
     else:
         plt.show()
