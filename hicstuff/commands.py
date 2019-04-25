@@ -589,7 +589,7 @@ class Pipeline(AbstractCommand):
             mat_fmt=self.args["--matfmt"],
             aligner=self.args["--aligner"],
             pcr_duplicates=self.args["--duplicates"],
-            distance_law=self.args["--distance_law"],
+            distance_law=self.args["--distance-law"],
             centromeres=self.args["--centromeres"],
         )
 
