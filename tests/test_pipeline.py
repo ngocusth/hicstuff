@@ -1,7 +1,7 @@
 # Test functions for the pipeline submodule
 
 from tempfile import NamedTemporaryFile
-import os
+import os, shutil
 import pandas as pd
 import filecmp
 import numpy as np
@@ -70,3 +70,4 @@ def test_full_pipeline():
         tmp_dir="test_out/tmp",
         mat_fmt="cooler",
     )
+    shutil.rmtree("test_out/")

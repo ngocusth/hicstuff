@@ -475,7 +475,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
                  [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
-                 [--plot] [--circular] [--distance_law] [--duplicates]
+                 [--plot] [--circular] [--distance-law] [--duplicates]
                  [--centromeres=FILE] --genome=FILE <input1> [<input2>]
 
     arguments:
