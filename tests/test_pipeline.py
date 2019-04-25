@@ -59,7 +59,7 @@ def test_full_pipeline():
     # Set of parameters #2
     hpi.full_pipeline(
         input1="test_data/sample.reads_for.fastq.gz",
-        input2="sample.reads_rev.fastq.gz",
+        input2="test_data/sample.reads_rev.fastq.gz",
         genome="test_data/genome/seq.fa",
         enzyme=5000,
         out_dir="test_out",

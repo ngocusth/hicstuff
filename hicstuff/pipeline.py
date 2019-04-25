@@ -704,7 +704,7 @@ def full_pipeline(
     # Generate distance law table if enabled
     if distance_law:
         out_distance_law = _out_file("distance_law.txt")
-        xs, ps = hcdl.get_distance_law(
+        x_s, p_s = hcdl.get_distance_law(
             pairs_idx,
             fragments_list,
             centro_file=centromeres,
@@ -717,8 +717,8 @@ def full_pipeline(
             # Retrieve chrom labels from distance law file
             chr_labels = hio.load_pos_col(out_distance_law, 2, header=None, dtype=str)
             chr_labels = np.unique(chr_labels)
-            ps = hcdl.normalize_distance_law(xs, ps)
-            hcdl.plot_ps_slope(xs, ps, labels=chr_labels, fig_path=distance_law_plot)
+            p_s = hcdl.normalize_distance_law(x_s, p_s)
+            hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
 
     # Filter out PCR duplicates if requested
     if pcr_duplicates:
