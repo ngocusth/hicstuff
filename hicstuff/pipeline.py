@@ -487,6 +487,8 @@ def full_pipeline(
     start_time = datetime.now()
     stages = {"fastq": 0, "sam": 1, "pairs": 2, "pairs_idx": 3}
     start_stage = stages[start_stage]
+    # sanitize enzyme
+    enzyme = str(enzyme)
     # Remember whether fragments_file has been generated during this run
     fragments_updated = False
 
