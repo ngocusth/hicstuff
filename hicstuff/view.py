@@ -10,6 +10,7 @@ viewing contact maps in instaGRAAL or csv format.
 
 import numpy as np
 from matplotlib import pyplot as plt
+from Bio import SeqIO
 import hicstuff.io as hio
 from hicstuff.hicstuff import normalize_sparse
 
@@ -111,3 +112,37 @@ def normalize(M, norm="SCN"):
         return normalize_sparse(M, norm=norm)
     except NameError:
         return M
+
+
+def scaffold_distribution(genome, threshold=1000000, plot=True):
+    """Visualize scaffold size distribution
+
+    Compute (and optionally display) scaffold size distribution for
+    a genome in fasta format.
+    
+    Parameters
+    ----------
+    genome : str, file or pathlib.Path
+        The genome scaffold file (or file handle)
+    threshold : int, optional
+        The size below which scaffolds are discarded, by default 1000000
+    plot : bool, optional
+        Whether to plot the results
+
+    Returns
+    -------
+    list :
+        The list of scaffold sizes in decreasing order.
+    """
+
+    handle = SeqIO.parse(genome, "fasta")
+    lengths = sorted(
+        (len(u) for u in handle if len(u) > threshold), reverse=True
+    )
+
+    if plot:
+        x, y = zip(*enumerate(lengths))
+        plt.scatter(x=x, y=y)
+        plt.show()
+
+    return lengths
