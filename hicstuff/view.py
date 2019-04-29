@@ -119,7 +119,7 @@ def scaffold_distribution(genome, threshold=1000000, plot=True):
 
     Compute (and optionally display) scaffold size distribution for
     a genome in fasta format.
-    
+
     Parameters
     ----------
     genome : str, file or pathlib.Path
@@ -146,3 +146,26 @@ def scaffold_distribution(genome, threshold=1000000, plot=True):
         plt.show()
 
     return lengths
+
+
+def reorder_fasta(genome, output, threshold=100000):
+    """Reorder and trim a fasta file
+
+    Sort a fasta file by record lengths, optionally trimming the smallest ones.
+
+
+    Parameters
+    ----------
+    genome : str, file or pathlib.Path
+        The genome scaffold file (or file handle)
+    output : str, file or pathlib.Path
+        The output file to write to
+    threshold : int, optional
+        The size below which scaffolds are discarded, by default 100000
+    """
+
+    handle = SeqIO.parse(genome, "fasta")
+    handle_to_write = sorted(
+        (len(u) for u in handle if len(u) > threshold), reverse=True
+    )
+    SeqIO.write(handle_to_write, output, "fasta")
