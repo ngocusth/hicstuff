@@ -953,13 +953,6 @@ class Distancelaw(AbstractCommand):
             big_arm_only = True
         else:
             big_arm_only = False
-        # Put the inf and sup according to the arguments given.
-        if self.args["--inf"]:
-            inf = int(self.args["--inf"])
-        else:
-            inf = 3000
-        if self.args["--sup"]:
-            sup = int(self.args["--sup"])
         # Put in a list the path or the different paths given.
         distance_law_file = self.args["--dist-tbl"]
         distance_law_files = distance_law_file.split(",")
@@ -968,6 +961,15 @@ class Distancelaw(AbstractCommand):
         xs = [None] * length_files
         ps = [None] * length_files
         names = [None] * length_files
+        # Put the inf and sup according to the arguments given.
+        if self.args["--inf"]:
+            inf = int(self.args["--inf"])
+        else:
+            inf = 3000
+        if self.args["--sup"]:
+            sup = int(self.args["--sup"])
+        else:
+            sup = max(max(xs, key=len))
         # Sanity check : Average mandatory if more than one file.
         if not self.args["--average"] and length_files > 1:
             logger.error("You have to average if more than one file.")
@@ -1003,8 +1005,6 @@ class Distancelaw(AbstractCommand):
         # Make the plot if enabled, if not average plot the different arms or
         # chromosomes with the initial names else plot the different conditions
         # with the names labels.
-        if not self.args["--sup"]:
-            sup = max(max(xs, key=len))
         hcdl.plot_ps_slope(xs, ps, labels, output_file, inf, sup)
 
 
