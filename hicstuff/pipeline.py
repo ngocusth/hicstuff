@@ -461,7 +461,8 @@ def full_pipeline(
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
         Step at which the pipeline should start. Can be "fastq", "sam", "pairs"
-        or "pairs_idx". With starting from sam allows to skip alignment. With
+        or "pairs_idx". With starting from sam allows to skip alignment and start 
+        from named-sorted sam files. With
         "pairs", a single pairs file is given as input, and with "pairs_idx", the
         pairs in the input must already be attributed to fragments and fragment
         attribution is skipped.
