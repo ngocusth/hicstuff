@@ -65,4 +65,5 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=REQUIREMENTS,
     entry_points={"console_scripts": ["hicstuff=hicstuff.main:main"]},
+    extras_require={"mappy": ["mappy"]},
 )
