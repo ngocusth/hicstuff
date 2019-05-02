@@ -961,6 +961,9 @@ class Distancelaw(AbstractCommand):
         xs = [None] * length_files
         ps = [None] * length_files
         names = [None] * length_files
+        # Iterate on the different file given by the user.
+        for i in range(length_files):
+            xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
@@ -969,14 +972,13 @@ class Distancelaw(AbstractCommand):
         if self.args["--sup"]:
             sup = int(self.args["--sup"])
         else:
-            sup = max(max(xs, key=len))
+            sup = max(max(xs[0], key=len))
         # Sanity check : Average mandatory if more than one file.
         if not self.args["--average"] and length_files > 1:
             logger.error("You have to average if more than one file.")
             sys.exit(1)
         # Iterate on the different file given by the user.
         for i in range(length_files):
-            xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
             # Make the average if enabled
             if self.args["--average"]:
                 xs[i], ps[i] = hcdl.average_distance_law(

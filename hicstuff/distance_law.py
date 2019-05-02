@@ -518,7 +518,6 @@ def normalize_distance_law(xs, ps):
     """
     # Sanity check: xs and ps have the same dimension
     if np.shape(xs) != np.shape(ps):
-        print(np.shape(xs), np.shape(ps))
         logger.error("xs and ps should have the same dimension.")
         sys.exit(1)
     # Take the mean of xs as superior limit to choose the limits of the
@@ -742,7 +741,6 @@ def plot_ps_slope(xs, ps, labels, fig_path=None, inf=3000, sup=None):
     ax2.set_title("Slope of the distance law", fontsize="xx-large")
     ax2.set_xlim([inf, sup])
     ylim = get_ylim(xs, slope, inf, sup)
-    print(slope)
     ax2.set_ylim(1.1 * ylim[0], 0.9 * ylim[1])
     xs2 = [None] * len(xs)
     for i in range(len(slope)):
