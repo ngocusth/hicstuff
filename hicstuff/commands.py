@@ -356,11 +356,18 @@ class View(AbstractCommand):
             if self.binning:
                 # Fixed genomic bins
                 if self.bp_unit:
+                    # Get bin numbers of chromosome starts
                     binned_start = np.append(
                         np.where(binned_frags == 0)[0], binned_frags.shape[0]
                     )
+                    # Get bin length of each chromosome
                     num_binned = binned_start[1:] - binned_start[:-1]
-                    chr_names = np.unique(reg_pos.iloc[:, 0])
+                    # Get unique chromosome names without losing original order
+                    # (numpy.unique sorts output)
+                    chr_names_idx = np.unique(reg_pos.iloc[:, 0], return_index=True)[1]
+                    chr_names = [
+                        reg_pos.iloc[index, 0] for index in sorted(chr_names_idx)
+                    ]
                     binned_chrom = np.repeat(chr_names, num_binned)
                     reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
                 # Subsample binning (group by N frags)
