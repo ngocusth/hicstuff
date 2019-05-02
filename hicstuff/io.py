@@ -720,9 +720,9 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
 
     key_map = {
         "readID": "-k1,1d",
-        "chr1": "-k2,2d",
+        "chr1": "-k2,2V",
         "pos1": "-k3,3n",
-        "chr2": "-k4,4d",
+        "chr2": "-k4,4V",
         "pos2": "-k5,5n",
         "strand1": "-k6,6d",
         "strand2": "-k7,7d",
