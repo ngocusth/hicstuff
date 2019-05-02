@@ -350,10 +350,11 @@ class View(AbstractCommand):
                     "genomic regions. See hicstuff view --help"
                 )
                 sys.exit(1)
-            # Load positions from fragments list
+            # Load chromosomes and positions from fragments list
             reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
             # Readjust bin coords post binning
             if self.binning:
+                # Fixed genomic bins
                 if self.bp_unit:
                     binned_start = np.append(
                         np.where(binned_frags == 0)[0], binned_frags.shape[0]
@@ -362,6 +363,7 @@ class View(AbstractCommand):
                     chr_names = np.unique(reg_pos.iloc[:, 0])
                     binned_chrom = np.repeat(chr_names, num_binned)
                     reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                # Subsample binning (group by N frags)
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
 
@@ -1079,11 +1081,11 @@ def parse_ucsc(ucsc_str, bins):
     else:
         chrom = ucsc_str
         # Make absolute bin index (independent of chrom)
-        bins["id"] = bins.index
+        bins[2] = bins.index
         chrombins = bins.loc[bins.iloc[:, 0] == chrom, :]
         try:
-            start = min(chrombins.id)
-            end = max(chrombins.id)
+            start = min(chrombins[2])
+            end = max(chrombins[2])
         except ValueError:
             logger.error("Invalid chromosome")
             raise
