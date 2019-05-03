@@ -652,8 +652,8 @@ class Scalogram(AbstractCommand):
                 end = int(end)
         except ValueError:
             raise ValueError(
-                "Range must be provided using two integers separated by '-'.",
-                "E.g: 1-100.",
+                "Range and indices must be provided using two integers "
+                "separated by '-'.E.g: 1-100."
             )
         input_map = self.args["<contact_map>"]
         vmax = float(self.args["--max"])
@@ -669,7 +669,7 @@ class Scalogram(AbstractCommand):
             good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
             S = hcs.normalize_sparse(S, norm="SCN")
         if self.args["--despeckle"]:
-            S = hcs.despeckle_simple(S, threads=self.args["--threads"])
+            S = hcs.despeckle_simple(S, threads=int(self.args["--threads"]))
 
         if self.args["--indices"]:
             S = S[start:end, start:end]
