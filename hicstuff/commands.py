@@ -829,10 +829,10 @@ class Convert(AbstractCommand):
 
     usage:
         convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
-                [--out=DIR] [--prefix=NAME] --from=FORMAT --to=FORMAT <contact_map>
+                [--out=DIR] [--prefix=NAME] [--from=FORMAT] [--to=FORMAT] <contact_map>
 
     arguments:
-        <contact_map> : The file containing the contact frequencies.
+        contact_map               The file containing the contact frequencies.
 
     options:
         -f, --frags=FILE          File containing the fragments coordinates. If
