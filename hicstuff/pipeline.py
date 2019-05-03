@@ -192,11 +192,12 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
             n_reads["mapped"] += sum([end1_passed, end2_passed])
             # Keep only pairs where both reads have good quality
             if end1_passed and end2_passed:
+
                 # Flipping to get upper triangle
                 if (
-                    end1.reference_start > end2.reference_start
-                    or end1.reference_id > end2.reference_id
-                ):
+                    end1.reference_id == end2.reference_id
+                    and end1.reference_start > end2.reference_start
+                ) or end1.reference_id > end2.reference_id:
                     end1, end2 = end2, end1
                 pairs_writer.writerow(
                     [
