@@ -720,7 +720,10 @@ def full_pipeline(
         if plot:
             # Retrieve chrom labels from distance law file
             chr_labels = hio.load_pos_col(out_distance_law, 2, header=None, dtype=str)
-            chr_labels = np.unique(chr_labels)
+            chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
+            chr_labels = [
+                chr_labels[index] for index in sorted(chr_labels_idx)
+            ]
             p_s = hcdl.normalize_distance_law(x_s, p_s)
             hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
 
