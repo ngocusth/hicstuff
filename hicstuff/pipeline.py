@@ -719,7 +719,8 @@ def full_pipeline(
         # Generate distance law figure is plots are enabled
         if plot:
             # Retrieve chrom labels from distance law file
-            chr_labels = hio.load_pos_col(out_distance_law, 2, header=None, dtype=str)
+            _, _, chr_labels = hcdl.import_distance_law(out_distance_law)
+            chr_labels = [lab[0] for lab in chr_labels] 
             chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
             chr_labels = [
                 chr_labels[index] for index in sorted(chr_labels_idx)

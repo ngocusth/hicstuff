@@ -333,13 +333,13 @@ class View(AbstractCommand):
         else:
             binned_map = sparse_map
 
-        # NORMALIZATION
-        if self.args["--normalize"]:
-            binned_map = hcs.normalize_sparse(binned_map, norm="SCN")
-
         # LOG VALUES
         if self.args["--log"]:
             binned_map = binned_map.log1p()
+
+        # NORMALIZATION
+        if self.args["--normalize"]:
+            binned_map = hcs.normalize_sparse(binned_map, norm="SCN")
 
         self.vmax = np.percentile(binned_map.data, self.vmax)
         # ZOOM REGION
