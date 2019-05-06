@@ -973,7 +973,7 @@ class Distancelaw(AbstractCommand):
         -o, --outputfile-img=IMG            Output file. Format must be compatible with 
                                             plt.savefig. Default : None.
         -O, --outputfile-tabl=TABLE         Output file. Default : None.
-        -p, --pairs                         Pairs file. Format from 4D Nucleome Omics Data 
+        -p, --pairs=FILE                    Pairs file. Format from 4D Nucleome Omics Data 
                                             Standards Working Group with the 8th and 9th 
                                             coulumns are the ID of the fragments of the 
                                             reads 1 and 2. Only add if no distance_law table
@@ -1001,7 +1001,9 @@ class Distancelaw(AbstractCommand):
         if self.args["--pairs"]:
             # Sanity check : frags mandatory if pairs given.
             if not self.args["--fragments"] or self.args["--dist-tbl"]:
-                logger.error("You have to give fragments and/or not give table of the disatnce law if pairs file given.")
+                logger.error(
+                    "You have to give fragments and/or not give table of the disatnce law if pairs file given."
+                )
                 sys.exit(1)
             pairs = self.args["--pairs"]
             fragments = self.args["--frags"]
@@ -1027,13 +1029,14 @@ class Distancelaw(AbstractCommand):
                 base = 1.1
             xs, ps, names = [None], [None], [None]
             xs[0], ps[0], names[0] = hcdl.get_distance_law(
-                                           pairs_reads_file=pairs,
-                                           fragments_file=fragments,
-                                           centro_file=centromeres,
-                                           base=base,
-                                           out_file=output_file_tabl,
-                                           circular=circular)
-            length_files = 1  
+                pairs_reads_file=pairs,
+                fragments_file=fragments,
+                centro_file=centromeres,
+                base=base,
+                out_file=output_file_tabl,
+                circular=circular,
+            )
+            length_files = 1
         else:
             # Put in a list the path or the different paths given.
             distance_law_file = self.args["--dist-tbl"]
