@@ -10,6 +10,7 @@ viewing contact maps in instaGRAAL or csv format.
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import colors
 from Bio import SeqIO
 import hicstuff.io as hio
 from hicstuff.hicstuff import normalize_sparse
@@ -72,9 +73,7 @@ def sparse_to_dense(M, remove_diag=True):
     return np.array(E)
 
 
-def plot_matrix(
-    array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"
-):
+def plot_matrix(array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
     as little whitespace as possible.
@@ -90,13 +89,8 @@ def plot_matrix(
     # plt.gca().xaxis.set_major_locator(plt.NullLocator())
     # plt.gca().yaxis.set_major_locator(plt.NullLocator())
     plt.figure()
-    if SEABORN:
-        sns.heatmap(array, vmin=vmin, vmax=vmax, cmap=cmap)
-    else:
-        plt.imshow(
-            array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none"
-        )
-        plt.colorbar()
+    plt.imshow(array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none")
+    plt.colorbar()
     plt.axis("off")
     if filename:
         plt.savefig(filename, bbox_inches="tight", pad_inches=0.0, dpi=dpi)
@@ -136,9 +130,7 @@ def scaffold_distribution(genome, threshold=1000000, plot=True):
     """
 
     handle = SeqIO.parse(genome, "fasta")
-    lengths = sorted(
-        (len(u) for u in handle if len(u) > threshold), reverse=True
-    )
+    lengths = sorted((len(u) for u in handle if len(u) > threshold), reverse=True)
 
     if plot:
         x, y = zip(*enumerate(lengths))

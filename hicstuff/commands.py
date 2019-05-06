@@ -333,13 +333,13 @@ class View(AbstractCommand):
         else:
             binned_map = sparse_map
 
-        # LOG VALUES
-        if self.args["--log"]:
-            binned_map = binned_map.log1p()
-
         # NORMALIZATION
         if self.args["--normalize"]:
             binned_map = hcs.normalize_sparse(binned_map, norm="SCN")
+
+        # LOG VALUES
+        # if self.args["--log"]:
+        #   binned_map = binned_map.log1p()
 
         self.vmax = np.percentile(binned_map.data, self.vmax)
         # ZOOM REGION
@@ -410,6 +410,7 @@ class View(AbstractCommand):
         self.bp_unit = False
         bin_str = self.args["--binning"].upper()
         self.symmetric = True
+        log_transform = self.args["--log"]
         try:
             # Subsample binning
             self.binning = int(bin_str)
@@ -451,6 +452,8 @@ class View(AbstractCommand):
             processed_map = processed_map.tocoo()
             processed_map.data[np.isnan(processed_map.data)] = 0.0
             cmap = "coolwarm"
+            # Log transformation done already
+            log_transform = False
 
         if self.args["--despeckle"]:
             processed_map = hcs.despeckle_simple(processed_map)
@@ -462,6 +465,18 @@ class View(AbstractCommand):
             self.vmin = 0
             if self.args["<contact_map2>"]:
                 self.vmin, self.vmax = -2, 2
+            # Log transform the map and the colorscale limits if needed
+            if log_transform:
+                dense_map = np.log(dense_map)
+                self.vmin = np.percentile(dense_map[np.isfinite(dense_map)], 1)
+                self.vmax = np.log(self.vmax)
+            else:
+                # Set 0 values in matrix to NA
+                dense_map[dense_map == 0] = np.inf
+            # Display NA values in white
+            current_cmap = cm.get_cmap()
+            current_cmap.set_bad(color="white")
+
             hcv.plot_matrix(
                 dense_map,
                 filename=output_file,
