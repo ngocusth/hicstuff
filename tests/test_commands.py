@@ -24,7 +24,7 @@ def test_view():
 
 def test_pipeline():
     args = (
-        "-e DpnII -t 12 -F -D -d -i -n -P test -o {0} -g test_data/genome/seq "
+        "-e DpnII -t 1 -F -D -d -i -n -P test -o {0} -g test_data/genome/seq "
         + "test_data/sample.reads_for.fastq.gz test_data/sample.reads_rev.fastq.gz"
     ).format(OUT)
     proc = hcmd.Pipeline(args.split(" "), {})
@@ -51,7 +51,7 @@ def test_distancelaw():
 
 def test_iteralign():
     args = (
-        "-g test_data/genome/seq -t4 -T tmp -l 30"
+        "-g test_data/genome/seq -t 1 -T tmp -l 30"
         + " -o {0}/test.sam test_data/sample.reads_for.fastq.gz"
     ).format(OUT)
     proc = hcmd.Iteralign(args.split(" "), {})
