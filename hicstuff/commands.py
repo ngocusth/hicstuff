@@ -768,8 +768,6 @@ class Rebin(AbstractCommand):
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
-                frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
-                frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
 
         else:
             # Subsample binning
