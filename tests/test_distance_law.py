@@ -26,8 +26,10 @@ def hash_file(filename):
 
 
 def test_import_distance_law():
-    assert np.all(test_xs[0] == hcdl.logbins_xs(fragments, [0, 409], [60000, 20000])[0])
-    assert np.all(test_xs[1] == hcdl.logbins_xs(fragments, [0, 409], [60000, 20000])[1])
+    """Test importing distance law table files"""
+    xs = hcdl.logbins_xs(fragments, [0, 409], [60000, 20000])
+    assert np.all(np.isclose(test_xs[0], xs[0], rtol=0.0001))
+    assert np.all(np.isclose(test_xs[1], xs[1], rtol=0.0001))
     assert len(test_ps) == 2 and len(labels) == 2 and len(test_xs) == len(test_ps)
     assert (
         sum(test_ps[0]) == 3.0341050807866947e-05
@@ -111,13 +113,11 @@ def test_normalize_distance_law():
     """Test function making the average of distance law."""
     normed_ps = hcdl.normalize_distance_law(test_xs, test_ps)
     assert len(normed_ps) == 2
-    assert (
-        sum(normed_ps[0]) == 5.4540618006465005
-        and sum(normed_ps[1]) == 27.13059221680929
+    assert np.isclose(sum(normed_ps[0]), 5.4540, rtol=0.0001) and np.isclose(
+        sum(normed_ps[1]), 27.1305, rtol=0.0001
     )
-    assert (
-        np.std(normed_ps[0]) == 0.14497523010035954
-        and np.std(normed_ps[1]) == 1.9520121715950007
+    assert np.isclose(np.std(normed_ps[0]), 0.1449, rtol=0.001) and np.isclose(
+        np.std(normed_ps[1]), 1.9520, rtol=0.001
     )
 
 
@@ -125,15 +125,17 @@ def test_average_distance_law():
     """Test function making the average of distance law."""
     average_xs, average_ps = hcdl.average_distance_law(test_xs, test_ps, None)
     assert np.all(average_xs == test_xs[0])
-    assert sum(average_ps) == 6.811947623702834e-05
-    assert np.std(average_ps) == 3.5803073039989692e-06
+    assert np.isclose(sum(average_ps), 6.8119e-05, rtol=10e-7)
+    assert np.isclose(np.std(average_ps), 3.5803e-06, rtol=10e-7)
 
 
 def test_slope_distance_law():
     """Test function calculating the slope of the distance law."""
     slope = hcdl.slope_distance_law(test_xs, test_ps)
     assert len(slope) == 2
-    assert sum(slope[0]) == 18.93299339474383 and sum(slope[1]) == -2.7459281253074317
-    assert (
-        np.std(slope[0]) == 3.922655526971996 and np.std(slope[1]) == 5.0451145659894285
+    assert np.isclose(sum(slope[0]), 18.9329, rtol=0.0001) and np.isclose(
+        sum(slope[1]), -2.7459, rtol=0.0001
+    )
+    assert np.isclose(np.std(slope[0]), 3.9226, rtol=0.0001) and np.isclose(
+        np.std(slope[1]), 5.0451, rtol=0.0001
     )
