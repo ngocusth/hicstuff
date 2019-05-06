@@ -936,8 +936,10 @@ class Distancelaw(AbstractCommand):
     slope of the curve and plot it.
     
     usage:
-        distancelaw [--average] [--big-arm-only] [--inf=INT] [--sup=INT] [--outputfile=IMG] 
-                    [--labels=DIR] --dist-tbl=FILE1[,FILE2,...]
+        distancelaw [--average] [--big-arm-only] [--base=FLOAT] [--centromeres=FILE] 
+                    [--circular] [--frags=FILE] [--inf=INT] [--outputfile-img=IMG] 
+                    [--outputfile-tabl=TABLE] [--labels=DIR] [--sup=INT] 
+                    (--pairs=FILE | --dist-tbl=FILE1[,FILE2,...])
     
     options:
         -a, --average                       If set, calculate the average of the distance 
@@ -946,17 +948,37 @@ class Distancelaw(AbstractCommand):
                                             mandatory.
         -b, --big-arm-only                  If set will take only the arms bigger than sup.
                                             You have to give a value for sup is set.
+        -B, --base=FLOAT                    Float corresponding of the base of the log to 
+                                            make the logspace which will slice the genomes in
+                                            logbins. These slices will be in basepairs unit.
+                                            Default is 1.1.
+        -c, --centromeres=FILE              Positions of the centromeres separated by
+                                            a space and in the same order than the 
+                                            chromosomes. Discordant with the circular
+                                            option.
+        -C, --circular                      Enable if the genome is circular. Discordant 
+                                            with the centromeres option.
         -d, --dist-tbl=FILE1[,FILE2,...]    Directory to the file or files containing the 
                                             compute distance law. File should have the same
                                             format than the ones made by hicstuff pipeline.
+        -f, --frags=FILE                    File containing the fragments coordinates from
+                                            hicstuff pipeline for example. Necessary if pairs
+                                            given.
         -i, --inf=INT                       Inferior born to plot the distance law. By 
                                             default the value is 3000 bp (3 kb). Have to
                                             be strictly positive.
         -l, --labels=STR1,STR2...           List of string of the labels for the plot 
                                             separated by a coma. If no labels given, give 
                                             the names "Sample 1", "Sample 2"...
-        -o, --outputfile=IMG                Output file. Format must be compatible with 
-                                            plt.savefig. Default : ./disatnce_law_plot.svg.
+        -o, --outputfile-img=IMG            Output file. Format must be compatible with 
+                                            plt.savefig. Default : None.
+        -O, --outputfile-tabl=TABLE         Output file. Default : None.
+        -p, --pairs                         Pairs file. Format from 4D Nucleome Omics Data 
+                                            Standards Working Group with the 8th and 9th 
+                                            coulumns are the ID of the fragments of the 
+                                            reads 1 and 2. Only add if no distance_law table
+                                            given. It will compute the table from these pairs
+                                            and the fragments from the fragments file.
         -s, --sup=INT                       Superior born to plot the distance law. By 
                                             default the value is the maximum length of all
                                             the dataset given. Also if big arm only set, it
@@ -965,27 +987,65 @@ class Distancelaw(AbstractCommand):
     """
 
     def execute(self):
-        # Give the current directory as out_dir if no out_dir is given.
-        if self.args["--outputfile"]:
-            output_file = self.args["--outputfile"]
+        # Give no file as output_file_img if no given.
+        if self.args["--outputfile-img"]:
+            output_file_img = self.args["--outputfile-img"]
         else:
-            output_file = None
+            output_file_img = None
         # Add the option big army only.
         if self.args["--big-arm-only"]:
             big_arm_only = True
         else:
             big_arm_only = False
-        # Put in a list the path or the different paths given.
-        distance_law_file = self.args["--dist-tbl"]
-        distance_law_files = distance_law_file.split(",")
-        length_files = len(distance_law_files)
-        # Make new lists for the modified distance law.
-        xs = [None] * length_files
-        ps = [None] * length_files
-        names = [None] * length_files
-        # Iterate on the different file given by the user.
-        for i in range(length_files):
-            xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
+        # Compute the table of distance law if pairs given
+        if self.args["--pairs"]:
+            # Sanity check : frags mandatory if pairs given.
+            if not self.args["--fragments"] or self.args["--dist-tbl"]:
+                logger.error("You have to give fragments and/or not give table of the disatnce law if pairs file given.")
+                sys.exit(1)
+            pairs = self.args["--pairs"]
+            fragments = self.args["--frags"]
+            # Give no file as output_file_tabl if no given.
+            if self.args["--outputfile-tabl"]:
+                output_file_tabl = self.args["--outputfile-tabl"]
+            else:
+                output_file_tabl = None
+            # Check if centromeres file given
+            if self.args["--centromeres"]:
+                centromeres = self.args["--centromeres"]
+            else:
+                centromeres = None
+            # Check if circular condition given
+            if self.args["--circular"]:
+                circular = self.args["--circular"]
+            else:
+                circular = None
+            # Check if circular condition given
+            if self.args["--base"]:
+                base = self.args["--base"]
+            else:
+                base = 1.1
+            xs, ps, names = [None], [None], [None]
+            xs[0], ps[0], names[0] = hcdl.get_distance_law(
+                                           pairs_reads_file=pairs,
+                                           fragments_file=fragments,
+                                           centro_file=centromeres,
+                                           base=base,
+                                           out_file=output_file_tabl,
+                                           circular=circular)
+            length_files = 1  
+        else:
+            # Put in a list the path or the different paths given.
+            distance_law_file = self.args["--dist-tbl"]
+            distance_law_files = distance_law_file.split(",")
+            length_files = len(distance_law_files)
+            # Make new lists for the modified distance law.
+            xs = [None] * length_files
+            ps = [None] * length_files
+            names = [None] * length_files
+            # Iterate on the different file given by the user.
+            for i in range(length_files):
+                xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
@@ -1029,7 +1089,7 @@ class Distancelaw(AbstractCommand):
         # Make the plot if enabled, if not average plot the different arms or
         # chromosomes with the initial names else plot the different conditions
         # with the names labels.
-        hcdl.plot_ps_slope(xs, ps, labels, output_file, inf, sup)
+        hcdl.plot_ps_slope(xs, ps, labels, output_file_img, inf, sup)
 
 
 def parse_bin_str(bin_str):

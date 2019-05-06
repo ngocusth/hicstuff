@@ -708,7 +708,7 @@ def full_pipeline(
     # Generate distance law table if enabled
     if distance_law:
         out_distance_law = _out_file("distance_law.txt")
-        x_s, p_s = hcdl.get_distance_law(
+        x_s, p_s, names_distance_law = hcdl.get_distance_law(
             pairs_idx,
             fragments_list,
             centro_file=centromeres,
@@ -720,11 +720,9 @@ def full_pipeline(
         if plot:
             # Retrieve chrom labels from distance law file
             _, _, chr_labels = hcdl.import_distance_law(out_distance_law)
-            chr_labels = [lab[0] for lab in chr_labels] 
+            chr_labels = [lab[0] for lab in chr_labels]
             chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
-            chr_labels = [
-                chr_labels[index] for index in sorted(chr_labels_idx)
-            ]
+            chr_labels = [chr_labels[index] for index in sorted(chr_labels_idx)]
             p_s = hcdl.normalize_distance_law(x_s, p_s)
             hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
 

@@ -493,7 +493,7 @@ def get_distance_law(
     names = get_names(fragments, chr_segment_bins)
     if out_file:
         export_distance_law(xs, ps, names, out_file)
-    return xs, ps
+    return xs, ps, names
 
 
 def normalize_distance_law(xs, ps):
