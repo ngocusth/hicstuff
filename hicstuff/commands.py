@@ -624,7 +624,7 @@ class Scalogram(AbstractCommand):
 
     usage:
         scalogram [--cmap=NAME] [--centromeres=FILE] [--frags=FILE] [--range=INT-INT]
-                  [--threads=INT] [--output=FILE] [--max=INT] [--process]
+                  [--threads=INT] [--output=FILE] [--max=INT] [--normalize]
                   [--indices=INT-INT] [--despeckle] <contact_map>
 
     argument:
@@ -635,16 +635,18 @@ class Scalogram(AbstractCommand):
                                            the plot. [default: viridis]
         -d, --despeckle                    Remove speckles (artifactual spots)
                                            from the matrix.
-        -i, --indices=INT-INT              The bins of the matrix to use for
-                                           the plot (e.g. coordinates of a
-                                           single chromosome).
+        -f, --frags=FILE                   Fragments_list.txt file providing mapping
+                                           between genomic coordinates and bin IDs.
+        -i, --indices=INT-INT              The range of bin numbers of the matrix to 
+                                           use for the plot. Can also be given in 
+                                           UCSC style genomic coordinates (requires -f).
+                                           E.g. chr1:1Mb-10Mb.
         -m, --max=INT                      Saturation threshold in percentile
                                            of pixel values. [default: 99]
         -o, --output=FILE                  Output file where the plot should be
                                            saved. Plot is only displayed by
                                            default.
-        -p, --process                      Process the matrix first (trim,
-                                           normalize)
+        -n, --normalize                    Normalize the matrix first.
         -r, --range=INT-INT                The range of contact distance to look
                                            at. No limit by default. Values in
                                            basepairs by default but a unit can
@@ -654,43 +656,63 @@ class Scalogram(AbstractCommand):
     """
 
     def execute(self):
-        try:
-            if self.args["--range"]:
-                lower, upper = self.args["--range"].split("-")
-                try:
-                    lower, upper = int(lower), int(upper)
-                except ValueError:
-                    lower, upper = parse_bin_str(lower), parse_bin_str(upper)
-            if self.args["--indices"]:
-                start, end = self.args["--indices"].split("-")
+        frags = self.args['--frags']
+        if frags is not None:
+            # If fragments_list.txt is provided, load chrom start and end columns
+            frags = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2, 3))
+        if self.args["--range"]:
+            shortest, longest = self.args["--range"].split("-")
+            # If range given in number of bins
+            try:
+                shortest, longest = int(shortest), int(longest)
+            # If range given in genomic scale
+            except ValueError:
+                shortest, longest = parse_bin_str(shortest), parse_bin_str(longest)
+                # Use average bin size to convert genomic scale to number of bins
+                avg_res = (frags.end_pos - frags.start_pos).mean()
+                shortest, longest = int(shortest // avg_res), int(longest // avg_res)
+
+        if self.args["--indices"]:
+            start, end = self.args["--indices"].split("-")
+            # If given in bin numbers
+            try:
                 start = int(start)
                 end = int(end)
-        except ValueError:
-            raise ValueError(
-                "Range and indices must be provided using two integers "
-                "separated by '-'.E.g: 1-100."
-            )
+            # If given in genomic coordinates
+            except ValueError:
+                start, end = parse_ucsc(self.args['--indices'], frags.loc[:, ['chrom', 'start_pos']])
+
         input_map = self.args["<contact_map>"]
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
         S = hio.load_sparse_matrix(input_map)
-        good_bins = np.array(range(S.shape[0]))
+        #good_bins = np.array(range(S.shape[0]))
         S = csr_matrix(S)
         if not self.args["--range"]:
-            lower = 0
-            upper = S.shape[0]
+            shortest = 0
+            longest = S.shape[0]
 
-        if self.args["--process"]:
-            good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
+        if self.args["--normalize"]:
+            #good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
             S = hcs.normalize_sparse(S, norm="SCN")
+            S = S.tocsr()
         if self.args["--despeckle"]:
             S = hcs.despeckle_simple(S, threads=int(self.args["--threads"]))
 
+        # Cropping matrix before transforming to dense to reduce memory overhead
+        # Note we leave a margin equal to longest range so that all windows can be computed
         if self.args["--indices"]:
-            S = S[start:end, start:end]
+            crop_inf, crop_sup = max(0, start - longest), min(S.shape[0], end + longest)
+            crop_later = longest
+            S = S[crop_inf:crop_sup, crop_inf:crop_sup]
+        else:
+            crop_later = 0
+
         D = hcv.sparse_to_dense(S)
         D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
-        plt.contourf(D[:, lower:upper], cmap=self.args["--cmap"])
+        # Crop the margin left previously to get actual indices on dimenstion 0
+        # and focus scale to --range on dimension 1
+        plt.contourf(D[crop_later:D.shape[1] - crop_later, shortest:longest], cmap=self.args["--cmap"])
         if output_file:
             plt.savefig(output_file)
         else:
