@@ -341,7 +341,7 @@ class View(AbstractCommand):
         # if self.args["--log"]:
         #   binned_map = binned_map.log1p()
 
-        self.vmax = np.percentile(binned_map.data, self.vmax)
+        self.vmax = np.percentile(binned_map.data, self.perc_vmax)
         # ZOOM REGION
         if self.args["--region"]:
             if not self.args["--frags"]:
@@ -406,7 +406,7 @@ class View(AbstractCommand):
 
         input_map = self.args["<contact_map>"]
         cmap = self.args["--cmap"]
-        self.vmax = float(self.args["--max"])
+        self.perc_vmax = float(self.args["--max"])
         self.bp_unit = False
         bin_str = self.args["--binning"].upper()
         self.symmetric = True

@@ -31,7 +31,7 @@ name = "hicstuff"
 
 MAJOR = 1
 MINOR = 2
-MAINTENANCE = 24
+MAINTENANCE = 25
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MAINTENANCE)
 
 LICENSE = "GPLv3"
