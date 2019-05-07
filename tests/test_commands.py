@@ -73,7 +73,7 @@ def test_filter():
 
 
 def test_scalogram():
-    args = "-C viridis -p -t 4 -o {0}/scalo.png {1}".format(OUT, MAT)
+    args = "-C viridis -n -t 1 -o {0}/scalo.png {1}".format(OUT, MAT)
     proc = hcmd.Scalogram(args.split(" "), {})
     proc.execute()
 
