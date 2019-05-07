@@ -270,16 +270,8 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
             "frag1",
             "frag2",
         ]
-        paircols2 = [
-            "chr1",
-            "pos1",
-            "chr2",
-            "pos2",
-            "strand1",
-            "strand2",
-            "frag1",
-            "frag2",
-        ]
+        # Columns used for comparison of coordinates
+        coord_cols = [col for col in paircols if col != "readID"]
         pair_reader = csv.DictReader(pairs, delimiter="\t", fieldnames=paircols)
         filt_writer = csv.DictWriter(filtered, delimiter="\t", fieldnames=paircols)
 
@@ -288,7 +280,7 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
         for pair in pair_reader:
             reads_count += 1
             # If coordinates are the same as before, skip pair
-            if all(pair[pair_var] == prev[pair_var] for pair_var in paircols2):
+            if all(pair[pair_var] == prev[pair_var] for pair_var in coord_cols):
                 filter_count += 1
                 continue
             # Else write pair and store new coordinates as previous
@@ -299,6 +291,7 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
             "%d%% PCR duplicates have been filtered out (%d / %d pairs) "
             % (100 * round(filter_count / reads_count, 3), filter_count, reads_count)
         )
+
 
 def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
     """Generate the matrix by counting the number of occurences of each
