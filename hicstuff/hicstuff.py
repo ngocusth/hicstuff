@@ -31,7 +31,6 @@ from scipy.linalg import eig
 import scipy.sparse as sparse
 import copy
 import random
-import multiprocessing as mp
 import pandas as pd
 import sys
 from hicstuff.log import logger
@@ -127,28 +126,14 @@ def despeckle_simple(B, th2=2, threads=1):
     stds = np.zeros(n1)
     # Faster structure for editing values
     A = lil_matrix(A)
-
-    # only global functions can be used with Pool.map
-    global _diagstats
-
-    def _diagstats(u):
-        """Computes median and standard deviation for each diagonal"""
+    for u in range(n1):
         diag = B.diagonal(u)
         medians[u] = np.median(diag)
-        stds[u] = np.median(diag)
-
-    global _speck2med
-
-    def _speck2med(nw):
-        """Sets outlier values back to the median of their diagonal"""
+        stds[u] = np.std(diag)
+    for nw in range(n1):
         diag = A.diagonal(nw)
         diag[diag > medians[nw] + th2 * stds[nw]] = medians[nw]
         A.setdiag(diag, nw)
-
-    pool = mp.Pool(threads, maxtasksperchild=10)
-    pool.map(_diagstats, range(n1))
-    pool.map(_speck2med, range(n1))
-    pool.close()
 
     return csr_matrix(A)
 
