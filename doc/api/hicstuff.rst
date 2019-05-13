@@ -20,10 +20,10 @@ hicstuff.digest module
     :undoc-members:
     :show-inheritance:
 
-hicstuff.distancelaw module
+hicstuff.distance_law module
 ----------------------
 
-.. automodule:: hicstuff.distancelaw
+.. automodule:: hicstuff.distance_law
     :members:
     :undoc-members:
     :show-inheritance:
