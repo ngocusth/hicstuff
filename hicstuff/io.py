@@ -59,13 +59,14 @@ def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
          [0. 0. 5. 0.]
          [0. 6. 0. 0.]]
     """
-    if shape is None:
-        n = int(np.amax(sparse_array[:, :-1]) + 1)
-        shape = (n, n)
 
     row = sparse_array[:, 0]
     col = sparse_array[:, 1]
     data = sparse_array[:, 2]
+
+    n = int(max(np.amax(row), np.amax(col))) + 1
+    shape = (n, n)
+
     S = coo_matrix((data, (row, col)), shape=shape, dtype=dtype)
     return S
 
