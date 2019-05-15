@@ -63,9 +63,9 @@ def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
     row = sparse_array[:, 0]
     col = sparse_array[:, 1]
     data = sparse_array[:, 2]
-
-    n = int(max(np.amax(row), np.amax(col))) + 1
-    shape = (n, n)
+    if shape is None:
+        n = int(max(np.amax(row), np.amax(col))) + 1
+        shape = (n, n)
 
     S = coo_matrix((data, (row, col)), shape=shape, dtype=dtype)
     return S
@@ -107,15 +107,18 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     """
     try:
         raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
+        shape = (int(raw_mat[0, 0]), int(raw_mat[0, 1]))
     except ValueError:
         raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype, skiprows=1)
+        shape = None
 
     # Get values into an array without the header. Use the header to give size.
     sparse_mat = raw_cols_to_sparse(
         raw_mat[1:, :],
-        shape=(int(raw_mat[0, 0]), int(raw_mat[0, 1])),
+        shape=shape,
         dtype=dtype,
     )
+
     if binning == "auto":
         num_bins = max(sparse_mat.shape) + 1
         subsampling_factor = num_bins // DEFAULT_MAX_MATRIX_SHAPE
