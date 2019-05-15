@@ -188,6 +188,7 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
         # Idx of each chrom's frags will be shifted by n frags in previous chroms
         shift_frags[chrom] = prev_frags
 
+    missing_contigs = set()
     # Attribute pairs to fragments and append them to output file (after header)
     with open(pairs_file, "r") as pairs, open(idx_pairs_file, "a") as idx_pairs:
         # Skip header lines
@@ -213,12 +214,25 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
             )
             # Shift fragment indices to make them genome-based instead of
             # chromosome-based
-
-            pair["frag1"] += shift_frags[pair["chr1"]]
-            pair["frag2"] += shift_frags[pair["chr2"]]
+            try:
+                pair["frag1"] += shift_frags[pair["chr1"]]
+            except KeyError:
+                missing_contigs.add(pair["chr1"])
+            try:
+                pair["frag2"] += shift_frags[pair["chr2"]]
+            except KeyError:
+                missing_contigs.add(pair["chr2"])
 
             # Write indexed pairs in the new file
             pairs_writer.writerow(pair)
+
+        if missing_contigs:
+            logger.warning(
+                "Pairs on the following contigs were discarded as "
+                "those contigs are not listed in the paris file header. "
+                "This is normal if you filtered out small contigs: %s"
+                % " ".join(list(missing_contigs))
+            )
 
 
 def get_restriction_table(seq, enzyme, circular=False):
