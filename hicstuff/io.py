@@ -12,9 +12,11 @@ import numpy as np
 import pandas as pd
 import collections
 import subprocess as sp
+import re
 from os.path import join, exists
 from random import getrandbits
 from scipy.sparse import coo_matrix
+from Bio import SeqIO
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
 
@@ -839,3 +841,69 @@ def get_pairs_header(pairs):
             line = pairs.readline()
 
     return header
+
+
+def reorder_fasta(genome, output=None, threshold=100000):
+    """Reorder and trim a fasta file
+
+    Sort a fasta file by record lengths, optionally trimming the smallest ones.
+
+
+    Parameters
+    ----------
+    genome : str, file or pathlib.Path
+        The genome scaffold file (or file handle)
+    output : str, file or pathlib.Path
+        The output file to write to
+    threshold : int, optional
+        The size below which scaffolds are discarded, by default 100000
+    """
+
+    if output is None:
+        output = "{}_renamed.fa".format(genome.split(".")[0])
+
+    handle = SeqIO.parse(genome, "fasta")
+    handle_to_write = sorted(
+        (len(u) for u in handle if len(u) > threshold), reverse=True
+    )
+    SeqIO.write(handle_to_write, output, "fasta")
+
+
+def rename_genome(genome, output=None, ambiguous=True):
+    """Rename genome and slugify headers
+
+    Rename genomes according to a simple naming scheme; this
+    is mainly done to avoid special character weirdness.
+
+    Parameters
+    ----------
+    genome : file, str or pathlib.Path
+        The input genome to be renamed and slugify.
+    output : file, str or pathlib.Path
+        The output genome to be written into. Default is <base>_renamed.fa,
+        where <base> is genome_in without its extension.
+    ambiguous : bool
+        Whether to retain ambiguous non-N bases, otherwise rename them to Ns.
+        Default is True.
+    """
+
+    if output is None:
+        output = "{}_renamed.fa".format(genome.split(".")[0])
+
+    with open(output, "w") as output_handle:
+        for record in SeqIO.parse(genome, "fasta"):
+
+            # Replace hyphens, tabs and whitespace with underscores
+            new_record_id = record.id.replace(" ", "_")
+            new_record_id = new_record_id.replace("-", "_")
+            new_record_id = new_record_id.replace("\t", "_")
+
+            # Remove anything that's weird, i.e. not alphanumeric
+            # or an underscore
+            new_record_id = re.sub("[^_A-Za-z0-9]+", "", new_record_id)
+            header = ">{}\n".format(new_record_id)
+
+            new_seq = re.sub("[^ATGCatgcNn]", "N", str(record.seq))
+
+            output_handle.write(header)
+            output_handle.write("{}\n".format(new_seq))
