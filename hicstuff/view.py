@@ -108,7 +108,7 @@ def normalize(M, norm="SCN"):
         return M
 
 
-def scaffold_distribution(genome, threshold=1000000, plot=True):
+def scaffold_distribution(genome, threshold=100, plot=True):
     """Visualize scaffold size distribution
 
     Compute (and optionally display) scaffold size distribution for
