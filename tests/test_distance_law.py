@@ -27,7 +27,7 @@ def hash_file(filename):
 
 def test_import_distance_law():
     """Test importing distance law table files"""
-    xs = hcdl.logbins_xs(fragments, [0, 409], [60000, 20000])
+    xs = hcdl.logbins_xs(fragments, [60000, 20000])
     assert np.all(np.isclose(test_xs[0], xs[0], rtol=0.0001))
     assert np.all(np.isclose(test_xs[1], xs[1], rtol=0.0001))
     assert len(test_ps) == 2 and len(labels) == 2 and len(test_xs) == len(test_ps)
@@ -43,33 +43,38 @@ def test_get_chr_segment_bins_index():
     arm/chromosome."""
     # Test with centromeres positions.
     chr_segment_bins = hcdl.get_chr_segment_bins_index(fragments, centro_file)
-    assert chr_segment_bins == [0, 129, 409, 474]
+    assert chr_segment_bins == [0, 129, 129, 409, 409, 474, 474, 564]
     # Test without centromeres positions.
     chr_segment_bins = hcdl.get_chr_segment_bins_index(fragments)
-    assert chr_segment_bins == [0, 409]
+    assert chr_segment_bins == [0, 409, 409, 564]
+    # Test with centromeres positions and remove the centromeres.
+    chr_segment_bins = hcdl.get_chr_segment_bins_index(fragments, centro_file, 1000)
+    assert chr_segment_bins == [0, 121, 134, 409, 409, 463, 480, 564]
 
 
 def test_get_chr_segment_length():
     """Test getting the length of the arms/chromosomes."""
-    chr_length = hcdl.get_chr_segment_length(fragments, [0, 129, 409, 474])
+    chr_length = hcdl.get_chr_segment_length(
+        fragments, [0, 129, 129, 409, 409, 474, 474, 564]
+    )
     assert chr_length == [19823, 40177, 9914, 10086]
 
 
 def test_logbins_xs():
     """Test of the function making the logbins."""
     # Test with default values.
-    xs = hcdl.logbins_xs(fragments, [0, 409], [60000, 20000])
+    xs = hcdl.logbins_xs(fragments, [60000, 20000])
     assert len(xs) == 2
     assert np.all(
         xs[0] == np.unique(np.logspace(0, 115, num=116, base=1.1, dtype=np.int))
     )
     # Test changing base.
-    xs = hcdl.logbins_xs(fragments, [0, 409], [60000, 20000], base=1.5)
+    xs = hcdl.logbins_xs(fragments, [60000, 20000], base=1.5)
     assert np.all(
         xs[0] == np.unique(np.logspace(0, 27, num=28, base=1.5, dtype=np.int))
     )
     # Test with the circular option.
-    xs = hcdl.logbins_xs(fragments, [0, 409], [60000, 20000], circular=True)
+    xs = hcdl.logbins_xs(fragments, [60000, 20000], circular=True)
     assert np.all(
         xs[0] == np.unique(np.logspace(0, 108, num=109, base=1.1, dtype=np.int))
     )
@@ -78,10 +83,10 @@ def test_logbins_xs():
 def test_get_names():
     """Test getting names from a fragment file function."""
     # Test with the centromers option
-    names = hcdl.get_names(fragments, [0, 200, 409, 522])
+    names = hcdl.get_names(fragments, [0, 200, 200, 409, 409, 522, 522, 564])
     assert names == ["seq1_left", "seq1_rigth", "seq2_left", "seq2_rigth"]
     # Test without the centromers option
-    names = hcdl.get_names(fragments, [0, 409])
+    names = hcdl.get_names(fragments, [0, 409, 409, 564])
     assert names == ["seq1", "seq2"]
 
 

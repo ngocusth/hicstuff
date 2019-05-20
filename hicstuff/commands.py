@@ -958,18 +958,18 @@ class Distancelaw(AbstractCommand):
     slope of the curve and plot it.
     
     usage:
-        distancelaw [--average] [--big-arm-only] [--base=FLOAT] [--centromeres=FILE] 
+        distancelaw [--average] [--big-arm-only=INT] [--base=FLOAT] [--centromeres=FILE] 
                     [--circular] [--frags=FILE] [--inf=INT] [--outputfile-img=IMG] 
                     [--outputfile-tabl=TABLE] [--labels=DIR] [--sup=INT] 
-                    (--pairs=FILE | --dist-tbl=FILE1[,FILE2,...])
+                    [--remove-centromeres=INT] (--pairs=FILE | --dist-tbl=FILE1[,FILE2,...])
     
     options:
         -a, --average                       If set, calculate the average of the distance 
                                             law of the different chromosomes/arms in each
                                             condition. If two file given average is
                                             mandatory.
-        -b, --big-arm-only                  If set will take only the arms bigger than sup.
-                                            You have to give a value for sup is set.
+        -b, --big-arm-only=INT              Integer. It given will take only the arms bigger
+                                            than the value given as argument.
         -B, --base=FLOAT                    Float corresponding of the base of the log to 
                                             make the logspace which will slice the genomes in
                                             logbins. These slices will be in basepairs unit.
@@ -1001,6 +1001,9 @@ class Distancelaw(AbstractCommand):
                                             reads 1 and 2. Only add if no distance_law table
                                             given. It will compute the table from these pairs
                                             and the fragments from the fragments file.
+        -r, --remove-centromeres=INT        Integer. Number of kb that will be remove around 
+                                            the centromere position given by in the centromere
+                                            file. Default is zero. 
         -s, --sup=INT                       Superior born to plot the distance law. By 
                                             default the value is the maximum length of all
                                             the dataset given. Also if big arm only set, it
@@ -1014,15 +1017,10 @@ class Distancelaw(AbstractCommand):
             output_file_img = self.args["--outputfile-img"]
         else:
             output_file_img = None
-        # Add the option big army only.
-        if self.args["--big-arm-only"]:
-            big_arm_only = True
-        else:
-            big_arm_only = False
         # Compute the table of distance law if pairs given
         if self.args["--pairs"]:
             # Sanity check : frags mandatory if pairs given.
-            if not self.args["--fragments"] or self.args["--dist-tbl"]:
+            if not self.args["--frags"] or self.args["--dist-tbl"]:
                 logger.error(
                     "You have to give fragments and/or not give table of the disatnce law if pairs file given."
                 )
@@ -1034,11 +1032,16 @@ class Distancelaw(AbstractCommand):
                 output_file_tabl = self.args["--outputfile-tabl"]
             else:
                 output_file_tabl = None
-            # Check if centromeres file given
+            # Check if centromeres file given and if the centromeres have to be remove
             if self.args["--centromeres"]:
                 centromeres = self.args["--centromeres"]
+                if self.args["--remove-centromeres"]:
+                    rm_centro = self.args["--remove-centromeres"]
+                else:
+                    rm_centro = 0
             else:
                 centromeres = None
+                rm_centro = 0
             # Check if circular condition given
             if self.args["--circular"]:
                 circular = self.args["--circular"]
@@ -1057,6 +1060,7 @@ class Distancelaw(AbstractCommand):
                 base=base,
                 out_file=output_file_tabl,
                 circular=circular,
+                rm_centro=rm_centro
             )
             length_files = 1
         else:
@@ -1080,6 +1084,13 @@ class Distancelaw(AbstractCommand):
             sup = int(self.args["--sup"])
         else:
             sup = max(max(xs[0], key=len))
+        # Add the option big army only.
+        if self.args["--big-arm-only"]:
+            big_arm_only =True
+            arm_sup = self.args["--big-arm-only"]
+        else:
+            big_arm_only = False
+            arm_sup = sup
         # Sanity check : Average mandatory if more than one file.
         if not self.args["--average"] and length_files > 1:
             logger.error("You have to average if more than one file.")
@@ -1089,7 +1100,7 @@ class Distancelaw(AbstractCommand):
             # Make the average if enabled
             if self.args["--average"]:
                 xs[i], ps[i] = hcdl.average_distance_law(
-                    xs[i], ps[i], sup, big_arm_only
+                    xs[i], ps[i], arm_sup, big_arm_only
                 )
                 # If not average, we should to remove one level of list to have the good dimension.
         if not self.args["--average"]:
@@ -1105,8 +1116,8 @@ class Distancelaw(AbstractCommand):
         else:
             if length_files == 1 and not self.args["--average"]:
                 labels = []
-                for i in range(len(names)):
-                    labels.append(names[i][0])
+                for chr_names in names:
+                    labels.append(list(chr_names)[0])
             else:
                 labels = []
                 for i in range(length_files):

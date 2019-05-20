@@ -15,20 +15,20 @@ from hicstuff.log import logger
 
 
 def export_distance_law(xs, ps, names, out_dir=None):
-    """ Export the xs and ps from two list of numpy.ndarrays to a table in txt 
-    file with three coulumns separated by a tabulation. The first column
-    contains the xs, the second the ps and the third the name of the arm or 
+    """ Export the x(s) and p(s) from two list of numpy.ndarrays to a table in txt 
+    file with three columns separated by a tabulation. The first column
+    contains the x(s), the second the p(s) and the third the name of the arm or 
     chromosome. The file is createin the directory given by outdir or the 
     current directory if no directory given.
     
     Parameters
     ----------
     xs : list of numpy.ndarray
-        The list of the logbins of each ps.
+        The list of the start position of logbins of each p(s) in base pairs.
     ps : list of numpy.ndarray
-        The list of ps.
+        The list of p(s).
     names : list of string
-        List containing the names of the chromosomes/arms/conditions of the ps
+        List containing the names of the chromosomes/arms/conditions of the p(s)
         values given.
     out_dir : str or None
         Path where output files should be written. Current directory by 
@@ -38,7 +38,7 @@ def export_distance_law(xs, ps, names, out_dir=None):
     ------
     txt file:
          File with three coulumns separated by a tabulation. The first column
-         contains the xs, the second the ps and the third the name of the arm  
+         contains the x(s), the second the p(s) and the third the name of the arm  
          or chromosome. The file is createin the directory given by outdir or 
          the current directory if no directory given. 
     """
@@ -47,7 +47,7 @@ def export_distance_law(xs, ps, names, out_dir=None):
         out_dir = os.getcwd()
     # Sanity check: as many chromosomes/arms as ps
     if len(xs) != len(names):
-        logger.error("Number of chromosomes/arms and number of ps differ.")
+        logger.error("Number of chromosomes/arms and number of p(s) list differ.")
         sys.exit(1)
     # Create the file and write it
     f = open(out_dir, "w")
@@ -59,17 +59,17 @@ def export_distance_law(xs, ps, names, out_dir=None):
 
 
 def import_distance_law(distance_law_file):
-    """ Import the table create by export_distance_law and return the list of 
-    xs and ps in the order of the chromosomes.
+    """ Import the table created by export_distance_law and return the list of 
+    x(s) and p(s) in the order of the chromosomes.
     
     Parameters
     ----------
     distance_law_file : string
-        Path to the file containing three columns : the xs, the ps, and the 
+        Path to the file containing three columns : the x(s), the p(s), and the 
         chromosome/arm name.
     
-    Return
-    ------
+    Returns
+    -------
     list of numpy.ndarray :
         The start coordinate of each bin one array per chromosome or arm.
     list of numpy.ndarray :
@@ -80,7 +80,8 @@ def import_distance_law(distance_law_file):
         list.
     """
     file = pd.read_csv(distance_law_file, sep="\t", header=None)
-    names = np.unique(file.iloc[:, 2])
+    names_idx = np.unique(file.iloc[:, 2], return_index=True)[1]
+    names = [file.iloc[:, 2][index] for index in sorted(names_idx)]
     xs = [None] * len(names)
     ps = [None] * len(names)
     labels = [None] * len(names)
@@ -92,10 +93,10 @@ def import_distance_law(distance_law_file):
     return xs, ps, labels
 
 
-def get_chr_segment_bins_index(fragments, centro_file=None):
-    """Get the index positions of the bins of different chromosomes, or arms if
-    the centromers position have been given from the fragments file made by 
-    hicstuff.
+def get_chr_segment_bins_index(fragments, centro_file=None, rm_centro=0):
+    """Get the index positions of the start and end bins of different 
+    chromosomes, or arms if the centromers position have been given from the
+    fragments file made by hicstuff.
     
     Parameters
     ----------
@@ -108,38 +109,62 @@ def get_chr_segment_bins_index(fragments, centro_file=None):
         None or path to a file with the genomic positions of the centromers 
         sorted as the chromosomes separated by a space. The file have only one 
         line.
+    rm_centro : int
+        If a value is given, will remove the contacts close the centromeres.
+        It will remove as many kb as the argument given. Default is zero.
         
     Returns
     -------
     list of floats :
-        The start indices of chromosomes/arms to compute the distance law on 
-        each chromosome/arm separately.
+        The start and end indices of chromosomes/arms to compute the distance
+        law on each chromosome/arm separately.
     """
     # Get bins where chromosomes start
-    chr_segment_bins = np.where(fragments == 0)[0]
+    chr_start_bins = np.where(fragments == 0)[0]
+    # Create a list of same length for the end of the bins
+    chr_end_bins = np.zeros(len(chr_start_bins))
+    # Get bins where chromsomes end
+    for i in range(len(chr_start_bins) - 1):
+        chr_end_bins[i] = chr_start_bins[i + 1]
+    chr_end_bins[-1] = len(fragments.iloc[:, 0])
+    # Combine start and end of bins in a single array. Values are the id of the
+    # bins
+    chr_segment_bins = np.sort(np.concatenate((chr_start_bins, chr_end_bins)))
     if centro_file is not None:
         # Read the file of the centromers
         with open(centro_file, "r", newline="") as centro:
             centro = csv.reader(centro, delimiter=" ")
             centro_pos = next(centro)
         # Sanity check: as many chroms as centromeres
-        if len(chr_segment_bins) != len(centro_pos):
-            logger.error("Number of chromosomes and centromeres differ.")
-            sys.exit(1)
-        # Get bins of centromeres
-        centro_bins = np.zeros(len(centro_pos))
-        for i in range(len(chr_segment_bins)):
-            if (i + 1) < len(chr_segment_bins):
-                subfrags = fragments[chr_segment_bins[i] : chr_segment_bins[i + 1]]
-            else:
-                subfrags = fragments[chr_segment_bins[i] :]
-            # index of last fragment starting before centro in same chrom
-            centro_bins[i] = chr_segment_bins[i] + max(
-                np.where((subfrags["start_pos"][:] // int(centro_pos[i])) == 0)[0]
+        if len(chr_start_bins) != len(centro_pos):
+            logger.warning(
+                "Number of chromosomes and centromeres differ, centromeres position are not taking into account."
             )
-        # Combine centro and chrom bins into a single array. Values are start
-        # bins of arms
-        chr_segment_bins = np.sort(np.concatenate((chr_segment_bins, centro_bins)))
+            centro_file = None
+    if centro_file is not None:
+        # Get bins of centromeres
+        centro_bins = np.zeros(2 * len(centro_pos))
+        for i in range(len(chr_start_bins)):
+            if (i + 1) < len(chr_start_bins):
+                subfrags = fragments[chr_start_bins[i] : chr_start_bins[i + 1]]
+            else:
+                subfrags = fragments[chr_start_bins[i] :]
+            # index of last fragment starting before centro in same chrom
+            centro_bins[2 * i] = chr_start_bins[i] + max(
+                np.where(
+                    subfrags["start_pos"][:] // (int(centro_pos[i]) - rm_centro) == 0
+                )[0]
+            )
+            centro_bins[2 * i + 1] = chr_start_bins[i] + max(
+                np.where(
+                    subfrags["start_pos"][:] // (int(centro_pos[i]) + rm_centro) == 0
+                )[0]
+            )
+        # Combine centro and chrom bins into a single array. Values are the id
+        # of the bins started and ending the arms.
+        chr_segment_bins = np.sort(
+            np.concatenate((chr_start_bins, chr_end_bins, centro_bins))
+        )
     return list(chr_segment_bins)
 
 
@@ -155,44 +180,33 @@ def get_chr_segment_length(fragments, chr_segment_bins):
         position and the end position of the fragment. The file have no header.
         (File like the 'fragments_list.txt' from hicstuff)
     chr_segment_bins : list of floats
-        The start position of chromosomes/arms to compute the distance law on 
-        each chromosome/arm separately.
+        The start and end indices of chromosomes/arms to compute the distance
+        law on each chromosome/arm separately.
         
     Returns
     -------
     list of numpy.ndarray:
         The length in base pairs of each chromosome or arm.
     """
-    chr_segment_length = [None] * len(chr_segment_bins)
+    chr_segment_length = [None] * int(len(chr_segment_bins) / 2)
     # Iterate in chr_segment_bins in order to obtain the size of each chromosome/arm
-    for i in range(len(chr_segment_bins) - 1):
+    for i in range(len(chr_segment_length)):
         # Obtain the size of the chromosome/arm, the if loop is to avoid the
         # case of arms where the end position of the last fragments doesn't
-        # mean th size of arm. If it's the right we have to remove the size of
-        # the left arm.
-        if fragments["start_pos"].iloc[int(chr_segment_bins[i])] == 0:
-            n = fragments["end_pos"].iloc[int(chr_segment_bins[i + 1]) - 1]
+        # mean the size of arm. If it's the right arm we have to start to count the
+        # size from the beginning of the arm.
+        if fragments["start_pos"].iloc[int(chr_segment_bins[2 * i])] == 0:
+            n = fragments["end_pos"].iloc[int(chr_segment_bins[2 * i + 1]) - 1]
         else:
             n = (
-                fragments["end_pos"].iloc[int(chr_segment_bins[i + 1]) - 1]
-                - fragments["end_pos"].iloc[int(chr_segment_bins[i]) - 1]
+                fragments["end_pos"].iloc[int(chr_segment_bins[2 * i + 1]) - 1]
+                - fragments["start_pos"].iloc[int(chr_segment_bins[2 * i])]
             )
         chr_segment_length[i] = n
-    # Case of the last xs where we take the last end position
-    if fragments["start_pos"][int(chr_segment_bins[-1])] == 0:
-        n = fragments["end_pos"].iloc[-1]
-    else:
-        n = (
-            fragments["end_pos"].iloc[-1]
-            - fragments["end_pos"].iloc[int(chr_segment_bins[-1]) - 1]
-        )
-    chr_segment_length[-1] = n
     return chr_segment_length
 
 
-def logbins_xs(
-    fragments, chr_segment_bins, chr_segment_length, base=1.1, circular=False
-):
+def logbins_xs(fragments, chr_segment_length, base=1.1, circular=False):
     """Compute the logbins of each chromosome/arm in order to have theme to
     compute distance law. At the end you will have bins of increasing with a 
     logspace with the base of the value given in base.
@@ -204,9 +218,6 @@ def logbins_xs(
         second the names of the chromosome in the third and fourth the start 
         position and the end position of the fragment. The file have no header.
         (File like the 'fragments_list.txt' from hicstuff)
-    chr_segment_bins : list of floats
-        The start position of chromosomes/arms to compute the distance law on 
-        each chromosome/arm separately.
     chr_segment_length: list of floats
         List of the size in base pairs of the different arms or chromosomes.
     base : float
@@ -221,7 +232,7 @@ def logbins_xs(
         The start coordinate of each bin one array per chromosome or arm.
     """
     # Create the xs array and a list of the length of the chromosomes/arms
-    xs = [None] * len(chr_segment_bins)
+    xs = [None] * len(chr_segment_length)
     # Iterate in chr_segment_bins in order to make the logspace
     for i in range(len(chr_segment_length)):
         n = chr_segment_length[i]
@@ -245,8 +256,8 @@ def circular_distance_law(distance, chr_segment_length, chr_bin):
     Parameters
     ----------
     chr_segment_bins : list of floats
-        The start position of chromosomes/arms to compute the distance law on 
-        each chromosome/arm separately.
+        The start and end indices of chromosomes/arms to compute the distance
+        law on each chromosome/arm separately.
     chr_segment_length: list of floats
         List of the size in base pairs of the different arms or chromosomes.
     distance : int
@@ -292,8 +303,8 @@ def get_pairs_distance(
         position and the end position of the fragment. The file have no header.
         (File like the 'fragments_list.txt' from hicstuff)
     chr_segment_bins : list of floats
-        The start position of chromosomes/arms to compute the distance law on 
-        each chromosome/arm separately.
+        The start and end indices of chromosomes/arms to compute the distance
+        law on each chromosome/arm separately.
     chr_segment_length: list of floats
         List of the size in base pairs of the different arms or chromosomes.
     xs : list of lists
@@ -321,24 +332,29 @@ def get_pairs_distance(
         # We only keep the reads with the two fragments in the same chromosome
         # or arm.
         if chr_bin1 == chr_bin2:
-            # For the reads -/-, the fragments should be religated with both
-            # their start position (position in the left on the genomic
-            # sequence, 5'). For the reads +/+ it's the contrary. We compute
-            # the distance as the distance between the two extremities which
-            # are religated.
-            if line["strand1"] == "-":
-                distance = abs(
-                    np.array(fragments["start_pos"][int(line["frag1"])])
-                    - np.array(fragments["start_pos"][int(line["frag2"])])
-                )
-            if line["strand1"] == "+":
-                distance = abs(
-                    np.array(fragments["end_pos"][int(line["frag1"])])
-                    - np.array(fragments["end_pos"][int(line["frag2"])])
-                )
-            if circular:
-                distance = circular_distance_law(distance, chr_segment_length, chr_bin1)
-            xs_temp = xs[chr_bin1][:]
+            # Remove the contacts in the centromeres if centro_remove
+            if chr_bin1 % 2 == 0:
+                chr_bin1 = int(chr_bin1 / 2)
+                # For the reads -/-, the fragments should be religated with both
+                # their start position (position in the left on the genomic
+                # sequence, 5'). For the reads +/+ it's the contrary. We compute
+                # the distance as the distance between the two extremities which
+                # are religated.
+                if line["strand1"] == "-":
+                    distance = abs(
+                        np.array(fragments["start_pos"][int(line["frag1"])])
+                        - np.array(fragments["start_pos"][int(line["frag2"])])
+                    )
+                if line["strand1"] == "+":
+                    distance = abs(
+                        np.array(fragments["end_pos"][int(line["frag1"])])
+                        - np.array(fragments["end_pos"][int(line["frag2"])])
+                    )
+                if circular:
+                    distance = circular_distance_law(
+                        distance, chr_segment_length, chr_bin1
+                    )
+                xs_temp = xs[chr_bin1][:]
             # Find the logbins in which the distance is and add one to the sum
             # of contact.
             ps_indice = np.searchsorted(xs_temp, distance, side="right") - 1
@@ -366,17 +382,16 @@ def get_names(fragments, chr_segment_bins):
         or chromosomes.
     """
     # Get the name of the chromosomes.
-    chr_names = np.unique(fragments["chrom"])
+    chr_names_idx = np.unique(fragments.iloc[:, 1], return_index=True)[1]
+    chr_names = [fragments.iloc[:, 1][index] for index in sorted(chr_names_idx)]
     # Case where they are separate in chromosomes
-    if len(chr_segment_bins) == len(chr_names):
-        names = list(chr_names)
-    # Case where they are separate in arms
-    else:
+    if len(chr_segment_bins) / 2 != len(chr_names):
         names = []
         for chr in chr_names:
-            names.append(chr + "_left")
-            names.append(chr + "_rigth")
-    return names
+            names.append(str(chr) + "_left")
+            names.append(str(chr) + "_rigth")
+        chr_names = names
+    return chr_names
 
 
 def get_distance_law(
@@ -386,6 +401,7 @@ def get_distance_law(
     base=1.1,
     out_file=None,
     circular=False,
+    rm_centro=0,
 ):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance. Works on pairs file 
@@ -419,6 +435,9 @@ def get_distance_law(
     circular : bool
         If True, calculate the distance as the chromosome is circular. Default 
         value is False. Cannot be True if centro_file is not None
+    rm_centro : int
+        If a value is given, will remove the contacts close the centromeres.
+        It will remove as many kb as the argument given. Default is None.
 
     Returns
     -------
@@ -436,13 +455,13 @@ def get_distance_law(
     # Import third columns of fragments file
     fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
     # Calculate the indice of the bins to separate into chromosomes/arms
-    chr_segment_bins = get_chr_segment_bins_index(fragments, centro_file)
+    chr_segment_bins = get_chr_segment_bins_index(fragments, centro_file, rm_centro)
     # Calculate the length of each chromosoms/arms
     chr_segment_length = get_chr_segment_length(fragments, chr_segment_bins)
-    xs = logbins_xs(fragments, chr_segment_bins, chr_segment_length, base, circular)
+    xs = logbins_xs(fragments, chr_segment_length, base, circular)
     # Create the list of p(s) with one array for each chromosome/arm and each
     # array contain as many values as in the logbin
-    ps = [None] * len(chr_segment_bins)
+    ps = [None] * len(chr_segment_length)
     for i in range(len(xs)):
         ps[i] = [0] * len(xs[i])
     # Read the pair reads file
@@ -520,7 +539,7 @@ def normalize_distance_law(xs, ps):
     if np.shape(xs) != np.shape(ps):
         logger.error("xs and ps should have the same dimension.")
         sys.exit(1)
-    # Take the mean of xs as superior limit to choose the limits of the
+    # Take the min of xs as superior limit to choose the limits of the
     # interval use for the normalisation
     min_xs = len(min(xs, key=len))
     normed_ps = [None] * len(ps)
@@ -538,11 +557,7 @@ def normalize_distance_law(xs, ps):
                 sum_values += value
         if sum_values == 0:
             sum_values += 1
-            logger.warning(
-                "No values of p(s) in the interval 1000 and "
-                + str(xs[j][min_xs])
-                + " base pairs, this list hasn't been normalized"
-            )
+            logger.warning("No values of p(s) in one segment")
         # Make the normalisation
         normed_ps[j] = ps[j] / sum_values
     return normed_ps
