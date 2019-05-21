@@ -4,5 +4,6 @@ pandas
 matplotlib
 docopt
 biopython
+requests
 sklearn
 pysam

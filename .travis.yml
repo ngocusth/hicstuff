@@ -33,11 +33,20 @@ after_success:
 - codecov
 deploy:
   on:
+    repo: koszullab/hicstuff
+    tags: true
+deploy:
+  - provider: pypi
+      skip_existing: true
+      user: cmdoret
+      password:
+        secure: gEc/Mf+t8lGlStSuCuQOIxLPXDaTzB42faB125+Sb9UMqIJr1slS9tKU7lqxRNgsH+40e9/lThSVVCggBUUzL6Gbhqa9IvI0IA9A71v9ohV5bbewDRoD+IJjNnCCj/Yj8H53rqticgtfb+QBHuyU7KHGxcTP8s55Yro/5WhwXl5XexvPYaafelv3ibZyvA0pXos48bD/emuedQhmOWLtkXhkH3CRVsyG3dqXIDK4h/4jqOE+VxclCBiYbCrRGbyuDeYLVQ82OyUL4QQQbnr7e2ejDRlgOiQODCU/ekU9pgDoSqVSvloehJffsBbqK4iKojDX2WrUu1KtXRuA8gSXcS3993wh1ppCEJZ05pgFnuht+PSc+SFca9HBP68iCowlGqmPmHumug62/QPtoUyqB83s/EYdoOI8TX8MhJK5bxnUnpT+PWLBey2CcFVZlYyWmNuFZgZBkkM07DNhfPqazgtx8NTQUZMYhmPjQYHszqfEjBanmAMCy8WbiflmkBRaXkhqPJH4h5GAVtbEbv1E1/B8J2CO6i9hPLWdohZ6vqzViubFlC69QUO1fnejReL21BduF6fkOhGXzOkaMA32NdhYGQACkNO9zKdOl6PnZl8xobusL0Hbkicz2mga+kozFAPChlTTln6GPgorRhmSv2DpJV7WrzRaGU0lVVy5PhA=
+      distributions: sdist bdist_wheel
+  - provider: releases
+    api_key:
+      secure: tNBSJKoIGqH00d+CueFI69RfIwobgfpj4JuOHMkSCyVYexPtE7W0X04MvlAOyjea/QYnhmy2f0TrwVam2YXHsmrOamAvBhF0Ih4PSw0Fz0bxoZdPSrfCUg/7ZfB51kbUieYgZ6YDkcEs4o0InjQMm4eY3FfAKVuY/4rTcBQDaxzg5AfBDSgQ6cmIibGC+zsbbyC6AdsZab1K0VYLWpN4nmh0SD2r6IiFymrVbOOgMWwdBdFbM7Ll9qsp6hFlo81HXv0cBsaFpHmHox9WbgrHy03TtQ3fFz8guTmyt7pCx8o9Cbo4GgxzUvrSgtdHHqN1E2YWNwpFVqeqOclafUgGB50y8RqzIUjYCANMXXQjoaGK1AfUR/KL8lCPyct2mVvm6prFYkp4twhIJfL0cZzJjYC73pqm50XFruEUKoYsAqUFZwdec43zCMaOEFAYTdFE5GJKex0QK4Rc+z3pETU4zV0D7LNA/72eoo5XZOBZGigIUc9Jd7FancqkLjbO7/rFcYR4cfkpoz4tH6YEDfLPoDYNPy3cjfAjyPxk9PCL9yCGruHA/Dpngq/488aMCgjxfwONBQ0WGow3YwS811m6un1GAa8BPR5ihpooxUooYw670VxzmGniuV+xM1pO4fFbgCj0ZEj9tZ0kCVbupTI03cW/IhUDojbKIQ3u17os2d8=
+    file: ''
+    skip_cleanup: true
+  on:
     branch: master
     tags: true
-  provider: pypi
-  skip_existing: true
-  user: cmdoret
-  password:
-    secure: gEc/Mf+t8lGlStSuCuQOIxLPXDaTzB42faB125+Sb9UMqIJr1slS9tKU7lqxRNgsH+40e9/lThSVVCggBUUzL6Gbhqa9IvI0IA9A71v9ohV5bbewDRoD+IJjNnCCj/Yj8H53rqticgtfb+QBHuyU7KHGxcTP8s55Yro/5WhwXl5XexvPYaafelv3ibZyvA0pXos48bD/emuedQhmOWLtkXhkH3CRVsyG3dqXIDK4h/4jqOE+VxclCBiYbCrRGbyuDeYLVQ82OyUL4QQQbnr7e2ejDRlgOiQODCU/ekU9pgDoSqVSvloehJffsBbqK4iKojDX2WrUu1KtXRuA8gSXcS3993wh1ppCEJZ05pgFnuht+PSc+SFca9HBP68iCowlGqmPmHumug62/QPtoUyqB83s/EYdoOI8TX8MhJK5bxnUnpT+PWLBey2CcFVZlYyWmNuFZgZBkkM07DNhfPqazgtx8NTQUZMYhmPjQYHszqfEjBanmAMCy8WbiflmkBRaXkhqPJH4h5GAVtbEbv1E1/B8J2CO6i9hPLWdohZ6vqzViubFlC69QUO1fnejReL21BduF6fkOhGXzOkaMA32NdhYGQACkNO9zKdOl6PnZl8xobusL0Hbkicz2mga+kozFAPChlTTln6GPgorRhmSv2DpJV7WrzRaGU0lVVy5PhA=
-  distributions: sdist bdist_wheel
