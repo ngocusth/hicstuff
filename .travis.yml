@@ -29,16 +29,15 @@ script:
 - pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules
   hicstuff
 - pytest --cov=hicstuff
-- |
-  if [[ $TRAVIS_TAG ]]; then
-    python setup.py sdist;
-  fi
 after_success:
 - codecov
-tags: true
 deploy:
+  on:
+    branch: master
+    tags: true
   provider: pypi
-  user: baudrly
+  skip_existing: true
+  user: cmdoret
   password:
-    secure: FRo0IHxatM+TNmXnENbrvvQRGmc04owOFQRvpsctIBhxaHl/4W2ywrscfCL+wB/EmztQ6KAF05ictPxmwA1bl62dhEhflKmrZZEQ2riNvqmF09v4QGGybNkT1JIDO3tLhYYwHssBlJj6srNvahNKj2NayY0UDNyh1/u1tkW/M9JPaB9mKtfywoXB2VteaZH9EDeoQZkWzc5M+SK/aSlPfqdERa0PZT8Hnp1CAH8YsXJNkY3Bvi3OwkitDCXiBlaRGazImlTyGAcysH/KpxNyT619ejCHoMmMSl3dQIGafsIAkS0E1aZtbZ03XfoeAQcAoDcZl4V+ZvRny5FIzXLshWWErJbxknEzu8Jg2515XniSeXCSHnNYlQRB6Ggfc9L91K3chRWhWLOvEMcosn5eIuBc/ErZavs3EaxMND09RhjUdKwss6WbRW2hbFxJzm72FKxB6eRaSC8cjMc/xiChzeobQzfD/DctNN22CyS2pr3VMCps40ynKA6gL/TROd3OqI6bWAoqLfcUyYgMc1Qcog6ZN5b4p2wMB/wg4NRGMXexDksZhRSO6ZVDRJUnR41I04Fzkf0y+ZgpSP5sE5X8yhMc6tteai/jtcRHjPKZOQCV/PotAPzQIDKm9fz0Dqtd/pFLmosfcEQYskRJwxWZPg3IzdfCefH+kmlHEXpofvc=
-  distributions: "sdist bdist_wheel"
+    secure: gEc/Mf+t8lGlStSuCuQOIxLPXDaTzB42faB125+Sb9UMqIJr1slS9tKU7lqxRNgsH+40e9/lThSVVCggBUUzL6Gbhqa9IvI0IA9A71v9ohV5bbewDRoD+IJjNnCCj/Yj8H53rqticgtfb+QBHuyU7KHGxcTP8s55Yro/5WhwXl5XexvPYaafelv3ibZyvA0pXos48bD/emuedQhmOWLtkXhkH3CRVsyG3dqXIDK4h/4jqOE+VxclCBiYbCrRGbyuDeYLVQ82OyUL4QQQbnr7e2ejDRlgOiQODCU/ekU9pgDoSqVSvloehJffsBbqK4iKojDX2WrUu1KtXRuA8gSXcS3993wh1ppCEJZ05pgFnuht+PSc+SFca9HBP68iCowlGqmPmHumug62/QPtoUyqB83s/EYdoOI8TX8MhJK5bxnUnpT+PWLBey2CcFVZlYyWmNuFZgZBkkM07DNhfPqazgtx8NTQUZMYhmPjQYHszqfEjBanmAMCy8WbiflmkBRaXkhqPJH4h5GAVtbEbv1E1/B8J2CO6i9hPLWdohZ6vqzViubFlC69QUO1fnejReL21BduF6fkOhGXzOkaMA32NdhYGQACkNO9zKdOl6PnZl8xobusL0Hbkicz2mga+kozFAPChlTTln6GPgorRhmSv2DpJV7WrzRaGU0lVVy5PhA=
+  distributions: sdist bdist_wheel
