@@ -212,7 +212,9 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                 )
     pairs.close()
     if unmatched_reads > 0:
-        logger.warning("%d reads were only present in one SAM file.", unmatched_reads)
+        logger.warning(
+            "%d reads were only present in one SAM file.", unmatched_reads
+        )
     logger.info(
         "{perc_map}% reads (single ends) mapped with Q >= {qual} ({mapped}/{total})".format(
             total=n_reads["total"],
@@ -252,7 +254,9 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
     reads_count = 0
     # Store header lines
     header = hio.get_pairs_header(pairs_idx_file)
-    with open(pairs_idx_file, "r") as pairs, open(filtered_file, "w") as filtered:
+    with open(pairs_idx_file, "r") as pairs, open(
+        filtered_file, "w"
+    ) as filtered:
         # Copy header lines to filtered file
         for head_line in header:
             filtered.write(head_line + "\n")
@@ -272,15 +276,21 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
         ]
         # Columns used for comparison of coordinates
         coord_cols = [col for col in paircols if col != "readID"]
-        pair_reader = csv.DictReader(pairs, delimiter="\t", fieldnames=paircols)
-        filt_writer = csv.DictWriter(filtered, delimiter="\t", fieldnames=paircols)
+        pair_reader = csv.DictReader(
+            pairs, delimiter="\t", fieldnames=paircols
+        )
+        filt_writer = csv.DictWriter(
+            filtered, delimiter="\t", fieldnames=paircols
+        )
 
         # Initialise a variable to store coordinates of reads in previous pair
         prev = {k: 0 for k in paircols}
         for pair in pair_reader:
             reads_count += 1
             # If coordinates are the same as before, skip pair
-            if all(pair[pair_var] == prev[pair_var] for pair_var in coord_cols):
+            if all(
+                pair[pair_var] == prev[pair_var] for pair_var in coord_cols
+            ):
                 filter_count += 1
                 continue
             # Else write pair and store new coordinates as previous
@@ -289,11 +299,17 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
                 prev = pair
         logger.info(
             "%d%% PCR duplicates have been filtered out (%d / %d pairs) "
-            % (100 * round(filter_count / reads_count, 3), filter_count, reads_count)
+            % (
+                100 * round(filter_count / reads_count, 3),
+                filter_count,
+                reads_count,
+            )
         )
 
 
-def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
+def pairs2matrix(
+    pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1
+):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a pairs file.
 
@@ -318,7 +334,9 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
     def write_mat_entry(frag1, frag2, contacts):
         """Write a single sparse matrix entry in either GRAAL or cooler format"""
         if mat_fmt == "GRAAL":
-            mat.write("\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n")
+            mat.write(
+                "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
+            )
         elif mat_fmt == "cooler":
             frag1, frag2 = int(frag1), int(frag2)
             mat.write(
@@ -340,7 +358,9 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
             )
 
     pre_mat_file = mat_file + ".pre.pairs"
-    hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads)
+    hio.sort_pairs(
+        pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads
+    )
     header_size = len(hio.get_pairs_header(pre_mat_file))
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
@@ -544,7 +564,9 @@ def full_pipeline(
     # For later steps of the pipeline (digestion / frag attribution)
     if aligner == "bowtie2":
         bt2fa = sp.Popen(
-            ["bowtie2-inspect", genome], stdout=open(tmp_genome, "w"), stderr=sp.PIPE
+            ["bowtie2-inspect", genome],
+            stdout=open(tmp_genome, "w"),
+            stderr=sp.PIPE,
         )
         _, bt2err = bt2fa.communicate()
         # bowtie2-inspect still has return code 0 when crashing, need to
@@ -631,9 +653,13 @@ def full_pipeline(
             min_qual=min_qual,
         )
         # Sort alignments by read name
-        ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1
+        )
         st.move(sam1 + ".sorted", sam1)
-        ps.sort("-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2
+        )
         st.move(sam2 + ".sorted", sam2)
 
     # Starting from sam files
@@ -651,7 +677,9 @@ def full_pipeline(
         )
 
         # Log fragment size distribution
-        hcd.frag_len(frags_file_name=fragments_list, plot=plot, fig_path=frag_plot)
+        hcd.frag_len(
+            frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
+        )
 
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
@@ -723,9 +751,13 @@ def full_pipeline(
             _, _, chr_labels = hcdl.import_distance_law(out_distance_law)
             chr_labels = [lab[0] for lab in chr_labels]
             chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
-            chr_labels = [chr_labels[index] for index in sorted(chr_labels_idx)]
+            chr_labels = [
+                chr_labels[index] for index in sorted(chr_labels_idx)
+            ]
             p_s = hcdl.normalize_distance_law(x_s, p_s)
-            hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
+            hcdl.plot_ps_slope(
+                x_s, p_s, labels=chr_labels, fig_path=distance_law_plot
+            )
 
     # Filter out PCR duplicates if requested
     if pcr_duplicates:
@@ -733,7 +765,9 @@ def full_pipeline(
         use_pairs = pairs_pcr
 
     # Build matrix from pairs.
-    pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
+    pairs2matrix(
+        use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads
+    )
 
     # Clean temporary files
     if not no_cleanup:

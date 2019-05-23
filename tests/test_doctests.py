@@ -1,5 +1,14 @@
 import doctest
-from hicstuff import digest, filter, hicstuff, io, iteralign, log, pipeline, view
+from hicstuff import (
+    digest,
+    filter,
+    hicstuff,
+    io,
+    iteralign,
+    log,
+    pipeline,
+    view,
+)
 
 
 def test_doctest():

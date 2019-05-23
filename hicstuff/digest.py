@@ -82,7 +82,9 @@ def write_frag_info(
 
         with open(frag_list_path, "w") as fragments_list:
 
-            fragments_list.write("id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n")
+            fragments_list.write(
+                "id\tchrom\tstart_pos" "\tend_pos\tsize\tgc_content\n"
+            )
 
             total_frags = 0
 
@@ -93,9 +95,12 @@ def write_frag_info(
                 if contig_length < int(min_size):
                     continue
 
-                sites = get_restriction_table(contig_seq, enzyme, circular=circular)
+                sites = get_restriction_table(
+                    contig_seq, enzyme, circular=circular
+                )
                 fragments = (
-                    contig_seq[sites[i] : sites[i + 1]] for i in range(len(sites) - 1)
+                    contig_seq[sites[i] : sites[i + 1]]
+                    for i in range(len(sites) - 1)
                 )
                 n_frags = 0
 
@@ -190,18 +195,32 @@ def attribute_fragments(pairs_file, idx_pairs_file, restriction_table):
 
     missing_contigs = set()
     # Attribute pairs to fragments and append them to output file (after header)
-    with open(pairs_file, "r") as pairs, open(idx_pairs_file, "a") as idx_pairs:
+    with open(pairs_file, "r") as pairs, open(
+        idx_pairs_file, "a"
+    ) as idx_pairs:
         # Skip header lines
         for _ in range(header_size):
             next(pairs)
 
         # Define input and output fields
-        pairs_cols = ["readID", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2"]
+        pairs_cols = [
+            "readID",
+            "chr1",
+            "pos1",
+            "chr2",
+            "pos2",
+            "strand1",
+            "strand2",
+        ]
         idx_cols = pairs_cols + ["frag1", "frag2"]
 
         # Use csv reader / writer to automatically parse columns into a dict
-        pairs_reader = csv.DictReader(pairs, fieldnames=pairs_cols, delimiter="\t")
-        pairs_writer = csv.DictWriter(idx_pairs, fieldnames=idx_cols, delimiter="\t")
+        pairs_reader = csv.DictReader(
+            pairs, fieldnames=pairs_cols, delimiter="\t"
+        )
+        pairs_writer = csv.DictWriter(
+            idx_pairs, fieldnames=idx_cols, delimiter="\t"
+        )
 
         for pair in pairs_reader:
             # Get the 0-based indices of corresponding restriction fragments
@@ -328,7 +347,9 @@ def find_frag(pos, r_sites):
 
     """
     if r_sites[0] != 0:
-        raise ValueError("The first position in the restriction table is not 0.")
+        raise ValueError(
+            "The first position in the restriction table is not 0."
+        )
     if pos > r_sites[-1]:
         raise ValueError(
             "Read position is larger than last entry in restriction table."

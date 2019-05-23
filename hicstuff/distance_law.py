@@ -47,13 +47,17 @@ def export_distance_law(xs, ps, names, out_dir=None):
         out_dir = os.getcwd()
     # Sanity check: as many chromosomes/arms as ps
     if len(xs) != len(names):
-        logger.error("Number of chromosomes/arms and number of p(s) list differ.")
+        logger.error(
+            "Number of chromosomes/arms and number of p(s) list differ."
+        )
         sys.exit(1)
     # Create the file and write it
     f = open(out_dir, "w")
     for i in range(len(xs)):
         for j in range(len(xs[i])):
-            ligne = str(xs[i][j]) + "\t" + str(ps[i][j]) + "\t" + names[i] + "\n"
+            ligne = (
+                str(xs[i][j]) + "\t" + str(ps[i][j]) + "\t" + names[i] + "\n"
+            )
             f.write(ligne)
     f.close()
 
@@ -152,12 +156,16 @@ def get_chr_segment_bins_index(fragments, centro_file=None, rm_centro=0):
             # index of last fragment starting before centro in same chrom
             centro_bins[2 * i] = chr_start_bins[i] + max(
                 np.where(
-                    subfrags["start_pos"][:] // (int(centro_pos[i]) - rm_centro) == 0
+                    subfrags["start_pos"][:]
+                    // (int(centro_pos[i]) - rm_centro)
+                    == 0
                 )[0]
             )
             centro_bins[2 * i + 1] = chr_start_bins[i] + max(
                 np.where(
-                    subfrags["start_pos"][:] // (int(centro_pos[i]) + rm_centro) == 0
+                    subfrags["start_pos"][:]
+                    // (int(centro_pos[i]) + rm_centro)
+                    == 0
                 )[0]
             )
         # Combine centro and chrom bins into a single array. Values are the id
@@ -285,7 +293,13 @@ def circular_distance_law(distance, chr_segment_length, chr_bin):
 
 
 def get_pairs_distance(
-    line, fragments, chr_segment_bins, chr_segment_length, xs, ps, circular=False
+    line,
+    fragments,
+    chr_segment_bins,
+    chr_segment_length,
+    xs,
+    ps,
+    circular=False,
 ):
     """From a line of a pair reads file, filter -/+ or +/- reads, keep only the 
     reads in the same chromosome/arm and compute the distance of the the two
@@ -324,10 +338,12 @@ def get_pairs_distance(
     if line["strand1"] == line["strand2"]:
         # Find in which chromosome/arm are the fragment 1 and 2.
         chr_bin1 = (
-            np.searchsorted(chr_segment_bins, int(line["frag1"]), side="right") - 1
+            np.searchsorted(chr_segment_bins, int(line["frag1"]), side="right")
+            - 1
         )
         chr_bin2 = (
-            np.searchsorted(chr_segment_bins, int(line["frag2"]), side="right") - 1
+            np.searchsorted(chr_segment_bins, int(line["frag2"]), side="right")
+            - 1
         )
         # We only keep the reads with the two fragments in the same chromosome
         # or arm.
@@ -383,7 +399,9 @@ def get_names(fragments, chr_segment_bins):
     """
     # Get the name of the chromosomes.
     chr_names_idx = np.unique(fragments.iloc[:, 1], return_index=True)[1]
-    chr_names = [fragments.iloc[:, 1][index] for index in sorted(chr_names_idx)]
+    chr_names = [
+        fragments.iloc[:, 1][index] for index in sorted(chr_names_idx)
+    ]
     # Case where they are separate in chromosomes
     if len(chr_segment_bins) / 2 != len(chr_names):
         names = []
@@ -453,9 +471,13 @@ def get_distance_law(
         logger.error("Chromosomes cannot have a centromere and be circular")
         sys.exit(1)
     # Import third columns of fragments file
-    fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
+    fragments = pd.read_csv(
+        fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3]
+    )
     # Calculate the indice of the bins to separate into chromosomes/arms
-    chr_segment_bins = get_chr_segment_bins_index(fragments, centro_file, rm_centro)
+    chr_segment_bins = get_chr_segment_bins_index(
+        fragments, centro_file, rm_centro
+    )
     # Calculate the length of each chromosoms/arms
     chr_segment_length = get_chr_segment_length(fragments, chr_segment_bins)
     xs = logbins_xs(fragments, chr_segment_length, base, circular)
@@ -491,7 +513,13 @@ def get_distance_law(
         for line in reader:
             # Iterate in each line of the file after the header
             get_pairs_distance(
-                line, fragments, chr_segment_bins, chr_segment_length, xs, ps, circular
+                line,
+                fragments,
+                chr_segment_bins,
+                chr_segment_length,
+                xs,
+                ps,
+                circular,
             )
     # Divide the number of contacts by the area of the logbin
     for i in range(len(xs)):
@@ -641,9 +669,9 @@ def slope_distance_law(xs, ps):
     for i in range(len(ps)):
         ps[i][ps[i] == 0] = 10 ** (-9)
         # Compute the slope
-        slope_temp = np.log(np.array(ps[i][1:]) / np.array(ps[i][:-1])) / np.log(
-            np.array(xs[i][1:]) / np.array(xs[i][:-1])
-        )
+        slope_temp = np.log(
+            np.array(ps[i][1:]) / np.array(ps[i][:-1])
+        ) / np.log(np.array(xs[i][1:]) / np.array(xs[i][:-1]))
         # The 1.8 is the intensity of the normalisation, it could be adapted.
         slope_temp[slope_temp == np.nan] = 10 ** (-15)
         slope[i] = ndimage.filters.gaussian_filter1d(slope_temp, 1.8)
@@ -761,8 +789,12 @@ def plot_ps_slope(xs, ps, labels, fig_path=None, inf=3000, sup=None):
     for i in range(len(slope)):
         xs2[i] = xs[i][:-1]
         col = next(cols)
-        ax2.semilogx(xs2[i], slope[i], label=labels[i], subsx=[2, 3, 4, 5, 6, 7, 8, 9])
-    ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1.00), ncol=1, fontsize="large")
+        ax2.semilogx(
+            xs2[i], slope[i], label=labels[i], subsx=[2, 3, 4, 5, 6, 7, 8, 9]
+        )
+    ax2.legend(
+        loc="upper left", bbox_to_anchor=(1.02, 1.00), ncol=1, fontsize="large"
+    )
     # Save the figure in svg
     if fig_path is not None:
         plt.savefig(fig_path)

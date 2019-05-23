@@ -9,7 +9,9 @@ import os as os
 import hashlib as hashlib
 
 fragments_file = "test_data/fragments_list.txt"
-fragments = pd.read_csv(fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3])
+fragments = pd.read_csv(
+    fragments_file, sep="\t", header=0, usecols=[0, 1, 2, 3]
+)
 centro_file = "test_data/centromeres.txt"
 pairs_reads_file = "test_data/valid_idx_filtered.pairs"
 distance_law_file = "test_data/distance_law.txt"
@@ -30,7 +32,9 @@ def test_import_distance_law():
     xs = hcdl.logbins_xs(fragments, [60000, 20000])
     assert np.all(np.isclose(test_xs[0], xs[0], rtol=0.0001))
     assert np.all(np.isclose(test_xs[1], xs[1], rtol=0.0001))
-    assert len(test_ps) == 2 and len(labels) == 2 and len(test_xs) == len(test_ps)
+    assert (
+        len(test_ps) == 2 and len(labels) == 2 and len(test_xs) == len(test_ps)
+    )
     assert (
         sum(test_ps[0]) == 3.0341050807866947e-05
         and sum(test_ps[1]) == 0.00010561980134394403
@@ -48,7 +52,9 @@ def test_get_chr_segment_bins_index():
     chr_segment_bins = hcdl.get_chr_segment_bins_index(fragments)
     assert chr_segment_bins == [0, 409, 409, 564]
     # Test with centromeres positions and remove the centromeres.
-    chr_segment_bins = hcdl.get_chr_segment_bins_index(fragments, centro_file, 1000)
+    chr_segment_bins = hcdl.get_chr_segment_bins_index(
+        fragments, centro_file, 1000
+    )
     assert chr_segment_bins == [0, 121, 134, 409, 409, 463, 480, 564]
 
 
@@ -66,7 +72,8 @@ def test_logbins_xs():
     xs = hcdl.logbins_xs(fragments, [60000, 20000])
     assert len(xs) == 2
     assert np.all(
-        xs[0] == np.unique(np.logspace(0, 115, num=116, base=1.1, dtype=np.int))
+        xs[0]
+        == np.unique(np.logspace(0, 115, num=116, base=1.1, dtype=np.int))
     )
     # Test changing base.
     xs = hcdl.logbins_xs(fragments, [60000, 20000], base=1.5)
@@ -76,7 +83,8 @@ def test_logbins_xs():
     # Test with the circular option.
     xs = hcdl.logbins_xs(fragments, [60000, 20000], circular=True)
     assert np.all(
-        xs[0] == np.unique(np.logspace(0, 108, num=109, base=1.1, dtype=np.int))
+        xs[0]
+        == np.unique(np.logspace(0, 108, num=109, base=1.1, dtype=np.int))
     )
 
 
@@ -95,11 +103,18 @@ def test_get_distance_law():
     # Create a temporary file.
     distance_law = NamedTemporaryFile("w", delete=False)
     # Test with default parameters.
-    hcdl.get_distance_law(pairs_reads_file, fragments_file, out_file=distance_law.name)
-    assert hash_file(distance_law.name) == hash_file("test_data/distance_law.txt")
+    hcdl.get_distance_law(
+        pairs_reads_file, fragments_file, out_file=distance_law.name
+    )
+    assert hash_file(distance_law.name) == hash_file(
+        "test_data/distance_law.txt"
+    )
     # Test the circular option.
     hcdl.get_distance_law(
-        pairs_reads_file, fragments_file, out_file=distance_law.name, circular=True
+        pairs_reads_file,
+        fragments_file,
+        out_file=distance_law.name,
+        circular=True,
     )
     assert hash_file(distance_law.name) == "495d9c7ccd7edc33441a6bd5d6fcfc1e"
     # Test the centromere option.

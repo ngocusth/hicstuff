@@ -36,7 +36,12 @@ def test_compress():
     z = zipfile.ZipFile(fz.name, "w")
     z.write(f.name)
     z.close()
-    exp_compress = {f.name: False, fgz.name: True, fz.name: True, fbz.name: True}
+    exp_compress = {
+        f.name: False,
+        fgz.name: True,
+        fz.name: True,
+        fbz.name: True,
+    }
     for fh in [f, fgz, fbz, fz]:
         content = hio.read_compressed(fh.name).read()
         # Check reading
@@ -67,7 +72,9 @@ def test_load_bedgraph2d():
     mat_bg = hio.load_bedgraph2d(
         "test_data/mat.bg2", fragments_file="test_data/fragments_list.txt"
     )[0]
-    mat_graal = hio.load_sparse_matrix("test_data/abs_fragments_contacts_weighted.txt")
+    mat_graal = hio.load_sparse_matrix(
+        "test_data/abs_fragments_contacts_weighted.txt"
+    )
     assert np.allclose(mat_graal.todense(), mat_bg.todense())
 
     # Load using fixed bin sizes

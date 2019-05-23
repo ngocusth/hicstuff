@@ -115,11 +115,7 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
         shape = None
 
     # Get values into an array without the header. Use the header to give size.
-    sparse_mat = raw_cols_to_sparse(
-        raw_mat[1:, :],
-        shape=shape,
-        dtype=dtype,
-    )
+    sparse_mat = raw_cols_to_sparse(raw_mat[1:, :], shape=shape, dtype=dtype)
 
     if binning == "auto":
         num_bins = max(sparse_mat.shape) + 1

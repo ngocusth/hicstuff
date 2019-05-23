@@ -56,7 +56,9 @@ def test_filter_pairs():
     )
 
     # Test if the filtered pairs file mathes expectations
-    assert hash_file("test_data/valid_idx_filtered.pairs") == hash_file(filt_pairs.name)
+    assert hash_file("test_data/valid_idx_filtered.pairs") == hash_file(
+        filt_pairs.name
+    )
 
     # Remove figure if it was created
     if os.path.isfile(fig_file):

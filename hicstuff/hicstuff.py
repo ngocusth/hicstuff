@@ -1141,6 +1141,28 @@ def to_pdb(
             f.write(line)
 
 
+def matrix_to_pdb(
+    matrix,
+    filename,
+    contigs=None,
+    annotations=None,
+    indices=None,
+    special_bins=None,
+    alpha=1,
+):
+    """Convert a matrix to a PDB file, shortcutting the intermediary generated
+    structure.
+    """
+    to_pdb(
+        to_structure(matrix, alpha=alpha),
+        filename=filename,
+        contigs=contigs,
+        annotations=annotations,
+        indices=indices,
+        special_bins=special_bins,
+    )
+
+
 def to_distance(matrix, alpha=1):
     """Compute distance matrix from contact data by applying a negative power
     law (alpha) to its nonzero pixels, then interpolating on the zeroes using a
@@ -1176,6 +1198,7 @@ def to_distance(matrix, alpha=1):
 
     return scipy.sparse.csgraph.floyd_warshall(distances, directed=False)
 
+
 def distance_to_contact(D, alpha=1):
     """Compute contact matrix from input distance matrix. Distance values of
     zeroes are given the largest contact count otherwise inferred non-zero
@@ -1202,6 +1225,7 @@ def distance_to_contact(D, alpha=1):
     M[D != 0] = distance_function(D[D != 0])
     M[D == 0] = m
     return M
+
 
 def subsample_contacts(M, prop):
     """Bootstrap sampling of contacts in a sparse Hi-C map.

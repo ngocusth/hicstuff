@@ -183,7 +183,9 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
+            output_dir=self.args["--outdir"],
+            plot=self.args["--plot"],
+            fig_path=figpath,
         )
 
 
@@ -229,7 +231,9 @@ class Filter(AbstractCommand):
                 uncut_thr = int(uncut_thr)
                 loop_thr = int(loop_thr)
             except ValueError:
-                logger.error("You must provide integer numbers for the thresholds.")
+                logger.error(
+                    "You must provide integer numbers for the thresholds."
+                )
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
@@ -351,7 +355,9 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load chromosomes and positions from fragments list
-            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
+            reg_pos = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2)
+            )
             # Readjust bin coords post binning
             if self.binning:
                 # Fixed genomic bins
@@ -364,12 +370,17 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     # Get unique chromosome names without losing original order
                     # (numpy.unique sorts output)
-                    chr_names_idx = np.unique(reg_pos.iloc[:, 0], return_index=True)[1]
+                    chr_names_idx = np.unique(
+                        reg_pos.iloc[:, 0], return_index=True
+                    )[1]
                     chr_names = [
-                        reg_pos.iloc[index, 0] for index in sorted(chr_names_idx)
+                        reg_pos.iloc[index, 0]
+                        for index in sorted(chr_names_idx)
                     ]
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                    reg_pos = pd.DataFrame(
+                        {0: binned_chrom, 1: binned_frags[:, 0]}
+                    )
                 # Subsample binning (group by N frags)
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
@@ -395,7 +406,8 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 logger.error(
-                    "You must specify a number of standard deviations for " "trimming"
+                    "You must specify a number of standard deviations for "
+                    "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
@@ -427,7 +439,9 @@ class View(AbstractCommand):
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
-                logger.error("Please provide an integer or basepair value for binning.")
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
+                )
                 raise
 
         output_file = self.args["--output"]
@@ -459,7 +473,9 @@ class View(AbstractCommand):
             processed_map = hcs.despeckle_simple(processed_map)
         try:
             if self.symmetric:
-                dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
+                dense_map = hcv.sparse_to_dense(
+                    processed_map, remove_diag=False
+                )
             else:
                 dense_map = processed_map.todense()
             self.vmin = 0
@@ -656,10 +672,12 @@ class Scalogram(AbstractCommand):
     """
 
     def execute(self):
-        frags = self.args['--frags']
+        frags = self.args["--frags"]
         if frags is not None:
             # If fragments_list.txt is provided, load chrom start and end columns
-            frags = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2, 3))
+            frags = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2, 3)
+            )
         if self.args["--range"]:
             shortest, longest = self.args["--range"].split("-")
             # If range given in number of bins
@@ -667,10 +685,16 @@ class Scalogram(AbstractCommand):
                 shortest, longest = int(shortest), int(longest)
             # If range given in genomic scale
             except ValueError:
-                shortest, longest = parse_bin_str(shortest), parse_bin_str(longest)
+                shortest, longest = (
+                    parse_bin_str(shortest),
+                    parse_bin_str(longest),
+                )
                 # Use average bin size to convert genomic scale to number of bins
                 avg_res = (frags.end_pos - frags.start_pos).mean()
-                shortest, longest = int(shortest // avg_res), int(longest // avg_res)
+                shortest, longest = (
+                    int(shortest // avg_res),
+                    int(longest // avg_res),
+                )
 
         if self.args["--indices"]:
             start, end = self.args["--indices"].split("-")
@@ -680,20 +704,23 @@ class Scalogram(AbstractCommand):
                 end = int(end)
             # If given in genomic coordinates
             except ValueError:
-                start, end = parse_ucsc(self.args['--indices'], frags.loc[:, ['chrom', 'start_pos']])
+                start, end = parse_ucsc(
+                    self.args["--indices"],
+                    frags.loc[:, ["chrom", "start_pos"]],
+                )
 
         input_map = self.args["<contact_map>"]
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
         S = hio.load_sparse_matrix(input_map)
-        #good_bins = np.array(range(S.shape[0]))
+        # good_bins = np.array(range(S.shape[0]))
         S = csr_matrix(S)
         if not self.args["--range"]:
             shortest = 0
             longest = S.shape[0]
 
         if self.args["--normalize"]:
-            #good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
+            # good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
             S = hcs.normalize_sparse(S, norm="SCN")
             S = S.tocsr()
         if self.args["--despeckle"]:
@@ -702,7 +729,10 @@ class Scalogram(AbstractCommand):
         # Cropping matrix before transforming to dense to reduce memory overhead
         # Note we leave a margin equal to longest range so that all windows can be computed
         if self.args["--indices"]:
-            crop_inf, crop_sup = max(0, start - longest), min(S.shape[0], end + longest)
+            crop_inf, crop_sup = (
+                max(0, start - longest),
+                min(S.shape[0], end + longest),
+            )
             crop_later = longest
             S = S[crop_inf:crop_sup, crop_inf:crop_sup]
         else:
@@ -712,7 +742,10 @@ class Scalogram(AbstractCommand):
         D = np.fliplr(np.rot90(hcs.scalogram(D), k=-1))
         # Crop the margin left previously to get actual indices on dimenstion 0
         # and focus scale to --range on dimension 1
-        plt.contourf(D[crop_later:D.shape[1] - crop_later, shortest:longest], cmap=self.args["--cmap"])
+        plt.contourf(
+            D[crop_later : D.shape[1] - crop_later, shortest:longest],
+            cmap=self.args["--cmap"],
+        )
         if output_file:
             plt.savefig(output_file)
         else:
@@ -771,7 +804,9 @@ class Rebin(AbstractCommand):
                 binning = parse_bin_str(bin_str)
                 bp_unit = True
             else:
-                logger.error("Please provide an integer or basepair value for binning.")
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
+                )
                 raise
         map_path = self.args["<contact_map>"]
         hic_map = hio.load_sparse_matrix(map_path)
@@ -781,12 +816,16 @@ class Rebin(AbstractCommand):
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
                 # For all chromosomes, get new bin start positions
-                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                bin_id = (
+                    frags.loc[frags.chrom == chrom, "start_pos"] // binning
+                )
                 frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
                 frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[
+                    0
+                ]
                 # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
@@ -816,7 +855,9 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
+            chromlist.loc[
+                chromlist.contig == chrom, "cumul_length"
+            ] = cumul_bins
             cumul_bins += n_bins
 
         # Write 3 binned output files
@@ -890,7 +931,9 @@ class Convert(AbstractCommand):
     def GRAAL_DADE(self):
         mat = hio.load_sparse_matrix(self.mat_path)
         frags = pd.read_csv(self.frags_path, delimiter="\t")
-        annot = frags.apply(lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1)
+        annot = frags.apply(
+            lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1
+        )
         hio.to_dade_matrix(mat, annotations=annot, filename=self.out_mat)
 
     def DADE_GRAAL(self):
@@ -935,9 +978,13 @@ class Convert(AbstractCommand):
 
         if out_fmt == "GRAAL":
             mat_name = (
-                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
+                prefix + ".mat.tsv"
+                if prefix
+                else "abs_fragments_contacts_weighted.txt"
             )
-            frags_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            frags_name = (
+                prefix + ".frag.tsv" if prefix else "fragments_list.txt"
+            )
             chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
             self.out_mat = join(out_path, mat_name)
             self.out_frags = join(out_path, frags_name)
@@ -1060,7 +1107,7 @@ class Distancelaw(AbstractCommand):
                 base=base,
                 out_file=output_file_tabl,
                 circular=circular,
-                rm_centro=rm_centro
+                rm_centro=rm_centro,
             )
             length_files = 1
         else:
@@ -1074,7 +1121,9 @@ class Distancelaw(AbstractCommand):
             names = [None] * length_files
             # Iterate on the different file given by the user.
             for i in range(length_files):
-                xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
+                xs[i], ps[i], names[i] = hcdl.import_distance_law(
+                    distance_law_files[i]
+                )
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
@@ -1086,7 +1135,7 @@ class Distancelaw(AbstractCommand):
             sup = max(max(xs[0], key=len))
         # Add the option big army only.
         if self.args["--big-arm-only"]:
-            big_arm_only =True
+            big_arm_only = True
             arm_sup = self.args["--big-arm-only"]
         else:
             big_arm_only = False
