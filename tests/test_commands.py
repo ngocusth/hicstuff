@@ -44,7 +44,19 @@ def test_convert():
 
 
 def test_distancelaw():
-    args = "-a -o test.png -d test_data/distance_law.txt"
+    args = (
+        "-a -o test.png -d test_data/distance_law.txt"
+        + " -c test_data/centromeres.txt -b 10000 -r 1000 -B 1.1"
+    )
+    proc = hcmd.Distancelaw(args.split(" "), {})
+    proc.execute()
+
+
+def test_distance_law_2():
+    args = (
+        "-p test_data/valid_idx_filtered.pairs -f {0} -C"
+        + " -O {1}/test_distance_law.txt -i 500 -s 45000"
+    ).format(FRAG, OUT)
     proc = hcmd.Distancelaw(args.split(" "), {})
     proc.execute()
 

@@ -1083,7 +1083,7 @@ class Distancelaw(AbstractCommand):
             if self.args["--centromeres"]:
                 centromeres = self.args["--centromeres"]
                 if self.args["--remove-centromeres"]:
-                    rm_centro = self.args["--remove-centromeres"]
+                    rm_centro = int(self.args["--remove-centromeres"])
                 else:
                     rm_centro = 0
             else:
@@ -1096,7 +1096,7 @@ class Distancelaw(AbstractCommand):
                 circular = None
             # Check if circular condition given
             if self.args["--base"]:
-                base = self.args["--base"]
+                base = int(self.args["--base"])
             else:
                 base = 1.1
             xs, ps, names = [None], [None], [None]
@@ -1136,7 +1136,7 @@ class Distancelaw(AbstractCommand):
         # Add the option big army only.
         if self.args["--big-arm-only"]:
             big_arm_only = True
-            arm_sup = self.args["--big-arm-only"]
+            arm_sup = int(self.args["--big-arm-only"])
         else:
             big_arm_only = False
             arm_sup = sup
@@ -1157,7 +1157,7 @@ class Distancelaw(AbstractCommand):
             xs = xs[0]
             ps = ps[0]
         # Normalize and make the derivative
-        ps = hcdl.normalize_distance_law(xs, ps)
+        ps = hcdl.normalize_distance_law(xs, ps, inf)
         # Gave new names for the different samples.
         if self.args["--labels"]:
             labels = self.args["--labels"]

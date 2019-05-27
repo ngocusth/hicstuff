@@ -26,9 +26,8 @@ install:
 - pip install pytest-cov codecov
 - pip install .[mappy]
 script:
-- pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules
+- pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules --cov=hicstuff
   hicstuff
-- pytest --cov=hicstuff
 after_success:
 - codecov
 deploy:
