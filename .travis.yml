@@ -31,10 +31,6 @@ script:
 after_success:
 - codecov
 deploy:
-  on:
-    repo: koszullab/hicstuff
-    tags: true
-deploy:
   - provider: pypi
       skip_existing: true
       user: cmdoret
