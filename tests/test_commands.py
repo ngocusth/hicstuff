@@ -15,7 +15,7 @@ os.makedirs(OUT, exist_ok=True)
 
 def test_view():
     args = (
-        "-b 500bp -c Reds -d -f {0} -l -n -t 1 -m 0.98 -r seq2:100-10000 "
+        "-b 500bp -c Reds -d -f {0} -T log2 -n -t 1 -m 0.98 -r seq2:100-10000 "
         + "-o {1}/test.png {2}"
     ).format(FRAG, OUT, MAT)
     proc = hcmd.View(args.split(" "), {})

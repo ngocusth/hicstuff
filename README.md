@@ -27,7 +27,7 @@ The goal is to make generation and manipulation of Hi-C matrices as simple as po
 
 To install a stable version:
 ```sh
-   pip3 install -U hicstuff
+pip3 install -U hicstuff
 ```
 
 or, for the latest development version:

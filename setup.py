@@ -62,8 +62,8 @@ setup(
     # package_data={"hicstuff": ("kernels/*")},
     python_requires=">=3.5",
     include_package_data=True,
-    long_description_content_type="text/markdown",
     install_requires=REQUIREMENTS,
+    long_description_content_type="text/markdown",
     entry_points={"console_scripts": ["hicstuff=hicstuff.main:main"]},
     extras_require={"mappy": ["mappy"]},
 )
