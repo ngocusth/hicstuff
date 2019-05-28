@@ -330,7 +330,13 @@ class View(AbstractCommand):
                 "sqrt": np.sqrt, 
                 "exp0.2": lambda x: x**0.2
         }
-        return ops[operation](dense_map)
+        if operation in ops:
+            return ops[operation](dense_map)
+        elif hasattr(np, operation) and callable(np.__dict__[operation]):
+            logger.warn("Using built-in numpy callable: %s" % operation)
+            return np.__dict__[operation](dense_map)
+        else:
+            raise TypeError("Supplied transform function is not supported.")
 
     def process_matrix(self, sparse_map):
         """
