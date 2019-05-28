@@ -30,8 +30,8 @@ CLASSIFIERS = [
 name = "hicstuff"
 
 MAJOR = 1
-MINOR = 2
-MAINTENANCE = 28
+MINOR = 3
+MAINTENANCE = 0
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MAINTENANCE)
 
 LICENSE = "GPLv3"
