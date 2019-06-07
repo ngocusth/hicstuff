@@ -572,7 +572,7 @@ def normalize_distance_law(xs, ps, inf=3000):
             sum_values += 1
             logger.warning("No values of p(s) in one segment")
         # Make the normalisation
-        normed_ps[j] = ps[j] / sum_values
+        normed_ps[j] = np.array(ps[j]) / sum_values
     return normed_ps
 
 
