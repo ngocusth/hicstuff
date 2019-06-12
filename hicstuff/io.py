@@ -234,7 +234,7 @@ def _check_cooler(fun):
 
 
 @_check_cooler
-def add_cooler_column(clr, column, column_name, table_name="bins", metadata={}):
+def add_cool_column(clr, column, column_name, table_name="bins", metadata={}, dtype=None):
     """
     Adds a new column to a loaded Cooler store. If the column exists,
     it is replaced. This will affect the .cool file.
@@ -257,12 +257,12 @@ def add_cooler_column(clr, column, column_name, table_name="bins", metadata={}):
         if column_name in c[table_name]:
             del c[table_name][column_name]
         h5opts = dict(compression="gzip", compression_opts=6)
-        c[table_name].create_dataset(column_name, data=column, **h5opts)
+        c[table_name].create_dataset(column_name, data=column, dtype=dtype, **h5opts)
         c[table_name][column_name].attrs.update(metadata)
 
 
 @_check_cooler
-def read_cool(cool):
+def load_cool(cool):
     """
     Reads a cool file into memory and parses it into GRAAL style tables.
     
@@ -280,11 +280,15 @@ def read_cool(cool):
     chroms : pandas DataFrame
         Table of chromosome informations.
     """
-    c = cooler.Cooler(cool)
+    c = cooler.Cooler(cool)  #pylint: disable=undefined-variable
     frags = c.bins()[:]
     chroms = c.chroms()[:]
     mat = c.pixels()[:]
     frags.rename(columns={"chrom": "seq", "start": "start_pos", "end": "end_pos"}, inplace=True)
+    chroms['cumul_length'] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
+    n_frags = c.bins()[:].groupby('chrom', sort=False).count().start
+    chroms['n_frags'] = chroms.merge(n_frags, right_index=True, left_on='name', how='left').start
+    chroms.rename(columns={'name': 'contig'}, inplace=True)
     mat = coo_matrix((mat['count'], (mat.bin1_id, mat.bin2_id)))
 
     return mat, frags, chroms
@@ -312,7 +316,7 @@ def write_cool(cool_out, mat, frags, metadata={}):
     bins.rename(columns={"seq": "chrom", "start_pos": "start", "end_pos": "end"}, inplace=True)
     mat_dict = {"bin1_id": mat.row, "bin2_id": mat.col, "count": mat.data}
     pixels = pd.DataFrame(mat_dict)
-    cooler.create_cooler(cool_out, bins, pixels, metadata=metadata)
+    cooler.create_cooler(cool_out, bins, pixels, metadata=metadata, symmetric_upper=False)  #pylint: disable=undefined-variable
 
 
 def read_compressed(filename):

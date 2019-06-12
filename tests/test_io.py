@@ -9,7 +9,12 @@ import pandas as pd
 import filecmp
 import numpy as np
 import hicstuff.io as hio
+import cooler
 
+MAT_GRAAL = hio.load_sparse_matrix(
+    "test_data/abs_fragments_contacts_weighted.txt"
+)
+FRAGS_GRAAL = pd.read_csv("test_data/fragments_list.txt", delimiter="\t")
 
 def test_compress():
     """Test reading and checking of compressed files"""
@@ -57,10 +62,8 @@ def test_save_bedgraph2d():
     # Create temp file and write a 2D bedgraph matrix inside
     f = NamedTemporaryFile("w", delete=False)
     f.close
-    frags = pd.read_csv("test_data/fragments_list.txt", delimiter="\t")
     # Load GRAAL Matrix from test_data
-    M = hio.load_sparse_matrix("test_data/abs_fragments_contacts_weighted.txt")
-    hio.save_bedgraph2d(M, frags, f.name)
+    hio.save_bedgraph2d(MAT_GRAAL, FRAGS_GRAAL, f.name)
     # Check if the file created is identical to the 2D bedgraph matrix
     # containing the same dataset as the GRAAL matrix used as input
     assert filecmp.cmp(f.name, "test_data/mat.bg2")
@@ -72,12 +75,24 @@ def test_load_bedgraph2d():
     mat_bg = hio.load_bedgraph2d(
         "test_data/mat.bg2", fragments_file="test_data/fragments_list.txt"
     )[0]
-    mat_graal = hio.load_sparse_matrix(
-        "test_data/abs_fragments_contacts_weighted.txt"
-    )
-    assert np.allclose(mat_graal.todense(), mat_bg.todense())
+    assert np.allclose(MAT_GRAAL.todense(), mat_bg.todense())
 
     # Load using fixed bin sizes
     mat_bg = hio.load_bedgraph2d("test_data/mat_5kb.bg2", bin_size=5000)[0]
     mat_graal = hio.load_sparse_matrix("test_data/mat_5kb.tsv")
     assert mat_bg.shape == mat_graal.shape
+
+
+def test_cooler_io():
+    """Test input output operations on cool files"""
+    f = NamedTemporaryFile("w", delete=False)
+    f.close
+    # Write cool from GRAAL objects
+    hio.write_cool(f.name, MAT_GRAAL, FRAGS_GRAAL)
+    c = cooler.Cooler(f.name)
+    # Just copy the start column and write it as a new one
+    dummycol = c.bins()[:].loc[:,'start'] #pylint: disable=no-member
+    hio.add_cool_column(c, dummycol, 'dummy', dtype=np.int64)
+    # Read custom cool into GRAAL objects
+    mat, frags, chroms = hio.load_cool(f.name)
+    os.unlink(f.name)
