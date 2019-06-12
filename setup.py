@@ -30,7 +30,7 @@ CLASSIFIERS = [
 name = "hicstuff"
 
 MAJOR = 1
-MINOR = 3
+MINOR = 4
 MAINTENANCE = 0
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MAINTENANCE)
 
