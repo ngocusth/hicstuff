@@ -25,6 +25,7 @@ install:
 - pip install pytest pylint pytest-pylint
 - pip install pytest-cov codecov
 - pip install .[mappy]
+- pip install .[cooler]
 script:
 - pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules 
   hicstuff
