@@ -40,6 +40,7 @@ import hicstuff.hicstuff as hcs
 import hicstuff.digest as hcd
 import hicstuff.iteralign as hci
 import hicstuff.filter as hcf
+from hicstuff.version import __version__
 import hicstuff.io as hio
 from hicstuff.log import logger
 import hicstuff.pipeline as hpi
@@ -549,7 +550,7 @@ class Pipeline(AbstractCommand):
 
     options:
         -M, --matfmt=FMT              The format of the output sparse matrix.
-                                      Can be "cooler" for 2D Bedgraph format 
+                                      Can be "bg2" for 2D Bedgraph format 
                                       compatible with cooler, or "GRAAL" for
                                       GRAAL-compatible format. [default: GRAAL]
         -C, --circular                Enable if the genome is circular. 
@@ -626,8 +627,9 @@ class Pipeline(AbstractCommand):
             )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
-        if self.args["--matfmt"] not in ("GRAAL", "cooler"):
-            raise ValueError("matfmt must be either cooler or GRAAL.")
+        if self.args["--matfmt"] not in ("GRAAL", "bg2"):
+            logger.error("matfmt must be either bg2 or GRAAL.")
+            raise ValueError
 
         hpi.full_pipeline(
             genome=self.args["--genome"],
@@ -921,7 +923,7 @@ class Subsample(AbstractCommand):
 class Convert(AbstractCommand):
     """
     Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
-    bedgraph2D (cooler) and DADE.
+    bedgraph2D (bg2), cooler (cool) and DADE.
 
     usage:
         convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
@@ -940,10 +942,10 @@ class Convert(AbstractCommand):
         -o, --out=DIR             The directory where output files must be written.
         -P, --prefix=NAME         A prefix by which the output filenames should start.
         -F, --from=FORMAT         The format from which to convert. [default: GRAAL]
-        -T, --to=FORMAT           The format to which files should be converted. [default: cooler]
+        -T, --to=FORMAT           The format to which files should be converted. [default: cool]
     """
 
-    def GRAAL_cooler(self):
+    def GRAAL_bg2(self):
         mat = hio.load_sparse_matrix(self.mat_path)
         frags = pd.read_csv(self.frags_path, delimiter="\t")
         hio.save_bedgraph2d(mat, frags, self.out_mat)
@@ -964,18 +966,32 @@ class Convert(AbstractCommand):
             output_frags=self.out_frags,
         )
 
-    def cooler_GRAAL(self):
+    def bg2_GRAAL(self):
         mat, frags = hio.load_bedgraph2d(self.mat_path, bin_size=self.binning)
         hio.save_sparse_matrix(mat, self.out_mat)
         frags.to_csv(self.out_frags, sep="\t", index=False)
+    
+    def cool_GRAAL(self):
+        self.mat, self.frags, self.chroms = hio.load_cool(self.mat_path)
+        hio.save_sparse_matrix(self.mat, self.out_mat)
+        self.frags.to_csv(self.out_frags, sep='\t', index=False)
+        self.chroms.to_csv(self.out_chr, sep='\t', index=False)
+
+    def GRAAL_cool(self):
+        mat = hio.load_sparse_matrix(self.mat_path)
+        frags = pd.read_csv(self.frags_path, delimiter="\t")
+        hio.write_cool(self.out_cool, mat, frags, metadata={'hicstuff': __version__})
+        
 
     def execute(self):
         in_fmt = self.args["--from"]
         fun_map = {
-            "GRAAL-cooler": self.GRAAL_cooler,
+            "GRAAL-bg2": self.GRAAL_bg2,
             "GRAAL-DADE": self.GRAAL_DADE,
             "DADE-GRAAL": self.DADE_GRAAL,
-            "cooler-GRAAL": self.cooler_GRAAL,
+            "bg2-GRAAL": self.bg2_GRAAL,
+            "cool-GRAAL": self.cool_GRAAL,
+            "GRAAL-cool": self.GRAAL_cool
         }
         self.mat_path = self.args["<contact_map>"]
         self.frags_path = self.args["--frags"]
@@ -1009,12 +1025,15 @@ class Convert(AbstractCommand):
             self.out_mat = join(out_path, mat_name)
             self.out_frags = join(out_path, frags_name)
             self.out_chr = join(out_path, chr_name)
-        elif out_fmt == "cooler":
-            mat_name = prefix + ".mat.bg2" if prefix else "cooler.mat.bg2"
+        elif out_fmt == "bg2":
+            mat_name = prefix + ".mat.bg2" if prefix else "mat.bg2"
             self.out_mat = join(out_path, mat_name)
         elif out_fmt == "DADE":
             mat_name = prefix + ".DADE.tsv" if prefix else "DADE.mat.tsv"
             self.out_mat = join(out_path, mat_name)
+        elif out_fmt == "cool":
+            cool_name = prefix + ".cool" if prefix else "mat.cool"
+            self.out_cool = join(out_path, cool_name)
 
         conv_fun()
 

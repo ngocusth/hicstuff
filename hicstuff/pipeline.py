@@ -323,7 +323,7 @@ def pairs2matrix(
         Path to the fragments_list.txt file. Used to know total
         matrix size in case some observations are not observed at the end.
     mat_fmt : str
-        The format to use when writing the matrix. Can be GRAAL or cooler format.
+        The format to use when writing the matrix. Can be GRAAL or bg2 format.
     threads : int
         Number of threads to use in parallel.
     """
@@ -332,12 +332,12 @@ def pairs2matrix(
     frags = pd.read_csv(fragments_file, delimiter="\t")
 
     def write_mat_entry(frag1, frag2, contacts):
-        """Write a single sparse matrix entry in either GRAAL or cooler format"""
+        """Write a single sparse matrix entry in either GRAAL or bg2 format"""
         if mat_fmt == "GRAAL":
             mat.write(
                 "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
             )
-        elif mat_fmt == "cooler":
+        elif mat_fmt == "bg2":
             frag1, frag2 = int(frag1), int(frag2)
             mat.write(
                 "\t".join(
@@ -489,7 +489,7 @@ def full_pipeline(
         pairs in the input must already be attributed to fragments and fragment
         attribution is skipped.
     mat_fmt : str
-        Select the output matrix format. Can be either "cooler" for the 
+        Select the output matrix format. Can be either "bg2" for the 
         cooler-compatible bedgraph2 format, or GRAAL format.
     aligner : str
         Read alignment software to use. Can be either "minimap2" or "bowtie2".
