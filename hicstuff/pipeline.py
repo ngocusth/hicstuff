@@ -7,6 +7,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import shutil as st
 import itertools
+from shutil import which
 import logging
 from os.path import join
 import subprocess as sp
@@ -413,6 +414,11 @@ def pairs2matrix(
         n_nonzero,
     )
 
+def check_tool(name):
+    """Check whether `name` is on PATH and marked as executable."""
+
+    return which(name) is not None
+
 
 def full_pipeline(
     genome,
@@ -506,6 +512,16 @@ def full_pipeline(
         If not None, path of file with Positions of the centromeres separated by a
         space and in the same order than the chromosomes. 
     """
+    # Check if third parties can be run
+    if aligner in ('bowtie2', 'minimap2'):
+        if check_tool(aligner) is None:
+            logger.error("%s is not installed or not on PATH", aligner)
+    else:
+        logger.error("Incompatible aligner software, choose bowtie2 or minimap2")
+    if check_tool('samtools') is None:
+        logger.error("Samtools is not installed or not on PATH", aligner)
+
+
     # Pipeline can start from 3 input types
     start_time = datetime.now()
     stages = {"fastq": 0, "sam": 1, "pairs": 2, "pairs_idx": 3}
