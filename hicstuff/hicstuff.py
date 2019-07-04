@@ -691,11 +691,14 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     r = r.tocoo()
     if norm == "SCN":
         for _ in range(1, iterations):
-            row_sums = np.array(r.sum(axis=1)).flatten()
-            col_sums = np.array(r.sum(axis=0)).flatten()
+            # Symmetric matrix: rows and cols have identical sums
+            row_sums = np.array(r.sum(axis=0)).flatten()
+            # Row and col indices of each nonzero value in matrix
             row_indices, col_indices = r.nonzero()
-            r.data /= row_sums[row_indices] * col_sums[col_indices]
-        row_sums = np.array(r.sum(axis=1)).flatten()
+            # Divide each nonzero value by the product of the sums of
+            # their respective rows and columns.
+            r.data /= row_sums[row_indices] * row_sums[col_indices]
+        row_sums = np.array(r.sum(axis=0)).flatten()
         # Scale to 1
         r.data = r.data * (1 / np.mean(row_sums))
 
