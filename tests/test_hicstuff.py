@@ -105,6 +105,7 @@ def test_scn(matrix_size):
     N_s = hcs.normalize_sparse(M_s, "SCN", iterations=50)
     assert np.isclose(N_d.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
     assert np.isclose(N_s.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
+    assert np.isclose(coo_matrix(N_d).data, N_s.data, rtol=0.000001).all()
 
 
 @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
