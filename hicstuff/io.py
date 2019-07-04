@@ -310,13 +310,18 @@ def write_cool(cool_out, mat, frags, metadata={}):
     metadata : dict
         Potential metadata to associate with the cool file.
     """
+    up_tri = False
+    # Check if symmetric matrix is symmetric
+    # (i.e. only upper triangle or full mat)
+    if (abs(mat - mat.T) > 1e-10).nnz != 0:
+        up_tri = True
     # Drop useless column
     bins = frags.drop("id", axis=1)
     # Get column names right
     bins.rename(columns={"seq": "chrom", "start_pos": "start", "end_pos": "end"}, inplace=True)
     mat_dict = {"bin1_id": mat.row, "bin2_id": mat.col, "count": mat.data}
     pixels = pd.DataFrame(mat_dict)
-    cooler.create_cooler(cool_out, bins, pixels, metadata=metadata, symmetric_upper=False)  #pylint: disable=undefined-variable
+    cooler.create_cooler(cool_out, bins, pixels, metadata=metadata, symmetric_upper=up_tri, triucheck=False)  #pylint: disable=undefined-variable
 
 
 def read_compressed(filename):
