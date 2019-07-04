@@ -519,7 +519,7 @@ def full_pipeline(
     else:
         logger.error("Incompatible aligner software, choose bowtie2 or minimap2")
     if check_tool('samtools') is None:
-        logger.error("Samtools is not installed or not on PATH", aligner)
+        logger.error("Samtools is not installed or not on PATH")
 
 
     # Pipeline can start from 3 input types
