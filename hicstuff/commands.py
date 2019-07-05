@@ -998,6 +998,8 @@ class Convert(AbstractCommand):
         self.chroms_path = self.args["--chroms"]
         out_fmt = self.args["--to"]
         out_path = self.args["--out"]
+        if out_path is None:
+            out_path = os.getcwd()
         os.makedirs(out_path, exist_ok=True)
         prefix = self.args["--prefix"]
         if self.args["--binning"] is not None:
