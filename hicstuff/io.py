@@ -284,18 +284,22 @@ def load_cool(cool):
     frags = c.bins()[:]
     chroms = c.chroms()[:]
     mat = c.pixels()[:]
-    frags.rename(columns={"chrom": "seq", "start": "start_pos", "end": "end_pos"}, inplace=True)
+    frags.rename(columns={"start": "start_pos", "end": "end_pos"}, inplace=True)
+    frags['id'] = range(1, frags.shape[0]+1)
+    frags = frags[['id', 'chrom', 'start_pos', 'end_pos', 'size', 'gc_content']]
     chroms['cumul_length'] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
     n_frags = c.bins()[:].groupby('chrom', sort=False).count().start
     chroms['n_frags'] = chroms.merge(n_frags, right_index=True, left_on='name', how='left').start
     chroms.rename(columns={'name': 'contig'}, inplace=True)
-    mat = coo_matrix((mat['count'], (mat.bin1_id, mat.bin2_id)))
+    n = int(max(np.amax(mat.bin1_id), np.amax(mat.bin2_id))) + 1
+    shape = (n, n)
+    mat = coo_matrix((mat['count'], (mat.bin1_id, mat.bin2_id)), shape=shape)
 
     return mat, frags, chroms
 
 
 @_check_cooler
-def write_cool(cool_out, mat, frags, metadata={}):
+def save_cool(cool_out, mat, frags, metadata={}):
     """
     Writes a .cool file from GRAAL style tables.
     

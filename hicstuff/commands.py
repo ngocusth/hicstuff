@@ -935,8 +935,6 @@ class Convert(AbstractCommand):
     options:
         -f, --frags=FILE          File containing the fragments coordinates. If
                                   not already in the contact map file.
-        -b, --binning=INT[k|M|G]b Fixed bin size to use. Help reconstructing
-                                  GRAAL files from a bedgraph2D (cooler) file.
         -c, --chroms=FILE         File containing the chromosome informations, if not
                                   already in the contact map file.
         -o, --out=DIR             The directory where output files must be written.
@@ -944,11 +942,6 @@ class Convert(AbstractCommand):
         -F, --from=FORMAT         The format from which to convert. [default: GRAAL]
         -T, --to=FORMAT           The format to which files should be converted. [default: cool]
     """
-
-    def GRAAL_bg2(self):
-        mat = hio.load_sparse_matrix(self.mat_path)
-        frags = pd.read_csv(self.frags_path, delimiter="\t")
-        hio.save_bedgraph2d(mat, frags, self.out_mat)
 
     def GRAAL_DADE(self):
         mat = hio.load_sparse_matrix(self.mat_path)
@@ -966,54 +959,54 @@ class Convert(AbstractCommand):
             output_frags=self.out_frags,
         )
 
-    def bg2_GRAAL(self):
-        mat, frags = hio.load_bedgraph2d(self.mat_path, bin_size=self.binning)
-        hio.save_sparse_matrix(mat, self.out_mat)
-        frags.to_csv(self.out_frags, sep="\t", index=False)
-    
-    def cool_GRAAL(self):
-        self.mat, self.frags, self.chroms = hio.load_cool(self.mat_path)
-        hio.save_sparse_matrix(self.mat, self.out_mat)
-        self.frags.to_csv(self.out_frags, sep='\t', index=False)
-        self.chroms.to_csv(self.out_chr, sep='\t', index=False)
 
-    def GRAAL_cool(self):
-        mat = hio.load_sparse_matrix(self.mat_path)
-        frags = pd.read_csv(self.frags_path, delimiter="\t")
-        hio.write_cool(self.out_cool, mat, frags, metadata={'hicstuff': __version__})
-        
+    def load_files(self, format):
+        if format == "GRAAL":
+            self.mat = hio.load_sparse_matrix(self.mat_path)
+            self.frags = pd.read_csv(self.frags_path, delimiter="\t")
+            self.chroms = pd.read_csv(self.chroms_path, delimiter="\t")
+        elif format == "cool":
+            self.mat, self.frags, self.chroms = hio.load_cool(self.mat_path)
+        elif format == "bg2":
+            self.mat, self.frags = hio.load_bedgraph2d(self.mat_path)
+        else:
+            logger.error("Unknown input format")
+
+
+    def save_files(self, format):
+        if format == "GRAAL":
+            hio.save_sparse_matrix(self.mat, self.out_mat)
+            self.frags.to_csv(self.out_frags, sep="\t", index=False)
+            try:
+                self.chroms.to_csv(self.out_chr, sep='\t', index=False)
+            except NameError as e:
+                logger.warning("Could not create info_contigs.txt from input files")
+                raise e
+        elif format == "cool":
+            hio.save_cool(self.out_cool, self.mat, self.frags, metadata={'hicstuff': __version__})
+        elif format == "bg2":
+            hio.save_bedgraph2d(mat, frags, self.out_mat)
+        else:
+            logger.error("Unknown output format")
 
     def execute(self):
         in_fmt = self.args["--from"]
-        fun_map = {
-            "GRAAL-bg2": self.GRAAL_bg2,
-            "GRAAL-DADE": self.GRAAL_DADE,
-            "DADE-GRAAL": self.DADE_GRAAL,
-            "bg2-GRAAL": self.bg2_GRAAL,
-            "cool-GRAAL": self.cool_GRAAL,
-            "GRAAL-cool": self.GRAAL_cool
-        }
+        out_fmt = self.args["--to"]
         self.mat_path = self.args["<contact_map>"]
         self.frags_path = self.args["--frags"]
         self.chroms_path = self.args["--chroms"]
-        out_fmt = self.args["--to"]
         out_path = self.args["--out"]
         if out_path is None:
             out_path = os.getcwd()
         os.makedirs(out_path, exist_ok=True)
         prefix = self.args["--prefix"]
-        if self.args["--binning"] is not None:
-            self.binning = parse_bin_str(self.args["--binning"])
-        else:
-            self.binning = self.args["--binning"]
+        
+        fun_map = {
+            "GRAAL-DADE": self.GRAAL_DADE,
+            "DADE-GRAAL": self.DADE_GRAAL,
+        }
 
-        try:
-            conv = "-".join([in_fmt, out_fmt])
-            conv_fun = fun_map[conv]
-        except KeyError:
-            logger.error("Conversion not implemented or unknown format")
-            sys.exit(1)
-
+        # Build output file names
         if out_fmt == "GRAAL":
             mat_name = (
                 prefix + ".mat.tsv"
@@ -1036,8 +1029,19 @@ class Convert(AbstractCommand):
         elif out_fmt == "cool":
             cool_name = prefix + ".cool" if prefix else "mat.cool"
             self.out_cool = join(out_path, cool_name)
-
-        conv_fun()
+        
+        # Run conversion
+        if in_fmt == "DADE" or out_fmt == "DADE":
+            conv = "-".join([in_fmt, out_fmt])
+            try:
+                conv_fun = fun_map[conv]
+            except KeyError:
+                logger.error("Conversion not implemented or unknown format")
+                sys.exit(1)
+            conv_fun()
+        else:
+            self.load_files(format=in_fmt)
+            self.save_files(format=out_fmt)
 
 
 class Distancelaw(AbstractCommand):
