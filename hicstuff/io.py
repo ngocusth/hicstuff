@@ -285,7 +285,7 @@ def load_cool(cool):
     chroms = c.chroms()[:]
     mat = c.pixels()[:]
     frags.rename(columns={"start": "start_pos", "end": "end_pos"}, inplace=True)
-    frags['id'] = range(1, frags.shape[0]+1)
+    frags['id'] = frags.groupby([0], sort=False).cumcount() + 1
     frags = frags[['id', 'chrom', 'start_pos', 'end_pos', 'size', 'gc_content']]
     chroms['cumul_length'] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
     n_frags = c.bins()[:].groupby('chrom', sort=False).count().start
