@@ -690,11 +690,11 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
         r.eliminate_zeros()
     r = r.tocoo()
     if norm == "SCN":
+        # Row and col indices of each nonzero value in matrix
+        row_indices, col_indices = r.nonzero()
         for _ in range(1, iterations):
             # Symmetric matrix: rows and cols have identical sums
             row_sums = np.array(r.sum(axis=0)).flatten()
-            # Row and col indices of each nonzero value in matrix
-            row_indices, col_indices = r.nonzero()
             # Divide each nonzero value by the product of the sums of
             # their respective rows and columns.
             r.data /= row_sums[row_indices] * row_sums[col_indices]
