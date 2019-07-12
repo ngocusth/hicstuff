@@ -30,7 +30,6 @@ DEFAULT_SATURATION_THRESHOLD = 99
 
 
 load_sparse_matrix = hio.load_sparse_matrix
-raw_cols_to_sparse = hio.raw_cols_to_sparse
 
 
 def sparse_to_dense(M, remove_diag=True):
