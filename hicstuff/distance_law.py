@@ -306,7 +306,7 @@ def get_pairs_distance(
 
     Parameters
     ----------
-    line : OrderedDict 
+    line : OrderedDict
         Line of a pair reads file with the these keys readID, chr1, pos1, chr2,
         pos2, strand1, strand2, frag1, frag2. The values are in a dictionnary.
     fragments : pandas.DataFrame
@@ -367,10 +367,10 @@ def get_pairs_distance(
                         distance, chr_segment_length, chr_bin1
                     )
                 xs_temp = xs[chr_bin1][:]
-            # Find the logbins in which the distance is and add one to the sum
-            # of contact.
-            ps_indice = np.searchsorted(xs_temp, distance, side="right") - 1
-            ps[chr_bin1][ps_indice] += 1
+                # Find the logbins in which the distance is and add one to the sum
+                # of contact.
+                ps_indice = np.searchsorted(xs_temp, distance, side="right") - 1
+                ps[chr_bin1][ps_indice] += 1
 
 
 def get_names(fragments, chr_segment_bins):
@@ -529,9 +529,9 @@ def get_distance_law(
 
 def normalize_distance_law(xs, ps, inf=3000):
     """Normalize the distance in order to have the sum of the ps values between
-    'inf' (default value is 3kb) until the end of the array equal to one and 
-    limit the effect of coverage between two conditions/chromosomes/arms when 
-    you compare them together. If we have a list of ps, it will normalize until 
+    'inf' (default value is 3kb) until the end of the array equal to one and
+    limit the effect of coverage between two conditions/chromosomes/arms when
+    you compare them together. If we have a list of ps, it will normalize until
     the length of the shorter object.
 
     Parameters
