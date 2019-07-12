@@ -116,35 +116,34 @@ def test_trim(matrix_size):
     number of bins are trimmed.
     """
     M_d, _ = _gen_matrices(matrix_size)
-
-    def bin_stats(bins, n_std=3):
-        # Get thresholds for trimming
-        mean = np.mean(bins)
-        sd = np.std(bins)
-        min_val, max_val = (mean - n_std * sd, mean + n_std * sd)
-        return min_val, max_val
-
-    means = M_d.mean(axis=1)
-    min_val, max_val = bin_stats(means)
+    
+    # Compute thresholds
+    sums = M_d.sum(axis=1)
+    mad_sums = hcs.mad(M_d, axis=1)
+    min_val = np.median(sums) + 3 * mad_sums
+    max_val = np.median(sums) + 3 * mad_sums
     # Choose random bins
     trim_bins = np.random.randint(0, M_d.shape[0], 2)
     # Add potential pre-existing outlier bins
     trim_bins = np.append(
-        trim_bins, np.where((means <= min_val) | (means >= max_val))[0]
+        trim_bins, np.where((sums <= min_val) | (sums >= max_val))[0]
     )
+    trim_bins = np.unique(trim_bins)
     # Set bins to outlier values
     M_d[:, trim_bins] = M_d[trim_bins, :] = random.choice([min_val, max_val])
     # Compute trimming thresholds again
-    means = M_d.mean(axis=1)
-    min_val, max_val = bin_stats(means)
+    sums = M_d.sum(axis=1)
+    mad_sums = hcs.mad(M_d, axis=1)
+    min_val = np.median(sums) + 3 * mad_sums
+    max_val = np.median(sums) + 3 * mad_sums
     # Define bins that need to be trimmed
-    trim_bins = np.where((means <= min_val) | (means >= max_val))[0]
+    trim_bins = np.where((sums <= min_val) | (sums >= max_val))[0]
     trim_shape = M_d.shape[0] - len(trim_bins)
     # Compare expected shape with results
     M_s = coo_matrix(M_d)
-    T_d = hcs.trim_dense(M_d)
+    T_d = hcs.trim_dense(M_d, s_min=min_val, s_max=max_val)
     assert T_d.shape[0] == trim_shape
-    T_s = hcs.trim_sparse(M_s)
+    T_s = hcs.trim_sparse(M_s, s_min=min_val, s_max=max_val)
     assert T_s.shape[0] == trim_shape
 
 

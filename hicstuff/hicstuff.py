@@ -298,7 +298,7 @@ def build_pyramid(M, subsampling_factor=3):
 
 def bin_bp_dense(M, positions, bin_len=10000):
     """Perform binning with a fixed genomic length in
-    base pairs. Fragments will be binned such
+    base pairs on a dense matrix. Fragments will be binned such
     that their total length is closest to the specified input.
     If a contig list is specified, binning will be performed
     such that fragments never overlap two contigs. Fragments longer
@@ -322,89 +322,24 @@ def bin_bp_dense(M, positions, bin_len=10000):
     numpy array of ints :
         List of binned fragments positions in basepair
     """
-    positions = np.array(positions)
-    # Get fragments where new chromosome starts (positions reset)
-    chromstart = np.where(positions == 0)[0]
-    chromend = np.append(chromstart[1:], M.shape[0])
-    chromlen = chromend - chromstart
-    # Assign a chromosome to each fragment
-    chroms = np.repeat(range(len(chromlen)), chromlen)
-    # Get binned positions
-    positions = positions // bin_len
-    frags = np.array([chroms, positions], dtype=np.int64).T
-    # Keep track of index fragments
-    frag_idx = range(frags.shape[0])
-    # Number of bins to create
-    n_bins = np.unique(frags, axis=0).shape[0]
-    # Initialise output fragment list (post binning)
-    out_pos = np.zeros((n_bins, 1))
-    # initialise matrix for matching frags (row) to bins (col)
-    bin_attr = np.zeros((frags.shape[0], n_bins))
-    # Use (chr, bin#) as grouping key (coord) and indices of fragments
-    # belonging to current bin (bin_frags)
-    bin_No = 0
-    for coords, bin_frags in itertools.groupby(
-        frag_idx, lambda x: tuple(frags[x, :])
-    ):
-        bin_frags = list(bin_frags)
-        first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
-        out_pos[bin_No] = coords[1] * bin_len
-        # Fill frag-bin attribution matrix matrix line by line
-        bin_attr[first_frag:last_frag, bin_No] = 1
-        bin_No += 1
-    # Perform binning (sum of contacts in each bin) using dot products
-    D = M.dot(bin_attr)
-    out_M = bin_attr.T.dot(D)
+    # Just converting to sparse and passing to sparse function
+    S = coo_matrix(M)
+    out_S, out_pos = bin_bp_sparse(S, positions, bin_len=bin_len)
+    out_M = out_S.todense()
+
     return out_M, out_pos
-
-
-def bin_exact_bp_dense(M, positions, bin_len=10000):
-    """Perform the kb-binning procedure with total bin lengths being exactly
-    set to that of the specified input. Fragments overlapping two potential
-    bins will be split and related contact counts will be divided according
-
-    Parameters
-    ----------
-    to overlap proportions in each bin.
-    M : 2D numpy array of ints or floats
-        The Hi-C matrix to bin in dense format
-    positions : numpy array of int
-        List of basepair start positions of fragments bins
-    bin_len : int
-        Bin length in basepairs
-
-    Returns
-    -------
-    2D numpy array of ints of floats :
-        Binned matrix
-    list :
-        List of binned fragments
-    """
-    units = positions / bin_len
-    n = len(positions)
-    idx = [
-        i for i in range(n - 1) if np.ceil(units[i]) < np.ceil(units[i + 1])
-    ]
-    m = len(idx) - 1
-    N = np.zeros((m, m))
-    remainders = [0] + [np.abs(units[i] - units[i + 1]) for i in range(m)]
-    for i in range(m):
-        N[i] = np.array(
-            [
-                (
-                    M[idx[j] : idx[j + 1], idx[i] : idx[i + 1]].sum()
-                    - remainders[j] * M[i][j]
-                    + remainders[j + 1] * M[i + 1][j]
-                )
-                for j in range(m)
-            ]
-        )
-    return N
 
 
 def bin_bp_sparse(M, positions, bin_len=10000):
     """
-    Performs the bp-binning procedure on a sparse matrix.
+    Perform binning with a fixed genomic length in
+    base pairs on a sparse matrix. Fragments will be binned such
+    that their total length is closest to the specified input.
+    If a contig list is specified, binning will be performed
+    such that fragments never overlap two contigs. Fragments longer
+    than bin size will not be split, which can result in larger bins.
+    The last smaller bin of the chromosome will be merged with the
+    previous one.
 
     Parameters
     ----------
@@ -417,8 +352,8 @@ def bin_bp_sparse(M, positions, bin_len=10000):
 
     Returns
     -------
-    sparse numpy matrix:
-        The binned matrix in sparse format.
+    sparse scipy sparse coo_matrix:
+        The binned sparse matrix in COO format.
     list of ints:
         The new bin start positions.
     """
@@ -495,19 +430,53 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     binned = coo_matrix((r.data, (row, col)), shape=(actual_bin_No, actual_bin_No))
     binned.sum_duplicates()
     binned.eliminate_zeros()
-    binned = binned.tolil()
-    # Split contacts between bins sharing same fragments
-    for bin_idx, n_shared in bin_per_frag.items():
-        div = 1 + n_shared
-        diagval = binned[bin_idx, bin_idx]
-        binned[bin_idx, :] /= div
-        binned[:, bin_idx] /= div
-        binned[bin_idx, bin_idx] = diagval / div
 
-    for added_bin, original_bin in added_bins.items():
-        binned[added_bin, :] = binned[original_bin, :]
-        binned[:, added_bin] = binned[:, original_bin]
     return (binned, out_pos)
+
+
+def bin_exact_bp_dense(M, positions, bin_len=10000):
+    """Perform the kb-binning procedure with total bin lengths being exactly
+    set to that of the specified input. Fragments overlapping two potential
+    bins will be split and related contact counts will be divided according
+
+    Parameters
+    ----------
+    to overlap proportions in each bin.
+    M : 2D numpy array of ints or floats
+        The Hi-C matrix to bin in dense format
+    positions : numpy array of int
+        List of basepair start positions of fragments bins
+    bin_len : int
+        Bin length in basepairs
+
+    Returns
+    -------
+    2D numpy array of ints of floats :
+        Binned matrix
+    list :
+        List of binned fragments
+    """
+    units = positions / bin_len
+    n = len(positions)
+    idx = [
+        i for i in range(n - 1) if np.ceil(units[i]) < np.ceil(units[i + 1])
+    ]
+    m = len(idx) - 1
+    N = np.zeros((m, m))
+    remainders = [0] + [np.abs(units[i] - units[i + 1]) for i in range(m)]
+    for i in range(m):
+        N[i] = np.array(
+            [
+                (
+                    M[idx[j] : idx[j + 1], idx[i] : idx[i + 1]].sum()
+                    - remainders[j] * M[i][j]
+                    + remainders[j + 1] * M[i + 1][j]
+                )
+                for j in range(m)
+            ]
+        )
+    return N
+
 
 def mad(M, axis=None):
     """
@@ -538,12 +507,12 @@ def mad(M, axis=None):
     else:
         if axis < 0:
             axis += 2
-        dist = np.array(r.sum(axis=axis, dtype=np.float)).flatten()
+        dist = np.array(M.sum(axis=axis, dtype=np.float)).flatten()
 
     return np.median(np.absolute(dist - np.median(dist)))
 
 
-def get_good_bins(M, sds=2.0, s_min=None, s_max=None):
+def get_good_bins(M, n_std=2.0, s_min=None, s_max=None):
     """
     Filters out bins with outstanding sums using median and MAD
     of the bin distribution.
@@ -553,7 +522,7 @@ def get_good_bins(M, sds=2.0, s_min=None, s_max=None):
     M : scipy sparse coo_matrix
         Input sparse matrix representing the Hi-C contact map.
 
-    sds : float
+    n_std : float
         Minimum number of standard deviations around median in the
         bin sums distribution at which bins will be filtered out.
 
@@ -579,9 +548,9 @@ def get_good_bins(M, sds=2.0, s_min=None, s_max=None):
         sigma = 1.4826 * mad(norm)
 
     if s_min is None:
-        s_min = median - sds * sigma
+        s_min = median - n_std * sigma
     if s_max is None:
-        s_max = median + sds * sigma
+        s_max = median + n_std * sigma
 
     return (norm > s_min) * (norm < s_max)
 
@@ -614,19 +583,10 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
         The input matrix, stripped of outlier component vectors.
     """
 
-    M = np.array(M)
-    sparsity = M.sum(axis=1)
-    mean = np.mean(sparsity)
-    std = np.std(sparsity)
-    if s_min is None:
-        s_min = mean - n_std * std
-    if s_max is None:
-        s_max = mean + n_std * std
-    elif s_max == 0:
-        s_max = np.amax(M)
-    f = (sparsity > s_min) * (sparsity < s_max)
-    N = M[f][:, f]
-    return N
+    S = coo_matrix(M)
+    S_out = trim_sparse(S, n_std=n_std, s_min=s_min, s_max=s_max)
+    M_out = S_out.todense()
+    return M_out
 
 
 def trim_sparse(M, n_std=3, s_min=None, s_max=None):
@@ -655,15 +615,16 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
     r = M.tocoo()
     f = get_good_bins(M, n_std, s_min, s_max)
     miss_bins = np.cumsum(1 - f)
-    # Mapping pre- and post- trimming indices of bins
+    # Mapping pre- and post- trimming indices of bins, post = -1 means delete
     # Note: There is probably a more efficient way than a dictionary for that
     miss_map = {old: old - offset for old, offset in enumerate(miss_bins)}
+    # Indices of cells that will be kept
     indices = np.where(f[r.row] & f[r.col])
     # Remove sparse rows and shift indices accordingly
     rows = [miss_map[i] for i in r.row[indices]]
     cols = [miss_map[j] for j in r.col[indices]]
     data = r.data[indices]
-    size = max(max(rows), max(cols)) + 1
+    size = max(max(rows, default=-1), max(cols, default=-1)) + 1
     N = coo_matrix((data, (rows, cols)), shape=(size, size))
     return N
 

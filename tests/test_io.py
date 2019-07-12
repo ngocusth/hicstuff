@@ -88,7 +88,7 @@ def test_cooler_io():
     f = NamedTemporaryFile("w", delete=False)
     f.close
     # Write cool from GRAAL objects
-    hio.write_cool(f.name, MAT_GRAAL, FRAGS_GRAAL)
+    hio.save_cool(f.name, MAT_GRAAL, FRAGS_GRAAL)
     c = cooler.Cooler(f.name)
     # Just copy the start column and write it as a new one
     dummycol = c.bins()[:].loc[:,'start'] #pylint: disable=no-member
