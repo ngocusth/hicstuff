@@ -138,6 +138,7 @@ def save_sparse_matrix(s_mat, path):
     path : str
         File path where the matrix will be stored
     """
+    s_mat = s_mat.tocoo()
     sparse_arr = np.vstack([s_mat.row, s_mat.col, s_mat.data]).T
 
     np.savetxt(

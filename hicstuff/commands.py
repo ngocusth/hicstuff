@@ -985,7 +985,7 @@ class Convert(AbstractCommand):
         elif format == "cool":
             hio.save_cool(self.out_cool, self.mat, self.frags, metadata={'hicstuff': __version__})
         elif format == "bg2":
-            hio.save_bedgraph2d(mat, frags, self.out_mat)
+            hio.save_bedgraph2d(self.mat, self.frags, self.out_mat)
         else:
             logger.error("Unknown output format")
 
