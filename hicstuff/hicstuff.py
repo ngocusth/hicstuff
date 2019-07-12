@@ -29,6 +29,7 @@ from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
 from scipy.sparse.linalg import eigsh
 from scipy.linalg import eig
 import scipy.sparse as sparse
+from scipy.sparse import issparse
 import copy
 import random
 import pandas as pd
@@ -434,32 +435,155 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     frags = np.array([chroms, positions], dtype=np.int64).T
     # Keep track of index fragments
     frag_idx = range(frags.shape[0])
-    # Number of bins to create
-    n_bins = np.unique(frags, axis=0).shape[0]
+    # Unique bin coordinates to create
+    unique_bins = np.unique(frags, axis=0)
+    # Check if some bins are missing (happens if a single
+    # fragment should contain multiple bins)
+    bins_jumps =  (unique_bins[1:,1] - unique_bins[:-1,1]) - 1
+    # Compute number of missing bins to add (no restriction site in bin)
+    missing_bins = np.where(bins_jumps > 0)[0]
+    n_missing_bins = np.sum(bins_jumps[bins_jumps>0])
+    # Compute correct number of bins to create
+    n_bins = unique_bins.shape[0] + n_missing_bins
     # Initialise output fragment list (post binning)
     out_pos = np.zeros((n_bins, 1))
     row = copy.copy(r.row)
     col = copy.copy(r.col)
-    bin_No = 0
+    # unique_bin_No: Number of bins w/ unique restriction fragments
+    # actual_bin_No: Number of bins in total (including missing ones 
+    # sharing the same fragment)
+    unique_bin_No, actual_bin_No = 0, 0
+    # Match empty missing bins added with the original bin sharing
+    # the same fragment
+    added_bins = {}
+    bin_per_frag = {}
     # Use (chr, bin) as grouping key (coord) and indices of fragments
     # belonging to current bin (bin_frags)
     for coords, bin_frags in itertools.groupby(
         frag_idx, lambda x: tuple(frags[x, :])
-    ):
+    ):  
+
         bin_frags = list(bin_frags)
         first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
         # Pool row/col number by bin
-        row[np.where((r.row >= first_frag) & (r.row < last_frag))] = bin_No
-        col[np.where((r.col >= first_frag) & (r.col < last_frag))] = bin_No
+        row[np.where((r.row >= first_frag) & (r.row < last_frag))] = actual_bin_No
+        col[np.where((r.col >= first_frag) & (r.col < last_frag))] = actual_bin_No
         # Get bin position in basepair
-        out_pos[bin_No] = coords[1] * bin_len
-        bin_No += 1
+        out_pos[actual_bin_No] = coords[1] * bin_len
+        # Multiple bins to create in same fragment (rare)
+        if unique_bin_No in missing_bins:
+            # Number of basepairs to shift inside fragment for new bins
+            curr_shift = 0
+            # Subsequent bins belong to same frag as this one
+            orig_bin = copy.copy(actual_bin_No)
+            # Shifting bin index (introducing empty bins) for each bin in same frag
+            for bin_shift in range(bins_jumps[unique_bin_No]):
+                curr_shift += bin_len
+                actual_bin_No += 1
+                # Remember bin coords and #bin /frag to fill contacts later
+                added_bins[actual_bin_No] = orig_bin
+                bin_per_frag[orig_bin] = bin_per_frag.get(
+                        unique_bin_No,
+                        0
+                ) + 1
+                out_pos[actual_bin_No] = coords[1] * bin_len + curr_shift
+        unique_bin_No += 1
+        actual_bin_No += 1
 
-    # Sum data of duplicate row/col pairs
-    binned = coo_matrix((r.data, (row, col)), shape=(bin_No, bin_No))
+    # Sum data of duplicate row/col pairs 
+    # (i.e. combine contacts of all fragments in same bin)
+    binned = coo_matrix((r.data, (row, col)), shape=(actual_bin_No, actual_bin_No))
     binned.sum_duplicates()
+    binned.eliminate_zeros()
+    binned = binned.tolil()
+    # Split contacts between bins sharing same fragments
+    for bin_idx, n_shared in bin_per_frag.items():
+        div = 1 + n_shared
+        diagval = binned[bin_idx, bin_idx]
+        binned[bin_idx, :] /= div
+        binned[:, bin_idx] /= div
+        binned[bin_idx, bin_idx] = diagval / div
+
+    for added_bin, original_bin in added_bins.items():
+        binned[added_bin, :] = binned[original_bin, :]
+        binned[:, added_bin] = binned[:, original_bin]
     return (binned, out_pos)
 
+def mad(M, axis=None):
+    """
+    Computes median absolute deviation of matrix bins sums.
+
+    Parameters
+    ----------
+    M : scipy sparse coo_matrix
+        Sparse matrix in COO format.
+
+    axis: int
+        Compute MAD on rows if 0, on columns if 1 or on all pixels if None.
+        If axis is None, MAD is computed only on nonzero pixels.
+    Returns
+    -------
+    float:
+        MAD estimator of matrix bin sums
+    """
+    # Compute median on nonzero data values
+    # otherwise, median is 0 if sufficiently sparse
+    if axis is None:
+        if issparse(M):
+            r = M.tocoo()
+            dist = r.data
+        else:
+            dist = M
+        
+    else:
+        if axis < 0:
+            axis += 2
+        dist = np.array(r.sum(axis=axis, dtype=np.float)).flatten()
+
+    return np.median(np.absolute(dist - np.median(dist)))
+
+
+def get_good_bins(M, sds=2.0, s_min=None, s_max=None):
+    """
+    Filters out bins with outstanding sums using median and MAD
+    of the bin distribution.
+
+    Parameters
+    ----------
+    M : scipy sparse coo_matrix
+        Input sparse matrix representing the Hi-C contact map.
+
+    sds : float
+        Minimum number of standard deviations around median in the
+        bin sums distribution at which bins will be filtered out.
+
+    s_min : float
+        Optional fixed threshold value for bin sum below which bins should
+        be filtered out.
+
+    s_max: float
+        Optional fixed threshold value for bin sum above which bins should
+        be filtered out.
+    Returns
+    -------
+    numpy array of bool :
+        A 1D numpy array whose length is the number of bins in the matrix and
+        values indicate if bins values are within the acceptable range (1)
+        or considered outliers (0).
+    """
+    r = M.tocoo()
+    with np.errstate(divide="ignore", invalid="ignore"):
+        bins = np.array(r.sum(axis=1, dtype=np.float)).flatten()
+        norm = np.log10(bins)
+        median = np.median(norm)
+        sigma = 1.4826 * mad(norm)
+
+    if s_min is None:
+        s_min = median - sds * sigma
+    if s_max is None:
+        s_max = median + sds * sigma
+
+    return (norm > s_min) * (norm < s_max)
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):
     """By default, return a matrix stripped of component
@@ -503,46 +627,6 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     f = (sparsity > s_min) * (sparsity < s_max)
     N = M[f][:, f]
     return N
-
-
-def get_good_bins(M, n_std=3, s_min=None, s_max=None):
-    """
-    Returns a boolean mask marking the outlier bins of a Hi-C contact map with
-    0 and the good bins with 1. Good bins are defined either by a fixed
-    or a number of standard deviations from the mean of all bins values.
-
-    Parameters
-    ----------
-    M : scipy.sparse.coo_matrix
-        Sparse Hi-C contact map
-    n_std : int
-        Minimum number of standard deviation by which a the sum of
-        contacts in a component vector must deviate from the mean
-        to be trimmed.
-    s_min : float
-        Fixed minimum value below which the component vectors will
-        be trimmed.
-    s_max : float
-        Fixed maximum value above which the component vectors will
-        be trimmed.
-
-    Returns
-    -------
-    numpy.array of bool :
-        A 1D numpy array whose length is the number of bins in the matrix and
-        values indicate if bins mean values are within the acceptable range (1)
-        or considered outliers (0).
-    """
-    r = M.tocoo()
-    sparsity = np.array(r.sum(axis=1, dtype=np.float)).flatten()
-    mean = np.mean(sparsity)
-    std = np.std(sparsity)
-    if s_min is None:
-        s_min = mean - n_std * std
-    if s_max is None:
-        s_max = mean + n_std * std
-    f = (sparsity > s_min) * (sparsity < s_max)
-    return f
 
 
 def trim_sparse(M, n_std=3, s_min=None, s_max=None):
