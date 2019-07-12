@@ -27,7 +27,7 @@ DEFAULT_INFO_CONTIGS_FILE_NAME = "info_contigs.txt"
 DEFAULT_SPARSE_MATRIX_FILE_NAME = "abs_fragments_contacts_weighted.txt"
 
 
-def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
+def _cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
     """
     Make a coordinate based sparse matrix from columns.
     Convert (3, n) shaped arrays to a sparse matrix. The fist
@@ -54,7 +54,7 @@ def raw_cols_to_sparse(sparse_array, shape=None, dtype=np.float64):
         >>> row, col = np.array([1, 2, 3]), np.array([3, 2, 1])
         >>> data = np.array([4, 5, 6])
         >>> M = np.array([row, col, data]).T
-        >>> S = raw_cols_to_sparse(M)
+        >>> S = _cols_to_sparse(M)
         >>> print(S.todense())
         [[0. 0. 0. 0.]
          [0. 0. 0. 4.]
@@ -108,14 +108,14 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     (16, 16)
     """
     try:
-        raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
-        shape = (int(raw_mat[0, 0]), int(raw_mat[0, 1]))
+        cols_arr = np.loadtxt(mat_path, delimiter="\t", dtype=dtype)
+        shape = (int(cols_arr[0, 0]), int(cols_arr[0, 1]))
     except ValueError:
-        raw_mat = np.loadtxt(mat_path, delimiter="\t", dtype=dtype, skiprows=1)
+        cols_arr = np.loadtxt(mat_path, delimiter="\t", dtype=dtype, skiprows=1)
         shape = None
 
     # Get values into an array without the header. Use the header to give size.
-    sparse_mat = raw_cols_to_sparse(raw_mat[1:, :], shape=shape, dtype=dtype)
+    sparse_mat = _cols_to_sparse(cols_arr[1:, :], shape=shape, dtype=dtype)
 
     if binning == "auto":
         num_bins = max(sparse_mat.shape) + 1
