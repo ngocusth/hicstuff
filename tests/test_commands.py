@@ -77,7 +77,7 @@ def test_digest():
 
 
 def test_filter():
-    args = "-f {0}, -p test_data/valid_idx.pairs {0}/valid_idx_filtered.pairs".format(
+    args = "-f {0} -p test_data/valid_idx.pairs {0}/valid_idx_filtered.pairs".format(
         OUT
     )
     proc = hcmd.Filter(args.split(" "), {})
