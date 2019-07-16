@@ -374,7 +374,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     unique_bins = np.unique(frags, axis=0)
     # Check if some bins are missing (happens if a single
     # fragment should contain multiple bins)
-    bins_jumps =  (unique_bins[1:,1] - unique_bins[:-1,1]) - 1
+    bins_jumps =  (unique_bins[1:, 1] - unique_bins[:-1, 1]) - 1
     # Compute number of missing bins to add (no restriction site in bin)
     missing_bins = np.where(bins_jumps > 0)[0]
     n_missing_bins = np.sum(bins_jumps[bins_jumps>0])
@@ -396,7 +396,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     # belonging to current bin (bin_frags)
     for coords, bin_frags in itertools.groupby(
         frag_idx, lambda x: tuple(frags[x, :])
-    ):  
+    ):
 
         bin_frags = list(bin_frags)
         first_frag, last_frag = bin_frags[0], bin_frags[-1] + 1
@@ -412,21 +412,23 @@ def bin_bp_sparse(M, positions, bin_len=10000):
             # Subsequent bins belong to same frag as this one
             orig_bin = copy.copy(actual_bin_No)
             # Shifting bin index (introducing empty bins) for each bin in same frag
-            for bin_shift in range(bins_jumps[unique_bin_No]):
+            for _ in range(bins_jumps[unique_bin_No]):
                 curr_shift += bin_len
                 actual_bin_No += 1
                 # Remember bin coords and #bin /frag to fill contacts later
                 added_bins[actual_bin_No] = orig_bin
                 bin_per_frag[orig_bin] = bin_per_frag.get(
-                        unique_bin_No,
-                        0
+                    unique_bin_No,
+                    0
                 ) + 1
                 out_pos[actual_bin_No] = coords[1] * bin_len + curr_shift
         unique_bin_No += 1
         actual_bin_No += 1
-
+    row[np.where(r.row >= last_frag)] = actual_bin_No
+    col[np.where(r.col >= last_frag)] = actual_bin_No
     # Sum data of duplicate row/col pairs 
     # (i.e. combine contacts of all fragments in same bin)
+
     binned = coo_matrix((r.data, (row, col)), shape=(actual_bin_No, actual_bin_No))
     binned.sum_duplicates()
     binned.eliminate_zeros()
@@ -692,10 +694,6 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
             s_norm = np.tensordot(s_norm_x, s_norm_y, axes=0)
             s[s_norm != 0] = 1.0 * s[s_norm != 0] / s_norm[s_norm != 0]
 
-    elif norm == "global":
-        s_norm = np.linalg.norm(s, ord=floatorder)
-        s /= 1.0 * s_norm
-
     elif callable(norm):
         s = norm(M)
 
@@ -746,17 +744,6 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
         row_sums = np.array(r.sum(axis=0)).flatten()
         # Scale to 1
         r.data = r.data * (1 / np.mean(row_sums))
-
-    elif norm == "global":
-        try:
-            from scipy.sparse import linalg
-
-            r = linalg.norm(M, ord=order)
-        except (ImportError, AttributeError) as e:
-            logger.error(
-                "I can't import linalg tools for sparse matrices."
-                "Please upgrade your scipy version to 0.16.0."
-            )
 
     elif callable(norm):
         r = norm(M)
