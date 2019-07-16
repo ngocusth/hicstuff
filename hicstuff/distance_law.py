@@ -458,6 +458,8 @@ def get_distance_law(
     ps : list of numpy.ndarray
         Contacts value, in arbitrary units, at increasingly long genomic ranges
         given by xs.
+    names : list of strings
+        Names of chromosomes that are plotted
     """
     # Sanity check : centro_fileition should be None if chromosomes are
     # circulars (no centromeres is circular chromosomes).
@@ -663,8 +665,8 @@ def slope_distance_law(xs, ps):
 
 
 def get_ylim(xs, curve, inf, sup):
-    """Compute the max and the min of the list of list between the borns 
-    inferior (inf) and superior (sup).
+    """Compute the max and the min of the list of list between the inferior
+    (inf) and superior (sup) bounds.
 
     Parameters
     ----------
@@ -674,9 +676,9 @@ def get_ylim(xs, curve, inf, sup):
         A list of numpy.ndarray from which you want to extract minimum and
         maximum values in a given interval.
     inf : int
-        Born inferior of the interval in basepair.
+        Inferior limit of the interval in basepair.
     sup : int
-        Born superior of the interval in basepair.
+        Superior limit of the interval in basepair.
 
     Returns
     -------
@@ -700,11 +702,14 @@ def get_ylim(xs, curve, inf, sup):
         # Iterate on xs.
         # Search for the minimum index corresponding to the smallest bin
         # superior or equal to inf (in pair base).
-        min_value = min(logbins[logbins[:] >= inf])
+        min_value = min(logbins[logbins >= inf], default=0)
         min_index = np.where(logbins == min_value)[0]
+        # Skip chromosome if total size smaller than inf
+        if len(min_index) == 0:
+            continue
         # Search for the maximum index corresponding to the biggest bin
         # inferior or equal to sup (in pair base).
-        max_value = max(logbins[logbins[:] <= sup])
+        max_value = max(logbins[logbins <= sup])
         max_index = np.where(logbins == max_value)[0]
         # Add the values in the interval in the flattened list.
         if int(max_index) != len(logbins) - 1:

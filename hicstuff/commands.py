@@ -53,6 +53,7 @@ from matplotlib import cm
 from docopt import docopt
 import pandas as pd
 import numpy as np
+import copy
 
 
 class AbstractCommand:
@@ -791,7 +792,7 @@ class Rebin(AbstractCommand):
             # Subsample binning
             binning = int(bin_str)
         except ValueError:
-            # Basepair binning
+            # Basepair binning: determine bin size
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
                 if not self.args["--frags"]:
                     logger.error(
@@ -807,20 +808,71 @@ class Rebin(AbstractCommand):
         map_path = self.args["<contact_map>"]
         hic_map = hio.load_sparse_matrix(map_path)
         chromnames = np.unique(frags.chrom)
+
         if bp_unit:
-            # Basepair binning
+            # Basepair binning: Perform binning
             hic_map, _ = hcs.bin_bp_sparse(hic_map, frags.start_pos, binning)
             for chrom in chromnames:
+                chrom_mask = frags.chrom == chrom
                 # For all chromosomes, get new bin start positions
-                bin_id = frags.loc[frags.chrom == chrom, "start_pos"] // binning
-                frags.loc[frags.chrom == chrom, "id"] = bin_id + 1
-                frags.loc[frags.chrom == chrom, "start_pos"] = binning * bin_id
+                bin_id = frags.loc[chrom_mask, "start_pos"] // binning
+                frags.loc[chrom_mask, "id"] = bin_id + 1
+                frags.loc[chrom_mask, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
                 chromsize = chromlist.length[chromlist.contig == chrom].values[0]
-                # bin_ends.iloc[-1] = min([bin_ends.iloc[-1], chromsize])
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
+
+            # Account for special cases where restriction fragments are larger than
+            # bin size, resulting in missing bins (i.e. jumps in bin ids)
+            id_diff = (
+                np.array(frags.loc[:, "id"])[1:] - np.array(frags.loc[:, "id"])[:-1]
+            )
+            # Normal jump is 1, new chromosome (reset id) is < 0, abnormal is > 1
+            # Get panda indices of abnormal jumps
+            jump_frag_idx = np.where(id_diff > 1)[0]
+            add_bins = id_diff - 1
+            # Need to insert [jump] bins after indices with abnormal [jump]
+            miss_bins = [None] * np.sum(add_bins[jump_frag_idx])
+            miss_bin_id = 0
+            for idx in jump_frag_idx:
+                jump_size = add_bins[idx]
+                for j in range(1, jump_size + 1):
+                    # New generated bins will be given attributes based on the previous bin
+                    # e.g. if 2 missing bins between bins 2 and 5:
+                    # id[3] = id[2] + 1 * 1 and id[4] = id[2] + 1 * 2
+                    miss_bins[miss_bin_id] = {
+                        "id": frags.loc[idx, "id"] + 1 * j,
+                        "chrom": frags.loc[idx, "chrom"],
+                        "start_pos": frags.loc[idx, "start_pos"] + binning * j,
+                        "end_pos": frags.loc[idx, "end_pos"] + binning * j,
+                        "size": binning,
+                        "gc_content": np.NaN,
+                    }
+                    miss_bin_id += 1
+                    # Shift bins row idx to allow
+
+            # Give existing bins spaced row idx to allow inserting missing bins
+            idx_shift = copy.copy(id_diff)
+            idx_shift[idx_shift < 1] = 1
+            existing_bins_idx = np.cumsum(idx_shift)
+            # Prepend first bin (lost when computing diff)
+            existing_bins_idx = np.insert(existing_bins_idx, 0, 0)
+            # Add missing bins to original table, and sort by idx
+            # missing bins are "holes" in the continuous range of existing bins
+            missing_bins_idx = sorted(
+                set(
+                    range(existing_bins_idx[0],
+                        existing_bins_idx[-1])) - set(existing_bins_idx))
+            miss_bins_df = pd.DataFrame(
+                miss_bins, columns=frags.columns, index=missing_bins_idx
+            )
+            frags['tmp_idx'] = existing_bins_idx
+            miss_bins_df['tmp_idx'] = missing_bins_idx
+            frags = pd.concat([frags, miss_bins_df], axis=0, sort=False)
+            frags.sort_values('tmp_idx', axis=0, inplace=True)
+            frags.drop('tmp_idx', axis=1, inplace=True)
 
         else:
             # Subsample binning
@@ -829,6 +881,7 @@ class Rebin(AbstractCommand):
             # Exception when binning is 1 (no binning) where no need to shift
             shift_id = 0 if binning == 1 else 1
             frags.id = (frags.id // binning) + shift_id
+
         # Save original columns order
         col_ordered = list(frags.columns)
         # Get new start and end position for each bin
@@ -841,6 +894,8 @@ class Rebin(AbstractCommand):
         features.reset_index(inplace=True)
         # set new bins positions
         frags = features
+        frags['start_pos'] = 0
+        frags['end_pos'] = 0
         frags.loc[:, positions.columns] = positions
         frags["size"] = frags.end_pos - frags.start_pos
         cumul_bins = 0
