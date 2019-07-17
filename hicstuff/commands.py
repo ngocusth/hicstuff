@@ -322,15 +322,13 @@ class View(AbstractCommand):
         Apply a mathematical operation on a dense Hi-C map. Valid
         operations are: log2, log10, ln, sqrt, exp0.2
         """
-        ops = {
-            "log10": np.log10,
-            "log2": np.log2,
-            "ln": np.log,
-            "sqrt": np.sqrt,
-            "exp0.2": lambda x: x ** 0.2,
-        }
+        ops = {"log10": np.log10, "log2": np.log2, "ln": np.log, "sqrt": np.sqrt}
         if operation in ops:
             return ops[operation](dense_map)
+        elif re.match(r"exp", operation):
+            splitop = operation.split("exp")
+            exp_val = float(splitop[1])
+            return dense_map ** exp_val
         elif hasattr(np, operation) and callable(np.__dict__[operation]):
             logger.warn("Using built-in numpy callable: %s" % operation)
             return np.__dict__[operation](dense_map)
@@ -862,17 +860,17 @@ class Rebin(AbstractCommand):
             # Add missing bins to original table, and sort by idx
             # missing bins are "holes" in the continuous range of existing bins
             missing_bins_idx = sorted(
-                set(
-                    range(existing_bins_idx[0],
-                        existing_bins_idx[-1])) - set(existing_bins_idx))
+                set(range(existing_bins_idx[0], existing_bins_idx[-1]))
+                - set(existing_bins_idx)
+            )
             miss_bins_df = pd.DataFrame(
                 miss_bins, columns=frags.columns, index=missing_bins_idx
             )
-            frags['tmp_idx'] = existing_bins_idx
-            miss_bins_df['tmp_idx'] = missing_bins_idx
+            frags["tmp_idx"] = existing_bins_idx
+            miss_bins_df["tmp_idx"] = missing_bins_idx
             frags = pd.concat([frags, miss_bins_df], axis=0, sort=False)
-            frags.sort_values('tmp_idx', axis=0, inplace=True)
-            frags.drop('tmp_idx', axis=1, inplace=True)
+            frags.sort_values("tmp_idx", axis=0, inplace=True)
+            frags.drop("tmp_idx", axis=1, inplace=True)
 
         else:
             # Subsample binning
@@ -894,8 +892,8 @@ class Rebin(AbstractCommand):
         features.reset_index(inplace=True)
         # set new bins positions
         frags = features
-        frags['start_pos'] = 0
-        frags['end_pos'] = 0
+        frags["start_pos"] = 0
+        frags["end_pos"] = 0
         frags.loc[:, positions.columns] = positions
         frags["size"] = frags.end_pos - frags.start_pos
         cumul_bins = 0
