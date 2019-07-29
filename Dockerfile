@@ -3,12 +3,12 @@
 # OS Support also exists for jessie & stretch (slim and full).
 # See https://hub.docker.com/r/library/python/ for all supported Python
 # tags from Docker Hub.
-FROM python:3.7
+FROM ubuntu:16.04
 
 
 
 
-LABEL Name=hicstuff Version=1.4.7
+LABEL Name=hicstuff Version=1.4.8
 
 # Install python dependencies
 COPY * ./ /app/
