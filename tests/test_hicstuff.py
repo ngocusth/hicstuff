@@ -10,6 +10,7 @@ import random
 import numpy as np
 import pytest
 import hicstuff.hicstuff as hcs
+import hicstuff.distance_law as hdl
 from scipy.sparse import coo_matrix
 from inspect import signature, getmembers, isfunction
 
@@ -217,8 +218,8 @@ def test_compartments_sparse(matrix_size):
 def test_distance_law(matrix_size):
     M_d, M_s = _gen_matrices(matrix_size)
 
-    I_d, D_d = hcs.distance_law_from_mat(M_d)
-    I_s, D_s = hcs.distance_law_from_mat(M_s)
+    I_d, D_d = hdl.distance_law_from_mat(M_d)
+    I_s, D_s = hdl.distance_law_from_mat(M_s)
 
     assert I_d.shape == I_s.shape
     assert D_d.shape == D_s.shape

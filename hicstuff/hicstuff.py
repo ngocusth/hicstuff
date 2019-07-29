@@ -35,6 +35,7 @@ import random
 import pandas as pd
 import sys
 from hicstuff.log import logger
+import hicstuff.distance_law as hdl
 
 
 def despeckle_simple(B, th2=2, threads=1):
@@ -1785,7 +1786,7 @@ def compartments(M, normalize=True):
         N = np.copy(M)
     # Computation of genomic distance law matrice:
     dist_mat = np.zeros((n, n))
-    _, dist_vals = distance_law_from_mat(N, log_bins=False)
+    _, dist_vals = hdl.distance_law_from_mat(N, log_bins=False)
     for i in range(n):
         for j in range(n):
             dist_mat[i, j] = dist_vals[abs(j - i)]
@@ -1864,7 +1865,7 @@ def compartments_sparse(M, normalize=True):
         N = copy.copy(M)
     N = N.tocoo()
     # Detrend by the distance law
-    dist_bins, dist_vals = distance_law_from_mat(N, log_bins=False)
+    dist_bins, dist_vals = hdl.distance_law_from_mat(N, log_bins=False)
     N.data /= dist_vals[abs(N.row - N.col)]
     N = N.tocsr()
     # Make matrix symmetric (in case of upper triangle)
