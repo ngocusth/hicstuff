@@ -3,6 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/hicstuff.svg)](https://badge.fury.io/py/hicstuff)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hicstuff.svg)
 [![Build Status](https://travis-ci.com/koszullab/hicstuff.svg)](https://travis-ci.com/koszullab/hicstuff)
+[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/koszullab/hicstuff)](https://hub.docker.com/r/koszullab/hicstuff)
 [![codecov](https://codecov.io/gh/koszullab/hicstuff/branch/master/graph/badge.svg)](https://codecov.io/gh/koszullab/hicstuff)
 [![Read the docs](https://readthedocs.org/projects/hicstuff/badge)](https://hicstuff.readthedocs.io)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/koszullab/hicstuff/master?filepath=doc%2Fnotebooks%2Fdemo_api.ipynb)
