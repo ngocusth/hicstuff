@@ -37,6 +37,26 @@ or, for the latest development version:
     pip3 install -e git+https://github.com/koszullab/hicstuff.git@master#egg=hicstuff
 ```
 
+### External dependencies
+
+Bowtie2 and/or minimap2 as well as samtools are required for the `pipeline` utility.
+
+You can install them via the conda package manager:
+```bash
+conda install -c bioconda minimap2 bowtie2 samtools
+```
+Alternatively, on ubuntu you can also install them along with additional dependencies through APT:
+```bash
+apt-get install samtools bowtie2 minimap2 libbz2-dev liblzma-dev
+```
+
+### Docker installation
+
+A pre-built docker image is available on dockerhub and can be ran using:
+```bash
+docker run koszullab/hicstuff
+```
+
 ## Usage
 
 ### Full pipeline
