@@ -517,7 +517,7 @@ def mad(M, axis=None):
 def get_good_bins(M, n_std=2.0, s_min=None, s_max=None):
     """
     Filters out bins with outstanding sums using median and MAD
-    of the bin distribution.
+    of the log transformed distribution of bin sums.
 
     Parameters
     ----------
