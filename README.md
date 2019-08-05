@@ -51,12 +51,12 @@ All components of the pipelines can be run at once using the `hicstuff pipeline`
                  [--centromeres=FILE] --genome=FILE <input1> [<input2>]
 
     arguments:
-        input1:             Forward fastq file, if start_stage is "fastq", sam
+        input1:             Forward fastq file, if start_stage is "fastq", bam
                             file for aligned forward reads if start_stage is
-                            "sam", or a .pairs file if start_stage is "pairs".
-        input2:             Reverse fastq file, if start_stage is "fastq", sam
+                            "bam", or a .pairs file if start_stage is "pairs".
+        input2:             Reverse fastq file, if start_stage is "fastq", bam
                             file for aligned reverse reads if start_stage is
-                            "sam", or nothing if start_stage is "pairs".
+                            "bam", or nothing if start_stage is "pairs".
 
 
 
@@ -161,7 +161,7 @@ You can generate SAM files independently using your favorite read mapping softwa
 ```python
 from hicstuff import pipeline as hpi
 
-hpi.align_reads("end1.fastq", "genome.fasta", "end1.sam", iterative=True, minimap2=True)
+hpi.align_reads("end1.fastq", "genome.fasta", "end1.bam", iterative=True, minimap2=True)
 ```
 
 **Using the command line tool:**
@@ -173,16 +173,16 @@ hicstuff iteralign --minimap2 --iterative -f genome.fasta -o end1.sam end1.fastq
 
 #### Extracting contacts from the alignment
 
-The output from `hicstuff iteralign` is a SAM file. In order to retrieve Hi-C pairs, you need to run iteralign separately on the two fastq files and process the resulting alignment files as follows using the `pipeline` submodules of hicstuff.
+The output from `hicstuff iteralign` is a SAM file. In order to retrieve Hi-C pairs, you need to run iteralign separately on the two fastq files and process the resulting alignment files into a name-sorted BAM file as follows using the `pipeline` submodules of hicstuff.
 
 ```python
 from hicstuff import pipeline as hpi
 import pysam as ps
-# Sort alignments by read names
-ps.sort("-n", "-O", "SAM", "-o", "end1.sam.sorted", "end1.sam")
-ps.sort("-n", "-O", "SAM", "-o", "end2.sam.sorted", "end2.sam")
-# Combine SAM files
-hpi.sam2pairs("end1.sorted.sam", "end2.sorted.sam", "output.pairs", "info_contigs.txt", min_qual=30)
+# Sort alignments by read names and get into BAM format
+ps.sort("-n", "-O", "BAM", "-o", "end1.bam.sorted", "end1.sam")
+ps.sort("-n", "-O", "BAM", "-o", "end2.bam.sorted", "end2.sam")
+# Combine BAM files
+hpi.bam2pairs("end1.sorted.bam", "end2.sorted.bam", "output.pairs", "info_contigs.txt", min_qual=30)
 
 ```
 This will generate a "pairs" file containing all read pairs where both reads have been aligned with a mapping quality of at least 30.
