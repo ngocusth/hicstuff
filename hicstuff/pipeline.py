@@ -29,7 +29,7 @@ from hicstuff.log import logger
 def align_reads(
     reads,
     genome,
-    out_sam,
+    out_bam,
     tmp_dir=None,
     threads=1,
     aligner="bowtie2",
@@ -47,8 +47,8 @@ def align_reads(
     genome : str
         Path to the genome bowtie2 index prefix if using bowtie2 or to the 
         fasta if using minimap2.
-    out_sam : str
-        Path to the output SAM file containing mapped Hi-C reads.
+    out_bam : str
+        Path to the output BAM file containing mapped Hi-C reads.
     tmp_dir : str
         Path where temporary files are stored.
     threads : int
@@ -65,7 +65,7 @@ def align_reads(
     if tmp_dir is None:
         tmp_dir = os.getcwd()
     index = None
-    tmp_sam = out_sam + ".tmp"
+    tmp_sam = out_bam + ".tmp"
 
     if iterative:
         iter_tmp_dir = hio.generate_temp_dir(tmp_dir)
@@ -98,27 +98,27 @@ def align_reads(
     # TODO: replace sp.call with ps.view command. It currently has a bug
     # preventing output redirection.
     sp.call(
-        "samtools view -F 2048 -h -@ {threads} -o {out} {tmp}".format(
-            tmp=tmp_sam, threads=threads, out=out_sam
+        "samtools view -F 2048 -h -@ {threads} -O BAM -o {out} {tmp}".format(
+            tmp=tmp_sam, threads=threads, out=out_bam
         ),
         shell=True,
     )
     os.remove(tmp_sam)
 
 
-def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
+def bam2pairs(bam1, bam2, out_pairs, info_contigs, min_qual=30):
     """
-    Make a .pairs file from two Hi-C sam files sorted by read names.
+    Make a .pairs file from two Hi-C bam files sorted by read names.
     The Hi-C mates are matched by read identifier. Pairs where at least one
     reads maps with MAPQ below  min_qual threshold are discarded. Pairs are
     sorted by readID and stored in upper triangle (first pair higher).
 
     Parameters
     ----------
-    sam1 : str
-        Path to the name-sorted SAM file with aligned Hi-C forward reads.
-    sam2 : str
-        Path to the name-sorted SAM file with aligned Hi-C reverse reads.
+    bam1 : str
+        Path to the name-sorted BAM file with aligned Hi-C forward reads.
+    bam2 : str
+        Path to the name-sorted BAM file with aligned Hi-C reverse reads.
     out_pairs : str
         Path to the output space-separated .pairs file with columns 
         readID, chr1 pos1 chr2 pos2 strand1 strand2
@@ -127,8 +127,8 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     min_qual : int
         Minimum mapping quality required to keep a Hi=C pair.
     """
-    forward = ps.AlignmentFile(sam1)
-    reverse = ps.AlignmentFile(sam2)
+    forward = ps.AlignmentFile(bam1, 'rb')
+    reverse = ps.AlignmentFile(bam2, 'rb')
 
     # Generate header lines
     format_version = "## pairs format v1.0\n"
@@ -144,21 +144,21 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
         n_reads = {"total": 0, "mapped": 0}
         # Remember if some read IDs were missing from either file
         unmatched_reads = 0
-        # Remember if all reads in one sam file have been read
+        # Remember if all reads in one bam file have been read
         exhausted = [False, False]
-        # Iterate on both SAM simultaneously
+        # Iterate on both BAM simultaneously
         for end1, end2 in itertools.zip_longest(forward, reverse):
             # Both file still have reads
             # Check if reads pass filter
             try:
                 end1_passed = end1.mapping_quality >= min_qual
-            # Happens if end1 sam file has been exhausted
+            # Happens if end1 bam file has been exhausted
             except AttributeError:
                 exhausted[0] = True
                 end1_passed = False
             try:
                 end2_passed = end2.mapping_quality >= min_qual
-            # Happens if end2 sam file has been exhausted
+            # Happens if end2 bam file has been exhausted
             except AttributeError:
                 exhausted[1] = True
                 end2_passed = False
@@ -173,7 +173,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                     try:
                         end1 = next(forward)
                         end1_passed = end1.mapping_quality >= min_qual
-                    # If EOF is reached in SAM 1
+                    # If EOF is reached in BAM 1
                     except (StopIteration, AttributeError):
                         exhausted[0] = True
                         end1_passed = False
@@ -182,7 +182,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
                     try:
                         end2 = next(reverse)
                         end2_passed = end2.mapping_quality >= min_qual
-                    # If EOF is reached in SAM 2
+                    # If EOF is reached in BAM 2
                     except (StopIteration, AttributeError):
                         exhausted[1] = True
                         end2_passed = False
@@ -214,7 +214,7 @@ def sam2pairs(sam1, sam2, out_pairs, info_contigs, min_qual=30):
     pairs.close()
     if unmatched_reads > 0:
         logger.warning(
-            "%d reads were only present in one SAM file.", unmatched_reads
+            "%d reads were only present in one BAM file. Make sure you sorted reads by name before running the pipeline.", unmatched_reads
         )
     logger.info(
         "{perc_map}% reads (single ends) mapped with Q >= {qual} ({mapped}/{total})".format(
@@ -454,10 +454,10 @@ def full_pipeline(
         fasta format if using minimap2.
     input1 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
-        in SAM format, or the pairs file, depending on the value of start_stage.
+        in BAM format, or the pairs file, depending on the value of start_stage.
     input2 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
-        in SAM format, or None, depending on the value of start_stage.
+        in BAM format, or None, depending on the value of start_stage.
     enzyme : int or str
         Name of the enzyme used for the digestion (e.g "DpnII"). If an integer
         is used instead, the fragment attribution will be done directly using a
@@ -488,9 +488,9 @@ def full_pipeline(
     prefix : str or None
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
-        Step at which the pipeline should start. Can be "fastq", "sam", "pairs"
-        or "pairs_idx". With starting from sam allows to skip alignment and start 
-        from named-sorted sam files. With
+        Step at which the pipeline should start. Can be "fastq", "bam", "pairs"
+        or "pairs_idx". With starting from bam allows to skip alignment and start 
+        from named-sorted bam files. With
         "pairs", a single pairs file is given as input, and with "pairs_idx", the
         pairs in the input must already be attributed to fragments and fragment
         attribution is skipped.
@@ -524,7 +524,7 @@ def full_pipeline(
 
     # Pipeline can start from 3 input types
     start_time = datetime.now()
-    stages = {"fastq": 0, "sam": 1, "pairs": 2, "pairs_idx": 3}
+    stages = {"fastq": 0, "bam": 1, "pairs": 2, "pairs_idx": 3}
     start_stage = stages[start_stage]
     # sanitize enzyme
     enzyme = str(enzyme)
@@ -569,8 +569,8 @@ def full_pipeline(
     # Define temporary file names
     log_file = _out_file("hicstuff_" + now + ".log")
     tmp_genome = _tmp_file("genome.fasta")
-    sam1 = _tmp_file("for.sam")
-    sam2 = _tmp_file("rev.sam")
+    bam1 = _tmp_file("for.bam")
+    bam2 = _tmp_file("rev.bam")
     pairs = _tmp_file("valid.pairs")
     pairs_idx = _tmp_file("valid_idx.pairs")
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
@@ -637,7 +637,7 @@ def full_pipeline(
     if start_stage == 0:
         reads1, reads2 = input1, input2
     elif start_stage == 1:
-        sam1, sam2 = input1, input2
+        bam1, bam2 = input1, input2
     elif start_stage == 2:
         pairs = input1
     elif start_stage == 3:
@@ -651,7 +651,7 @@ def full_pipeline(
         align_reads(
             reads1,
             genome,
-            sam1,
+            bam1,
             tmp_dir=tmp_dir,
             threads=threads,
             aligner=aligner,
@@ -661,7 +661,7 @@ def full_pipeline(
         align_reads(
             reads2,
             genome,
-            sam2,
+            bam2,
             tmp_dir=tmp_dir,
             threads=threads,
             aligner=aligner,
@@ -670,15 +670,15 @@ def full_pipeline(
         )
         # Sort alignments by read name
         ps.sort(
-            "-@", str(threads), "-n", "-O", "SAM", "-o", sam1 + ".sorted", sam1
+            "-@", str(threads), "-n", "-O", "BAM", "-o", bam1 + ".sorted", bam1
         )
-        st.move(sam1 + ".sorted", sam1)
+        st.move(bam1 + ".sorted", bam1)
         ps.sort(
-            "-@", str(threads), "-n", "-O", "SAM", "-o", sam2 + ".sorted", sam2
+            "-@", str(threads), "-n", "-O", "BAM", "-o", bam2 + ".sorted", bam2
         )
-        st.move(sam2 + ".sorted", sam2)
+        st.move(bam2 + ".sorted", bam2)
 
-    # Starting from sam files
+    # Starting from bam files
     if start_stage <= 1:
 
         fragments_updated = True
@@ -698,7 +698,7 @@ def full_pipeline(
         )
 
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
-        sam2pairs(sam1, sam2, pairs, info_contigs, min_qual=min_qual)
+        bam2pairs(bam1, bam2, pairs, info_contigs, min_qual=min_qual)
 
     # Starting from pairs file
     if start_stage <= 2:
@@ -791,8 +791,8 @@ def full_pipeline(
             pairs,
             pairs_idx,
             pairs_filtered,
-            sam1,
-            sam2,
+            bam1,
+            bam2,
             pairs_pcr,
             tmp_genome,
         ]
