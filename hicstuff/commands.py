@@ -81,8 +81,8 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--aligner=bowtie2] [--threads=1] [--min_len=20]
-                  [--tempdir DIR] --out_sam=FILE --genome=FILE <reads.fq>
+        iteralign [--aligner=bowtie2] [--threads=1] [--min-len=20]
+                  [--tempdir DIR] [--read-len INT] --out-sam=FILE --genome=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
@@ -102,6 +102,8 @@ class Iteralign(AbstractCommand):
                                  truncated [default: 20].
         -o, --out_sam=FILE       Path where the alignment will be written in
                                  SAM format.
+        -R, --read-len=INT       Read length in input FASTQ file. If not provided,
+                                 this is estimated from the first read in the file.
     """
 
     def execute(self):
@@ -116,6 +118,7 @@ class Iteralign(AbstractCommand):
             self.args["--out_sam"],
             aligner=self.args["--aligner"],
             min_len=int(self.args["--min_len"]),
+            read_len=int(self.args['--read-len']),
         )
         # Deletes the temporary folder
         shutil.rmtree(temp_directory)
@@ -520,7 +523,7 @@ class Pipeline(AbstractCommand):
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
                  [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
-                 [--plot] [--circular] [--distance-law] [--duplicates]
+                 [--plot] [--circular] [--distance-law] [--duplicates] [--read-len=INT]
                  [--centromeres=FILE] --genome=FILE <input1> [<input2>]
 
     arguments:
@@ -596,6 +599,11 @@ class Pipeline(AbstractCommand):
                                       chromosomes. Discordant with the circular
                                       option.           
 
+        -R, --read-len=INT            Maximum read length in the fastq file. Optionally
+                                      used in iterative alignment mode. Estimated from
+                                      the first read by default. Useful if input fastq
+                                      is a composite of different read lengths.
+
     output:
         abs_fragments_contacts_weighted.txt: the sparse contact map
         fragments_list.txt: information about restriction fragments (or chunks)
@@ -637,6 +645,7 @@ class Pipeline(AbstractCommand):
             pcr_duplicates=self.args["--duplicates"],
             distance_law=self.args["--distance-law"],
             centromeres=self.args["--centromeres"],
+            read_len=int(self.args['--read-len']),
         )
 
 

@@ -35,6 +35,7 @@ def align_reads(
     aligner="bowtie2",
     iterative=False,
     min_qual=30,
+    read_len=None,
 ):
     """
     Select and call correct alignment method and generate logs accordingly.
@@ -61,6 +62,10 @@ def align_reads(
     min_qual : int
         Minimum mapping quality required to keep an alignment during iterative
         mapping.
+    read_len : int
+        Maximum read length to expect in the fastq file. Optionally used in iterative
+        alignment mode. Estimated from the first read by default. Useful if input fastq
+        is a composite of different read lengths.
     """
     if tmp_dir is None:
         tmp_dir = os.getcwd()
@@ -77,6 +82,7 @@ def align_reads(
             sam_out=tmp_sam,
             min_qual=min_qual,
             aligner=aligner,
+            read_len=read_len,
         )
         st.rmtree(iter_tmp_dir)
     else:
@@ -442,6 +448,7 @@ def full_pipeline(
     pcr_duplicates=False,
     distance_law=False,
     centromeres=None,
+    read_len=None,
 ):
     """
     Run the whole hicstuff pipeline. Starting from fastq files and a genome to
@@ -508,9 +515,13 @@ def full_pipeline(
         to have a contact between two distances for each chromosomes or arms if the
         file with the positions has been given. The values are not normalized, or 
         averaged.
-    centromers : None or str
+    centromeres : None or str
         If not None, path of file with Positions of the centromeres separated by a
         space and in the same order than the chromosomes. 
+    read_len : int
+        Maximum read length to expect in the fastq file. Optionally used in iterative
+        alignment mode. Estimated from the first read by default. Useful if input fastq
+        is a composite of different read lengths.
     """
     # Check if third parties can be run
     if aligner in ('bowtie2', 'minimap2'):
@@ -657,6 +668,7 @@ def full_pipeline(
             aligner=aligner,
             iterative=iterative,
             min_qual=min_qual,
+            read_len=read_len,
         )
         align_reads(
             reads2,
@@ -667,6 +679,7 @@ def full_pipeline(
             aligner=aligner,
             iterative=iterative,
             min_qual=min_qual,
+            read_len=read_len,
         )
         # Sort alignments by read name
         ps.sort(

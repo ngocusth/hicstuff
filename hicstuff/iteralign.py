@@ -59,6 +59,7 @@ def iterative_align(
     aligner="bowtie2",
     min_len=20,
     min_qual=30,
+    read_len= None
 ):
     """Iterative alignment
 
@@ -85,6 +86,10 @@ def iterative_align(
         The initial length of the fragments to align.
     min_qual : int
         Minimum mapping quality required to keep Hi-C pairs.
+    read_len : int
+        Read length in the fasta file. If set to None, the length of the first read
+        is used. Set this value to the longest read length in the file if you have
+        different read lengths.
         
     Examples
     --------
@@ -125,25 +130,28 @@ def iterative_align(
             total_reads += 1
     total_reads /= 4
 
-    # Use first read to guess read length.
-    with hio.read_compressed(uncomp_path) as inf:
-        size = inf.readline()
-        # Stripping newline.
-        size = len(inf.readline().rstrip())
+    # Use first read to guess read length if not provided.
+    if read_len is None:
+        with hio.read_compressed(uncomp_path) as inf:
+            # Skip first line (read header)
+            size = inf.readline()
+            # Stripping newline from sequence line.
+            read_len = len(inf.readline().rstrip())
 
     # initial length of the fragments to align
     # In case reads are shorter than provided min_len
-    if size > min_len:
+    if read_len > min_len:
         n = min_len
     else:
-        logger.error(
-            "min_len must be shorter than the reads. Either decrease it or do not use iterative mapping."
+        logger.warning(
+            "min_len is longer than the reads. Iterative mapping will have no effect."
         )
-        sys.exit(1)
+        n = read_len
     logger.info("{0} reads to parse".format(int(total_reads)))
 
+    first_round = True
     # iterative alignment per se
-    while n <= size:
+    while n <= read_len:
         logger.info(
             "Truncating unaligned reads to {0}bp and mapping again.".format(
                 int(n)
@@ -153,7 +161,7 @@ def iterative_align(
         # Generate a temporary input fastq file with the n first nucleotids
         # of the reads.
         truncated_reads = truncate_reads(
-            tmp_dir, uncomp_path, remaining_reads, n, min_len
+            tmp_dir, uncomp_path, remaining_reads, n, first_round
         )
 
         # Align the truncated reads on reference genome
@@ -184,15 +192,21 @@ def iterative_align(
         )
 
         n += 20
+        first_round = False
 
     # one last round without trimming
     logger.info(
         "Trying to map unaligned reads at full length ({0}bp).".format(
-            int(size)
+            int(read_len)
         )
     )
+
     truncated_reads = truncate_reads(
-        tmp_dir, uncomp_path, remaining_reads, size, min_len
+        tmp_dir,
+        infile=uncomp_path,
+        unaligned_set=remaining_reads,
+        trunc_len=n,
+        first_round=first_round
     )
     if aligner == "minimap2" or aligner == "Minimap2":
         cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
@@ -229,10 +243,10 @@ def iterative_align(
     return 0
 
 
-def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
+def truncate_reads(tmp_dir, infile, unaligned_set, trunc_len, first_round):
     """Trim read ends
 
-    Writes the n first nucleotids of each sequence in infile to an auxialiary.
+    Writes the n first nucleotids of each sequence in infile to an auxiliary.
     file in the temporary folder.
     Parameters
     ----------
@@ -243,18 +257,24 @@ def truncate_reads(tmp_dir, infile, unaligned_set, n, min_len):
     unaligned_set : set
         Contains the names of all reads that did not map unambiguously in
         previous rounds.
-    n : int
+    trunc_len : int
         The number of basepairs to keep in each truncated sequence.
-    str
+    first_round : bool
+        If this is the first round, truncate all reads without checking mapping.
+    
+    Returns
+    -------
+    str :
         Path to the output fastq file containing truncated reads.
     """
 
     outfile = "{0}/truncated.fastq".format(tmp_dir)
     with ps.FastxFile(infile, "r") as inf, open(outfile, "w") as outf:
         for entry in inf:
-            if entry.name in unaligned_set or n == min_len:
-                entry.sequence = entry.sequence[:n]
-                entry.quality = entry.quality[:n]
+            # If the read did not align in previous round or this is the first round
+            if (entry.name in unaligned_set) or first_round:
+                entry.sequence = entry.sequence[:trunc_len]
+                entry.quality = entry.quality[:trunc_len]
                 outf.write(str(entry) + "\n")
     return outfile
 
