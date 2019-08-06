@@ -81,8 +81,8 @@ class Iteralign(AbstractCommand):
     reads in a 3C library.
 
     usage:
-        iteralign [--aligner=bowtie2] [--threads=1] [--min-len=20]
-                  [--tempdir DIR] [--read-len INT] --out-sam=FILE --genome=FILE <reads.fq>
+        iteralign [--aligner=bowtie2] [--threads=1] [--min-len=20] [--read-len=INT]
+                  [--tempdir=DIR] --out-sam=FILE --genome=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
@@ -98,27 +98,34 @@ class Iteralign(AbstractCommand):
                                  directory.
         -a, --aligner=bowtie2    Choose alignment software between bowtie2 and
                                  minimap2. [default: bowtie2]
-        -l, --min_len=INT        Length to which the reads should be
+        -l, --min-len=INT        Length to which the reads should be
                                  truncated [default: 20].
-        -o, --out_sam=FILE       Path where the alignment will be written in
+        -o, --out-sam=FILE       Path where the alignment will be written in
                                  SAM format.
         -R, --read-len=INT       Read length in input FASTQ file. If not provided,
                                  this is estimated from the first read in the file.
     """
 
     def execute(self):
+        read_len = self.args['--read-len'] 
+        
+        if read_len is not None:
+            read_len = int(read_len)
+
         if not self.args["--tempdir"]:
             self.args["--tempdir"] = "."
+
         temp_directory = hio.generate_temp_dir(self.args["--tempdir"])
+        
         hci.iterative_align(
             self.args["<reads.fq>"],
             temp_directory,
             self.args["--genome"],
             self.args["--threads"],
-            self.args["--out_sam"],
+            self.args["--out-sam"],
             aligner=self.args["--aligner"],
-            min_len=int(self.args["--min_len"]),
-            read_len=int(self.args['--read-len']),
+            min_len=int(self.args["--min-len"]),
+            read_len=read_len,
         )
         # Deletes the temporary folder
         shutil.rmtree(temp_directory)
@@ -555,7 +562,7 @@ class Pipeline(AbstractCommand):
                                       chunk size.
         -S, --start-stage=STAGE       Define the starting point of the pipeline
                                       to skip some steps. Default is "fastq" to
-                                      run from the start. Can also be "sam" to
+                                      run from the start. Can also be "bam" to
                                       skip the alignment, "pairs" to start from a
                                       single pairs file or "pairs_idx" to skip
                                       fragment attribution and only build the 
@@ -619,9 +626,14 @@ class Pipeline(AbstractCommand):
             )
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
+
         if self.args["--matfmt"] not in ("GRAAL", "bg2"):
             logger.error("matfmt must be either bg2 or GRAAL.")
             raise ValueError
+
+        read_len = self.args['--read-len']
+        if read_len is not None:
+            read_len = int(read_len)
 
         hpi.full_pipeline(
             genome=self.args["--genome"],
@@ -645,7 +657,7 @@ class Pipeline(AbstractCommand):
             pcr_duplicates=self.args["--duplicates"],
             distance_law=self.args["--distance-law"],
             centromeres=self.args["--centromeres"],
-            read_len=int(self.args['--read-len']),
+            read_len=read_len,
         )
 
 
