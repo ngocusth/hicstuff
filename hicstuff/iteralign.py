@@ -55,7 +55,7 @@ def iterative_align(
     tmp_dir,
     ref,
     n_cpu,
-    sam_out,
+    bam_out,
     aligner="bowtie2",
     min_len=20,
     min_qual=30,
@@ -78,8 +78,8 @@ def iterative_align(
         Path to the index genome if Bowtie2 is used for alignment. 
     n_cpu : int
         The number of CPUs to use for the iterative alignment.
-    sam_out : str
-        Path where the final alignment should be written in SAM format.
+    bam_out : str
+        Path where the final alignment should be written in BAM format.
     aligner : str
         Choose between minimap2 or bowtie2 for the alignment.
     min_len : int
@@ -93,8 +93,8 @@ def iterative_align(
         
     Examples
     --------
-    iterative_align(fq_in='example_for.fastq', ref='example_bt2_index', sam_out='example_for.sam', aligner="bowtie2")
-    iterative_align(fq_in='example_for.fastq', ref='example_genome.fa', sam_out='example_for.sam', aligner="mminimap2")
+    iterative_align(fq_in='example_for.fastq', ref='example_bt2_index', bam_out='example_for.bam', aligner="bowtie2")
+    iterative_align(fq_in='example_for.fastq', ref='example_genome.fa', bam_out='example_for.bam', aligner="mminimap2")
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()
@@ -106,7 +106,7 @@ def iterative_align(
     # remove it. Otherwise, ignore.
     with contextlib.suppress(FileNotFoundError):
         try:
-            os.remove(sam_out)
+            os.remove(bam_out)
         except IsADirectoryError:
             logger.error("You need to give the SAM output file, not a folder.")
             raise
@@ -233,7 +233,7 @@ def iterative_align(
     temp_sam.close()
 
     # Merge all aligned reads and unmapped reads into a single sam
-    ps.merge("-O", "SAM", "-@", str(n_cpu), sam_out, *iter_out)
+    ps.merge("-O", "BAM", "-@", str(n_cpu), bam_out, *iter_out)
     logger.info(
         "{0} reads aligned / {1} total reads.".format(
             int(total_reads - len(remaining_reads)), int(total_reads)

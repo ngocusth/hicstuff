@@ -79,7 +79,7 @@ def align_reads(
             tmp_dir=iter_tmp_dir,
             ref=genome,
             n_cpu=threads,
-            sam_out=tmp_sam,
+            bam_out=tmp_sam,
             min_qual=min_qual,
             aligner=aligner,
             read_len=read_len,

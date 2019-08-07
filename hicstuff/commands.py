@@ -82,7 +82,7 @@ class Iteralign(AbstractCommand):
 
     usage:
         iteralign [--aligner=bowtie2] [--threads=1] [--min-len=20] [--read-len=INT]
-                  [--tempdir=DIR] --out-sam=FILE --genome=FILE <reads.fq>
+                  [--tempdir=DIR] --out-bam=FILE --genome=FILE <reads.fq>
 
     arguments:
         reads.fq                Fastq file containing the reads to be aligned
@@ -100,8 +100,8 @@ class Iteralign(AbstractCommand):
                                  minimap2. [default: bowtie2]
         -l, --min-len=INT        Length to which the reads should be
                                  truncated [default: 20].
-        -o, --out-sam=FILE       Path where the alignment will be written in
-                                 SAM format.
+        -o, --out-bam=FILE       Path where the alignment will be written in
+                                 BAM format.
         -R, --read-len=INT       Read length in input FASTQ file. If not provided,
                                  this is estimated from the first read in the file.
     """
@@ -122,7 +122,7 @@ class Iteralign(AbstractCommand):
             temp_directory,
             self.args["--genome"],
             self.args["--threads"],
-            self.args["--out-sam"],
+            self.args["--out-bam"],
             aligner=self.args["--aligner"],
             min_len=int(self.args["--min-len"]),
             read_len=read_len,
