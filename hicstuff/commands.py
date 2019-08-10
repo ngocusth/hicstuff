@@ -572,7 +572,7 @@ class Pipeline(AbstractCommand):
                                       and then repeatedly extending and
                                       aligning them.
         -a, --aligner=bowtie2         Alignment software to use. Can be either
-                                      bowtie2 or minmap2. [default: bowtie2]
+                                      bowtie2 or minimap2. [default: bowtie2]
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
