@@ -133,8 +133,8 @@ def bam2pairs(bam1, bam2, out_pairs, info_contigs, min_qual=30):
     min_qual : int
         Minimum mapping quality required to keep a Hi=C pair.
     """
-    forward = ps.AlignmentFile(bam1, 'rb')
-    reverse = ps.AlignmentFile(bam2, 'rb')
+    forward = ps.AlignmentFile(bam1, "rb")
+    reverse = ps.AlignmentFile(bam2, "rb")
 
     # Generate header lines
     format_version = "## pairs format v1.0\n"
@@ -220,7 +220,8 @@ def bam2pairs(bam1, bam2, out_pairs, info_contigs, min_qual=30):
     pairs.close()
     if unmatched_reads > 0:
         logger.warning(
-            "%d reads were only present in one BAM file. Make sure you sorted reads by name before running the pipeline.", unmatched_reads
+            "%d reads were only present in one BAM file. Make sure you sorted reads by name before running the pipeline.",
+            unmatched_reads,
         )
     logger.info(
         "{perc_map}% reads (single ends) mapped with Q >= {qual} ({mapped}/{total})".format(
@@ -314,6 +315,20 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
         )
 
 
+def pairs2cool(pairs_file, cool_file, fragments):
+    """Make a cooler file from the pairs file. See: https://github.com/mirnylab/cooler/ for more informations.
+    """
+
+    cooler_cmd = "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins}:{chroms} {pairs} {cool}"
+    cool_args = {
+        "bins": bins_file,
+        "pairs": pairs_file,
+        "chroms": chroms_file,
+        "cool": cool_file,
+    }
+    sp.call(map_cmd.format(**cool_args), shell=True)
+
+
 def pairs2matrix(
     pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1
 ):
@@ -341,9 +356,7 @@ def pairs2matrix(
     def write_mat_entry(frag1, frag2, contacts):
         """Write a single sparse matrix entry in either GRAAL or bg2 format"""
         if mat_fmt == "GRAAL":
-            mat.write(
-                "\t".join(map(str, [prev_pair[0], prev_pair[1], n_occ])) + "\n"
-            )
+            mat.write("\t".join(map(str, [frag1, frag2, n_occ])) + "\n")
         elif mat_fmt == "bg2":
             frag1, frag2 = int(frag1), int(frag2)
             mat.write(
@@ -419,6 +432,7 @@ def pairs2matrix(
         n_frags,
         n_nonzero,
     )
+
 
 def check_tool(name):
     """Check whether `name` is on PATH and marked as executable."""
@@ -524,14 +538,15 @@ def full_pipeline(
         is a composite of different read lengths.
     """
     # Check if third parties can be run
-    if aligner in ('bowtie2', 'minimap2'):
+    if aligner in ("bowtie2", "minimap2"):
         if check_tool(aligner) is None:
             logger.error("%s is not installed or not on PATH", aligner)
     else:
-        logger.error("Incompatible aligner software, choose bowtie2 or minimap2")
-    if check_tool('samtools') is None:
+        logger.error(
+            "Incompatible aligner software, choose bowtie2 or minimap2"
+        )
+    if check_tool("samtools") is None:
         logger.error("Samtools is not installed or not on PATH")
-
 
     # Pipeline can start from 3 input types
     start_time = datetime.now()
