@@ -514,7 +514,7 @@ def mad(M, axis=None):
     return np.median(np.absolute(dist - np.median(dist)))
 
 
-def get_good_bins(M, n_std=2.0, s_min=None, s_max=None):
+def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None):
     """
     Filters out bins with outstanding sums using median and MAD
     of the log transformed distribution of bin sums.
@@ -524,8 +524,8 @@ def get_good_bins(M, n_std=2.0, s_min=None, s_max=None):
     M : scipy sparse coo_matrix
         Input sparse matrix representing the Hi-C contact map.
 
-    n_std : float
-        Minimum number of standard deviations around median in the
+    n_mad : float
+        Minimum number of median absolut deviations around median in the
         bin sums distribution at which bins will be filtered out.
 
     s_min : float
@@ -544,15 +544,16 @@ def get_good_bins(M, n_std=2.0, s_min=None, s_max=None):
     """
     r = M.tocoo()
     with np.errstate(divide="ignore", invalid="ignore"):
-        bins = np.array(r.sum(axis=1, dtype=np.float)).flatten()
+        bins = sum_mat_bins(r)
+        bins[bins==0] = 1
         norm = np.log10(bins)
         median = np.median(norm)
         sigma = 1.4826 * mad(norm)
 
     if s_min is None:
-        s_min = median - n_std * sigma
+        s_min = median - n_mad * sigma
     if s_max is None:
-        s_max = median + n_std * sigma
+        s_max = median + n_mad * sigma
 
     return (norm > s_min) * (norm < s_max)
 
@@ -703,7 +704,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     return (s + s.T) / 2
 
 
-def normalize_sparse(M, norm="ICE", order=1, iterations=10):
+def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
     """Applies a normalization type to a sparse matrix.
 
     Parameters
@@ -713,12 +714,13 @@ def normalize_sparse(M, norm="ICE", order=1, iterations=10):
         Normalization procedure to use. Can be one of "SCN",
         "mirnylib", "frag" or "global". Can also be a user-
         defined function.
-    order : int
-        Defines the type of vector norm to use. See numpy.linalg.norm
-        for details.
     iterations : int
         Iterations parameter when using an iterative normalization
         procedure.
+    n_mad : float
+        Maximum number of median absolute deviations of bin sums to allow for 
+        including bins in the normalization procedure. Bins excluded from 
+        normalisation are set to 0.
 
     Returns
     -------
@@ -726,20 +728,27 @@ def normalize_sparse(M, norm="ICE", order=1, iterations=10):
         Normalized sparse matrix.
     """
     # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
-    r = coo_matrix(M)
+    r = csr_matrix(M)
+    good_bins = get_good_bins(M, n_mad=n_mad)
+    # Set values in non detectable bins to 0
+    r[~good_bins, :] = 0
+    r[:, ~good_bins] = 0
+    r = coo_matrix(r)
+    r.eliminate_zeros()
     if norm == "ICE":
         # Row and col indices of each nonzero value in matrix
         row_indices, col_indices = r.nonzero()
         for _ in range(iterations):
             # Symmetric matrix: rows and cols have identical sums
             bin_sums = sum_mat_bins(r)
-            bin_sums /= np.mean(bin_sums)
+            # Normalize bin sums by the median sum of detectable bins for stability
+            bin_sums /= np.median(bin_sums[good_bins])
             # Divide each nonzero value by the product of the sums of
             # their respective rows and columns.
             r.data /= bin_sums[row_indices] * bin_sums[col_indices]
         bin_sums = sum_mat_bins(r)
         # Scale to 1
-        r.data = r.data * (1 / np.mean(bin_sums))
+        r.data = r.data * (1 / np.median(bin_sums[good_bins]))
 
     elif callable(norm):
         r = norm(M)
