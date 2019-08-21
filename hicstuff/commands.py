@@ -540,9 +540,10 @@ class Pipeline(AbstractCommand):
 
     options:
         -M, --matfmt=FMT              The format of the output sparse matrix.
-                                      Can be "bg2" for 2D Bedgraph format 
-                                      compatible with cooler, or "GRAAL" for
-                                      GRAAL-compatible format. [default: GRAAL]
+                                      Can be "bg2" for 2D Bedgraph format, 
+                                      "cool" for Mirnylab's cooler software, or
+                                      "GRAAL" for GRAAL-compatible plain text
+                                      COO format. [default: GRAAL]
         -C, --circular                Enable if the genome is circular. 
                                       Discordant with the centromeres option.   
         -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
@@ -623,8 +624,8 @@ class Pipeline(AbstractCommand):
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
 
-        if self.args["--matfmt"] not in ("GRAAL", "bg2"):
-            logger.error("matfmt must be either bg2 or GRAAL.")
+        if self.args["--matfmt"] not in ("GRAAL", "bg2", "cool"):
+            logger.error("matfmt must be either bg2, cool or GRAAL.")
             raise ValueError
 
         read_len = self.args['--read-len']
