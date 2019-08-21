@@ -703,7 +703,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     return (s + s.T) / 2
 
 
-def normalize_sparse(M, norm="SCN", order=1, iterations=3):
+def normalize_sparse(M, norm="ICE", order=1, iterations=3):
     """Applies a normalization type to a sparse matrix.
 
     Parameters
@@ -727,21 +727,17 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
     """
     # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
     r = csr_matrix(M)
-    if (abs(r - r.T) > 1e-10).nnz != 0:
-        r += r.T
-        r.setdiag(r.diagonal() / 2)
-        r.eliminate_zeros()
     r = r.tocoo()
-    if norm == "SCN":
+    if norm == "ICE":
         # Row and col indices of each nonzero value in matrix
         row_indices, col_indices = r.nonzero()
         for _ in range(1, iterations):
             # Symmetric matrix: rows and cols have identical sums
-            row_sums = np.array(r.sum(axis=0)).flatten()
+            row_sums = sum_mat_bins(r)
             # Divide each nonzero value by the product of the sums of
             # their respective rows and columns.
             r.data /= row_sums[row_indices] * row_sums[col_indices]
-        row_sums = np.array(r.sum(axis=0)).flatten()
+        row_sums = sum_mat_bins(r)
         # Scale to 1
         r.data = r.data * (1 / np.mean(row_sums))
 
@@ -753,6 +749,27 @@ def normalize_sparse(M, norm="SCN", order=1, iterations=3):
 
     return r
 
+
+def sum_mat_bins(mat):
+    """
+    Compute the sum of matrices bins (i.e. rows or columns) using
+    only the upper triangle, assuming symmetrical matrices.
+
+    Parameters
+    ----------
+    mat : scipy.sparse.csr_matrix
+        Contact map in sparse format, either in upper triangle or
+        full matrix.
+    
+    Returns
+    -------
+    numpy.array :
+        1D array of bin sums.
+    """
+    # Equivalaent to row or col sum on a full matrix
+    # Note: mat.sum returns a 'matrix' object. A1 extracts the 1D flat array
+    # from the matrix
+    return mat.sum(axis=0).A1 + mat.sum(axis=1).A1 - mat.diagonal(0)
 
 def GC_partial(portion: str):
     """Manually compute GC content percentage in a DNA string, taking
