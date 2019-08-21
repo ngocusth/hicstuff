@@ -102,7 +102,7 @@ def test_norm(matrix_size):
     """
     M_d, M_s = _gen_matrices(matrix_size, full_dense=True)
     N_d = hcs.normalize_dense(M_d, "SCN", iterations=50)
-    N_s = hcs.normalize_sparse(M_s, "ICE", iterations=50)
+    N_s = hcs.normalize_sparse(M_s, "ICE", iterations=50, n_mad=1000)
     assert np.isclose(N_d.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
     assert np.isclose(hcs.sum_mat_bins(N_s), np.ones(matrix_size), rtol=0.0001).all()
     assert np.isclose(triu(coo_matrix(N_d)).data, N_s.data, rtol=0.000001).all()
