@@ -312,7 +312,7 @@ class View(AbstractCommand):
         -m, --max=INT                    Saturation threshold. Maximum pixel
                                          value is set to this percentile
                                          [default: 99].
-        -n, --normalize                  Should SCN normalization be performed
+        -n, --normalize                  Should ICE normalization be performed
                                          before rendering the matrix ?
         -o, --output=IMG                 Name of the image file where the view is stored.
         -r, --region=STR[;STR]           Only view a region of the contact map.
@@ -366,11 +366,7 @@ class View(AbstractCommand):
 
         # NORMALIZATION
         if self.args["--normalize"]:
-            binned_map = hcs.normalize_sparse(binned_map, norm="SCN")
-
-        # LOG VALUES
-        # if self.args["--log"]:
-        #   binned_map = binned_map.log1p()
+            binned_map = hcs.normalize_sparse(binned_map, norm="ICE")
 
         self.vmax = np.percentile(binned_map.data, self.perc_vmax)
         # ZOOM REGION
@@ -739,7 +735,7 @@ class Scalogram(AbstractCommand):
 
         if self.args["--normalize"]:
             # good_bins = np.where(hcs.get_good_bins(S, n_std=3) == 1)[0]
-            S = hcs.normalize_sparse(S, norm="SCN")
+            S = hcs.normalize_sparse(S, norm="ICE")
             S = S.tocsr()
         if self.args["--despeckle"]:
             S = hcs.despeckle_simple(S, threads=int(self.args["--threads"]))

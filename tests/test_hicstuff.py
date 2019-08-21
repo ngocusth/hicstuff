@@ -10,7 +10,7 @@ import random
 import numpy as np
 import pytest
 import hicstuff.hicstuff as hcs
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, triu
 from inspect import signature, getmembers, isfunction
 
 SIZE_PARAMETERS = ("matrix_size", [5, 10, 20, 50, 100])
@@ -94,18 +94,18 @@ def test_bin_bp(matrix_size):
 
 @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
 @pytest.mark.parametrize(*SIZE_PARAMETERS)
-def test_scn(matrix_size):
-    """Test SCN normalization
+def test_norm(matrix_size):
+    """Test matrix normalization
 
     Check whether a SCN-normalized matrix has all vectors
     summing to one. Tests both the sparse and dense algorithms.
     """
     M_d, M_s = _gen_matrices(matrix_size, full_dense=True)
     N_d = hcs.normalize_dense(M_d, "SCN", iterations=50)
-    N_s = hcs.normalize_sparse(M_s, "SCN", iterations=50)
+    N_s = hcs.normalize_sparse(M_s, "ICE", iterations=50)
     assert np.isclose(N_d.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
-    assert np.isclose(N_s.sum(axis=1), np.ones(matrix_size), rtol=0.0001).all()
-    assert np.isclose(coo_matrix(N_d).data, N_s.data, rtol=0.000001).all()
+    assert np.isclose(hcs.sum_mat_bins(N_s), np.ones(matrix_size), rtol=0.0001).all()
+    assert np.isclose(triu(coo_matrix(N_d)).data, N_s.data, rtol=0.000001).all()
 
 
 @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")

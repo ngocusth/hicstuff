@@ -703,7 +703,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     return (s + s.T) / 2
 
 
-def normalize_sparse(M, norm="ICE", order=1, iterations=3):
+def normalize_sparse(M, norm="ICE", order=1, iterations=10):
     """Applies a normalization type to a sparse matrix.
 
     Parameters
@@ -726,20 +726,20 @@ def normalize_sparse(M, norm="ICE", order=1, iterations=3):
         Normalized sparse matrix.
     """
     # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
-    r = csr_matrix(M)
-    r = r.tocoo()
+    r = coo_matrix(M)
     if norm == "ICE":
         # Row and col indices of each nonzero value in matrix
         row_indices, col_indices = r.nonzero()
-        for _ in range(1, iterations):
+        for _ in range(iterations):
             # Symmetric matrix: rows and cols have identical sums
-            row_sums = sum_mat_bins(r)
+            bin_sums = sum_mat_bins(r)
+            bin_sums /= np.mean(bin_sums)
             # Divide each nonzero value by the product of the sums of
             # their respective rows and columns.
-            r.data /= row_sums[row_indices] * row_sums[col_indices]
-        row_sums = sum_mat_bins(r)
+            r.data /= bin_sums[row_indices] * bin_sums[col_indices]
+        bin_sums = sum_mat_bins(r)
         # Scale to 1
-        r.data = r.data * (1 / np.mean(row_sums))
+        r.data = r.data * (1 / np.mean(bin_sums))
 
     elif callable(norm):
         r = norm(M)
