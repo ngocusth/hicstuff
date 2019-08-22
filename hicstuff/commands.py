@@ -1197,6 +1197,7 @@ class Distancelaw(AbstractCommand):
             # Iterate on the different file given by the user.
             for i in range(length_files):
                 xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
+            names = [name[0] for name in names]
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:
             inf = int(self.args["--inf"])
@@ -1240,7 +1241,7 @@ class Distancelaw(AbstractCommand):
                 labels = []
                 if len(names) > 1:
                     for chr_names in names:
-                        labels.append(list(chr_names)[0])
+                        labels.append(chr_names)
                 else:
                     labels = names
             else:
