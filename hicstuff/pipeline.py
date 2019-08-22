@@ -332,7 +332,7 @@ def pairs2cool(pairs_file, cool_file, bins_file):
         "cool": cool_file,
     }
     sp.call(cooler_cmd.format(**cool_args), shell=True)
-    #os.remove(bins_tmp)
+    os.remove(bins_tmp)
 
 
 def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
@@ -627,17 +627,21 @@ def full_pipeline(
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)
 
-    # Define output file names
+    # Define output file names (tsv files)
     if prefix:
         fragments_list = _out_file("frags.tsv")
         info_contigs = _out_file("chr.tsv")
         mat = _out_file("mat.tsv")
+        # If matrix has a different format, give it the right extension
+        if mat_fmt != "GRAAL":
+            mat = _out_file(mat_fmt)
     else:
         # Default GRAAL file names
         fragments_list = _out_file("fragments_list.txt")
         info_contigs = _out_file("info_contigs.txt")
         mat = _out_file("abs_fragments_contacts_weighted.txt")
-
+        if mat_fmt != "GRAAL":
+            mat = _out_file("abs_fragments_contacts_weighted." + mat_fmt)
     # Define what input files are given
     if start_stage == 0:
         reads1, reads2 = input1, input2
