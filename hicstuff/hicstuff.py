@@ -711,9 +711,8 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
     ----------
     M : scipy.sparse.csr_matrix of floats
     norm : str or callable
-        Normalization procedure to use. Can be one of "SCN",
-        "mirnylib", "frag" or "global". Can also be a user-
-        defined function.
+        Normalization procedure to use. Can be one of "SCN" or
+        "ICE". Can also be a user-defined function.
     iterations : int
         Iterations parameter when using an iterative normalization
         procedure.
@@ -749,6 +748,15 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
         bin_sums = sum_mat_bins(r)
         # Scale to 1
         r.data = r.data * (1 / np.median(bin_sums[good_bins]))
+    elif norm == "SCN":
+        # Similar to ICE, but division is done sequentially by row and then column
+        # sums instead of using product.
+        row_indices, col_indices = r.nonzero()
+        for i in range(iterations):
+            bin_sums = sum_mat_bins(r)
+            r.data /= bin_sums[row_indices]
+            bin_sums = sum_mat_bins(r)
+            r.data /= bin_sums[col_indices]
 
     elif callable(norm):
         r = norm(M)
