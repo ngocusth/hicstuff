@@ -527,7 +527,7 @@ class Pipeline(AbstractCommand):
                  [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
                  [--plot] [--circular] [--distance-law] [--duplicates] [--read-len=INT]
-                 [--centromeres=FILE] --genome=FILE <input1> [<input2>]
+                 [--centromeres=FILE] [--remove-centromeres=INT] --genome=FILE <input1> [<input2>]
 
     arguments:
         input1:             Forward fastq file, if start_stage is "fastq", sam
@@ -601,8 +601,10 @@ class Pipeline(AbstractCommand):
         -c, --centromeres=FILE        Positions of the centromeres separated by
                                       a space and in the same order than the 
                                       chromosomes. Discordant with the circular
-                                      option.           
-
+                                      option.
+        -r, --remove-centromeres=INT    Integer. Number of kb that will be remove around 
+                                        the centromere position given by in the centromere
+                                        file. [default: 0]
         -R, --read-len=INT            Maximum read length in the fastq file. Optionally
                                       used in iterative alignment mode. Estimated from
                                       the first read by default. Useful if input fastq
@@ -654,7 +656,8 @@ class Pipeline(AbstractCommand):
             pcr_duplicates=self.args["--duplicates"],
             distance_law=self.args["--distance-law"],
             centromeres=self.args["--centromeres"],
-            read_len=read_len,
+            remove_centros=self.args["--remove-centromeres"],
+            read_len=read_len
         )
 
 

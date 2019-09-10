@@ -321,16 +321,10 @@ def pairs2cool(pairs_file, cool_file, bins_file):
     # Make bins file compatible with cooler cload
     bins_tmp = bins_file + ".cooler"
     bins = pd.read_csv(bins_file, sep="\t", usecols=[1, 2, 3], skiprows=1, header=None)
-    bins.to_csv(bins_tmp, sep='\t', header=False, index=False)
+    bins.to_csv(bins_tmp, sep="\t", header=False, index=False)
 
-    cooler_cmd = (
-        "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
-    )
-    cool_args = {
-        "bins": bins_tmp,
-        "pairs": pairs_file,
-        "cool": cool_file,
-    }
+    cooler_cmd = "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
+    cool_args = {"bins": bins_tmp, "pairs": pairs_file, "cool": cool_file}
     sp.call(cooler_cmd.format(**cool_args), shell=True)
     os.remove(bins_tmp)
 
@@ -465,6 +459,7 @@ def full_pipeline(
     distance_law=False,
     centromeres=None,
     read_len=None,
+    remove_centros=None,
 ):
     """
     Run the whole hicstuff pipeline. Starting from fastq files and a genome to
@@ -539,6 +534,9 @@ def full_pipeline(
         Maximum read length to expect in the fastq file. Optionally used in iterative
         alignment mode. Estimated from the first read by default. Useful if input fastq
         is a composite of different read lengths.
+    remove_centros : None or int
+        If the distance law is computed, this is the number of kb that will be removed
+        around the centromere position given by in the centromere file. 
     """
     # Check if third parties can be run
     if aligner in ("bowtie2", "minimap2"):
@@ -758,6 +756,9 @@ def full_pipeline(
     # Generate distance law table if enabled
     if distance_law:
         out_distance_law = _out_file("distance_law.txt")
+        if remove_centros is None:
+            remove_centros = 0
+        remove_centros = int(remove_centros)
         x_s, p_s, names_distance_law = hcdl.get_distance_law(
             pairs_idx,
             fragments_list,
@@ -765,6 +766,7 @@ def full_pipeline(
             base=1.1,
             out_file=out_distance_law,
             circular=circular,
+            rm_centro=remove_centros,
         )
         # Generate distance law figure is plots are enabled
         if plot:
@@ -785,7 +787,7 @@ def full_pipeline(
     if mat_fmt == "cool":
         # Name matrix file in .cool
         cool_file = os.path.splitext(mat)[0] + ".cool"
-        pairs2cool(use_pairs, cool_file, fragments_list) 
+        pairs2cool(use_pairs, cool_file, fragments_list)
     else:
         pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
 
