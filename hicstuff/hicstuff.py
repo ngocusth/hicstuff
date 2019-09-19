@@ -728,6 +728,7 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
     """
     # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
     r = csr_matrix(M)
+    r = r.astype(np.float64)
     good_bins = get_good_bins(M, n_mad=n_mad)
     # Set values in non detectable bins to 0
     r[~good_bins, :] = 0
