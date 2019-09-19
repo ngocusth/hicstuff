@@ -287,7 +287,13 @@ def load_cool(cool):
     mat = c.pixels()[:]
     frags.rename(columns={"start": "start_pos", "end": "end_pos"}, inplace=True)
     frags['id'] = frags.groupby('chrom', sort=False).cumcount() + 1
-    frags = frags[['id', 'chrom', 'start_pos', 'end_pos', 'size', 'gc_content']]
+    # Try loading hicstuff-specific columns
+    try:
+        frags = frags[['id', 'chrom', 'start_pos', 'end_pos', 'size', 'gc_content']]
+    # If absent, only load standard columns
+    except KeyError:
+        frags = frags[['id', 'chrom', 'start_pos', 'end_pos']]
+        
     chroms['cumul_length'] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
     n_frags = c.bins()[:].groupby('chrom', sort=False).count().start
     chroms['n_frags'] = chroms.merge(n_frags, right_index=True, left_on='name', how='left').start
