@@ -514,7 +514,7 @@ def mad(M, axis=None):
     return np.median(np.absolute(dist - np.median(dist)))
 
 
-def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None):
+def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None, symmetric=False):
     """
     Filters out bins with outstanding sums using median and MAD
     of the log transformed distribution of bin sums.
@@ -535,6 +535,9 @@ def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None):
     s_max: float
         Optional fixed threshold value for bin sum above which bins should
         be filtered out.
+    symmetric : bool
+        If set to true, filters out outliers on both sides of the distribution.
+        Otherwise, only filters out bins on the left side (weak bins).
     Returns
     -------
     numpy array of bool :
@@ -555,7 +558,12 @@ def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None):
     if s_max is None:
         s_max = median + n_mad * sigma
 
-    return (norm > s_min) * (norm < s_max)
+    if symmetric:
+        filter_bins = (norm > s_min) * (norm < s_max)
+    else:
+        filter_bins = norm > s_min
+
+    return filter_bins
 
 def trim_dense(M, n_std=3, s_min=None, s_max=None):
     """By default, return a matrix stripped of component
@@ -636,6 +644,7 @@ def normalize_dense(M, norm="SCN", order=1, iterations=3):
     """Apply one of the many normalization types to input dense
     matrix. Will also apply any callable norms such as a user-made
     or a lambda function.
+    NOTE: Legacy function for dense maps
 
     Parameters
     ----------
@@ -718,8 +727,9 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
         procedure.
     n_mad : float
         Maximum number of median absolute deviations of bin sums to allow for 
-        including bins in the normalization procedure. Bins excluded from 
-        normalisation are set to 0.
+        including bins in the normalization procedure. Bins more than `n_mad`
+        mads below the median are excluded. Bins excluded from normalisation
+        are set to 0.
 
     Returns
     -------
