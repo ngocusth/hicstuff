@@ -601,16 +601,16 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     return M_out
 
 
-def trim_sparse(M, n_std=3, s_min=None, s_max=None):
+def trim_sparse(M, n_mad=3, s_min=None, s_max=None):
     """Apply the trimming procedure to a sparse matrix.
 
     Parameters
     ----------
     M : scipy.sparse.coo_matrix
         Sparse Hi-C contact map
-    n_std : int
-        Minimum number of standard deviation by which a the sum of
-        contacts in a component vector must deviate from the mean
+    n_mad : int
+        Minimum number of median absolute deviations by which a the sum of
+        contacts in a component vector must deviate from the median
         to be trimmed.
     s_min : float
         Fixed minimum value below which the component vectors will
@@ -625,7 +625,7 @@ def trim_sparse(M, n_std=3, s_min=None, s_max=None):
         The input sparse matrix, stripped of outlier component vectors.
     """
     r = M.tocoo()
-    f = get_good_bins(M, n_std, s_min, s_max)
+    f = get_good_bins(M, n_mad, s_min, s_max)
     miss_bins = np.cumsum(1 - f)
     # Mapping pre- and post- trimming indices of bins, post = -1 means delete
     # Note: There is probably a more efficient way than a dictionary for that
