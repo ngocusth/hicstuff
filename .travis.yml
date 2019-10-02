@@ -27,7 +27,7 @@ install:
 - pip install .[mappy]
 - pip install .[cooler]
 script:
-- pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules 
+- pytest --doctest-modules #--pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc 
   hicstuff
 - pytest --cov=hicstuff
 after_success:
