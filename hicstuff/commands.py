@@ -364,6 +364,17 @@ class View(AbstractCommand):
         else:
             binned_map = sparse_map
 
+        # TRIMMING
+        if self.args["--trim"]:
+            try:
+                trim_std = float(self.args["--trim"])
+            except ValueError:
+                logger.error(
+                    "You must specify a number of standard deviations for " "trimming"
+                )
+                raise
+            binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
+
         # NORMALIZATION
         if self.args["--normalize"]:
             binned_map = hcs.normalize_sparse(binned_map, norm="ICE")
@@ -415,17 +426,6 @@ class View(AbstractCommand):
             binned_map = binned_map.tocsr()
             binned_map = binned_map[reg1[0] : reg1[1], reg2[0] : reg2[1]]
             binned_map = binned_map.tocoo()
-
-        # TRIMMING
-        if self.args["--trim"]:
-            try:
-                trim_std = float(self.args["--trim"])
-            except ValueError:
-                logger.error(
-                    "You must specify a number of standard deviations for " "trimming"
-                )
-                raise
-            binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
 
         return binned_map
 
