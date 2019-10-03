@@ -373,7 +373,7 @@ class View(AbstractCommand):
                     "You must specify a number of standard deviations for " "trimming"
                 )
                 raise
-            binned_map = hcs.trim_sparse(binned_map, n_std=trim_std)
+            binned_map = hcs.trim_sparse(binned_map, n_mad=trim_std)
 
         # NORMALIZATION
         if self.args["--normalize"]:
