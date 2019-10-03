@@ -566,7 +566,7 @@ def get_good_bins(M, n_mad=2.0, s_min=None, s_max=None, symmetric=False):
 
     return filter_bins
 
-def trim_dense(M, n_std=3, s_min=None, s_max=None):
+def trim_dense(M, n_mad=3, s_min=None, s_max=None):
     """By default, return a matrix stripped of component
     vectors whose sparsity (i.e. total contact count on a
     single column or row) deviates more than specified number
@@ -578,7 +578,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     ----------
     M : 2D numpy array of floats
         Dense Hi-C contact matrix
-    n_std : int
+    n_mad : int
         Minimum number of standard deviation by which a the sum of
         contacts in a component vector must deviate from the mean
         to be trimmed.
@@ -596,7 +596,7 @@ def trim_dense(M, n_std=3, s_min=None, s_max=None):
     """
 
     S = coo_matrix(M)
-    S_out = trim_sparse(S, n_std=n_std, s_min=s_min, s_max=s_max)
+    S_out = trim_sparse(S, n_mad=n_mad, s_min=s_min, s_max=s_max)
     M_out = S_out.todense()
     return M_out
 
