@@ -22,13 +22,12 @@ before_install:
 - export PATH="$PATH:$PWD/minimap2/"
 install:
 - pip install -Ur requirements.txt
-- pip install pytest pylint pytest-pylint
+- pip install pytest pylint==2.3.1 pytest-pylint
 - pip install pytest-cov codecov
 - pip install .[mappy]
 - pip install .[cooler]
 script:
-- pytest --doctest-modules
-  hicstuff
+- pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules --doctest-modules hicstuff
 - pytest --cov=hicstuff
 after_success:
 - codecov
