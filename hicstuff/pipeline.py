@@ -620,7 +620,11 @@ def full_pipeline(
             sys.exit(1)
     else:
         fasta = genome
-
+    # Check for spaces in fasta headers and issue error if found
+    for record in SeqIO.parse(fasta, 'fasta'):
+        if " " in record.id:
+            logger.error('Sequence identifiers contain spaces. Please clean the input genome.')
+    
     # Enable file logging
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)

@@ -1175,7 +1175,7 @@ def to_pdb(
     if indices is None:
         indices = range(n + 1)
     if special_bins is None:
-        special_bins = np.zeros(n + 1)
+        special_bins = np.zeros(n + 1, dtype=int)
 
     structure_shapes_match = structure.shape[0] == structure.shape[1]
     if isinstance(structure, np.ndarray) and structure_shapes_match:
@@ -1192,9 +1192,9 @@ def to_pdb(
     Z = np.around(Z, 3)
 
     reference = ["OW", "OW", "CE", "TE", "tR"]
-
     with open(filename, "w") as f:
         for i in range(1, n):
+
             line = "ATOM"  # 1-4 "ATOM"
             line += "  "  # 5-6 unused
             line += str(i).rjust(5)  # 7-11 atom serial number
