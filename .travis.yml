@@ -22,7 +22,7 @@ install:
 - conda config --add channels bioconda
 - conda update -q conda
 - conda info -a
-- conda create -c bioconda -q -n test-environment python="$TRAVIS_PYTHON_VERSION" minimap2  bowtie2  samtools  htslib  pysam  pytest  pytest-cov  pylint  codecov  cooler  mappy
+- conda create -c conda-forge -q -n test-environment python="$TRAVIS_PYTHON_VERSION" minimap2  bowtie2  samtools  htslib  pysam  pytest  pytest-cov  pylint  codecov  cooler  mappy
 - conda activate test-environment
 - pip install -Ur requirements.txt
 - pip install pytest-pylint
