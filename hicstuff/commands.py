@@ -396,7 +396,7 @@ class View(AbstractCommand):
                 if self.bp_unit:
                     # Get bin numbers of chromosome starts
                     binned_start = np.append(
-                        np.where(binned_frags == 0)[0], binned_frags.shape[0]
+                        np.where(binned_frags == 0)[0], len(binned_frags)
                     )
                     # Get bin length of each chromosome
                     num_binned = binned_start[1:] - binned_start[:-1]

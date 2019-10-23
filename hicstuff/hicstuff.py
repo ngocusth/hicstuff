@@ -158,57 +158,47 @@ def despeckle_local(M, stds=2, width=2):
 
 
 def bin_dense(M, subsampling_factor=3):
-    """Sum over each block of given subsampling factor, returns a matrix whose
-    dimensions are this much as small (e.g. a 27x27 matrix binned with a
-    subsampling factor equal to 3 will return a 9x9 matrix whose each component
-    is the sum of the corresponding 3x3 block in the original matrix).
-    Remaining columns and rows are summed likewise and added to the end of the
-    new matrix.
-
-    :note: Will not work for numpy versions below 1.7
     """
+    Wraps the bin_sparse function to apply it on dense matrices. Bins are merged
+    by groups of N to produce a lower resolution matrix.
 
-    m = min(M.shape)
-    n = (m // subsampling_factor) * subsampling_factor
+    Parameters
+    ----------
+    M : numpy.array
+        2D array containing the Hi-C contact map
+    subsampling_factor : int
+        The number of bins to include in each group (subsample).
 
-    if n == 0:
-        return np.array([M.sum()])
+    Returns
+    -------
+    out_M : numpy.array
+        The subsamples matrix, with a resolution lower than the input by a defined factor.
+    """
+    S = coo_matrix(M)
+    out_S = bin_sparse(S, subsampling_factor=subsampling_factor)
+    out_M = out_S.todense()
 
-    N = np.array(M[:n, :n], dtype=np.float64)
-    N = N.reshape(
-        n // subsampling_factor,
-        subsampling_factor,
-        n // subsampling_factor,
-        subsampling_factor,
-    ).sum(axis=(1, 3))
-    if m > n:
-        remaining_row = M[n:, :n]
-        remaining_col = M[:n, n:]
-        remaining_square = M[n:m, n:m]
-        R = remaining_row.reshape(
-            m % subsampling_factor, m // subsampling_factor, subsampling_factor
-        ).sum(axis=(0, 2))
-        C = (
-            remaining_col.T.reshape(
-                m % subsampling_factor,
-                m // subsampling_factor,
-                subsampling_factor,
-            )
-            .sum(axis=(0, 2))
-            .T
-        )
-        S = remaining_square.sum()
-        N = np.append(N, [R], axis=0)
-        result = np.append(N, np.array([list(C) + [S]]).T, axis=1)
-    else:
-        result = N
-
-    return result
+    return out_M
 
 
 def bin_sparse(M, subsampling_factor=3):
-    """Perform the bin_dense procedure for sparse matrices. Remaining rows
-    and cols are put into a smaller bin at the end.
+    """
+    Bins a sparse matrix by combining bins into groups of user defined size. Binsize
+    is independent of genomic coordinates. Remaining rows and cols are put into a
+    smaller bin at the end.
+
+    Parameters
+    ----------
+    M : scipy.sparse.coo_matrix
+        The input Hi-C matrix in a sparse format.
+    subsampling_factor : int
+        The number of bins to include in each group (subsample).
+
+    Returns
+    -------
+    scipy.sparse.coo_matrix
+        The subsamples matrix, with a resolution lower than the input by a defined factor.
+        
     """
 
     N = M.tocoo()
@@ -367,7 +357,7 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     chroms = np.repeat(range(len(chromlen)), chromlen)
     # Get binned positions
     positions = positions // bin_len
-    frags = np.array([chroms, positions], dtype=np.int64).T
+    frags = np.transpose(np.array([chroms, positions], dtype=np.int64))
     # Keep track of index fragments
     frag_idx = range(frags.shape[0])
     # Unique bin coordinates to create
