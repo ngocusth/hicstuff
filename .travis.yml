@@ -12,20 +12,30 @@ matrix:
     sudo: true
 os:
 - linux
-before_install:
-- sudo apt-get install -y bowtie2
-- wget https://github.com/samtools/samtools/releases/download/1.9/samtools-1.9.tar.bz2
-- tar xavf samtools-1.9.tar.bz2 && cd samtools-1.9
-- "./configure && make && sudo make install && cd .."
-- git clone https://github.com/lh3/minimap2
-- cd minimap2 && make && cd ..
-- export PATH="$PATH:$PWD/minimap2/"
+
 install:
+- wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+- bash miniconda.sh -b -p $HOME/miniconda
+- source "$HOME/miniconda/etc/profile.d/conda.sh"
+- hash -r
+- conda config --set always_yes yes --set changeps1 no --add channels bioconda
+- conda update -q conda
+- conda info -a
+- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION \
+    minimap2 \
+    bowtie2 \
+    samtools \
+    htslib \
+    pysam \
+    pytest \
+    pytest-cov \
+    pylint \
+    codecov \
+    cooler \
+    mappy
+- conda activate test-environment
 - pip install -Ur requirements.txt
-- pip install pytest pylint==2.3.1 pytest-pylint
-- pip install pytest-cov codecov
-- pip install .[mappy]
-- pip install .[cooler]
+- pip install pytest-pylint
 script:
 - pytest --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc --doctest-modules --doctest-modules hicstuff
 - pytest --cov=hicstuff
