@@ -329,7 +329,7 @@ def pairs2cool(pairs_file, cool_file, bins_file):
     os.remove(bins_tmp)
 
 
-def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1):
+def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1, tmp_dir=None):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a pairs file.
 
@@ -346,6 +346,8 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
         The format to use when writing the matrix. Can be GRAAL or bg2 format.
     threads : int
         Number of threads to use in parallel.
+    tmp_dir : str
+        Temporary directory for sorting files. If None given, will use the system default.
     """
     # Number of fragments is N lines in frag list - 1 for the header
     n_frags = sum(1 for line in open(fragments_file, "r")) - 1
@@ -376,7 +378,7 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
             )
 
     pre_mat_file = mat_file + ".pre.pairs"
-    hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads)
+    hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads, tmp_dir=tmp_dir)
     header_size = len(hio.get_pairs_header(pre_mat_file))
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
@@ -726,6 +728,7 @@ def full_pipeline(
         pairs_idx + ".sorted",
         keys=["chr1", "pos1", "chr2", "pos2"],
         threads=threads,
+        tmp_dir=tmp_dir
     )
     os.rename(pairs_idx + ".sorted", pairs_idx)
 
@@ -793,7 +796,7 @@ def full_pipeline(
         cool_file = os.path.splitext(mat)[0] + ".cool"
         pairs2cool(use_pairs, cool_file, fragments_list)
     else:
-        pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads)
+        pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads, tmp_dir=tmp_dir)
 
     # Clean temporary files
     if not no_cleanup:
