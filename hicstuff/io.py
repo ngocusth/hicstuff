@@ -223,7 +223,7 @@ def _check_cooler(fun):
             import cooler
             fun.__globals__["cooler"] = cooler
         except ImportError:
-            print(
+            logger.error(
                 "The cooler package is required to use {0}, please install it first".format(
                     fun.__name__
                 )

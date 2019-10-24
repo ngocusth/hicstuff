@@ -418,7 +418,6 @@ def bin_bp_sparse(M, positions, bin_len=10000):
     col[np.where(r.col >= last_frag)] = actual_bin_No - 1
     # Sum data of duplicate row/col pairs 
     # (i.e. combine contacts of all fragments in same bin)
-    print(np.max(row), np.max(col), actual_bin_No, actual_bin_No)
     binned = coo_matrix((r.data, (row, col)), shape=(actual_bin_No, actual_bin_No))
     binned.sum_duplicates()
     binned.eliminate_zeros()

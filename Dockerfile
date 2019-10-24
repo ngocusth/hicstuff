@@ -8,7 +8,7 @@ FROM ubuntu:16.04
 
 
 
-LABEL Name=hicstuff Version=1.6.4
+LABEL Name=hicstuff Version=1.6.5
 
 # Install python dependencies
 COPY * ./ /app/
@@ -30,7 +30,8 @@ RUN conda install -c bioconda -y \
     minimap2 \
     samtools \
     htslib \
-    pysam
+    pysam \ 
+    cooler
 
 RUN pip install -Ur requirements.txt
 # Using pip:
