@@ -8,7 +8,7 @@ FROM ubuntu:16.04
 
 
 
-LABEL Name=hicstuff Version=1.6.5
+LABEL Name=hicstuff Version=1.6.6
 
 # Install python dependencies
 COPY * ./ /app/
@@ -23,9 +23,10 @@ RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
 RUN rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 RUN conda update -y conda
+RUN conda config --add channels bioconda
 
 # Get 3rd party packages directly from conda
-RUN conda install -c bioconda -y \
+RUN conda install -c conda-forge -y \
     bowtie2 \
     minimap2 \
     samtools \
