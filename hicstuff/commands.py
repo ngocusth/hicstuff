@@ -279,7 +279,7 @@ class View(AbstractCommand):
     output image to disk. If no output is specified, the output is displayed.
 
     usage:
-        view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
+        view [--binning=1] [--despeckle] [--frags FILE] [--trim INT] [--n-mad FLOAT]
              [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP] [--dpi=INT]
              [--transform=FUN] [--circular] [--region=STR] <contact_map> [<contact_map2>]
 
@@ -312,6 +312,9 @@ class View(AbstractCommand):
         -m, --max=INT                    Saturation threshold. Maximum pixel
                                          value is set to this percentile
                                          [default: 99].
+        -N, --n-mad=INT                 Number of median absolute deviations (MAD) from the median
+                                         of log bin sums allowed to keep bins in the normalization
+                                         procedure [default: 3].
         -n, --normalize                  Should ICE normalization be performed
                                          before rendering the matrix ?
         -o, --output=IMG                 Name of the image file where the view is stored.
@@ -377,7 +380,7 @@ class View(AbstractCommand):
 
         # NORMALIZATION
         if self.args["--normalize"]:
-            binned_map = hcs.normalize_sparse(binned_map, norm="ICE")
+            binned_map = hcs.normalize_sparse(binned_map, norm="ICE", n_mad=float(self.args['--n-mad']))
 
         self.vmax = np.percentile(binned_map.data, self.perc_vmax)
         # ZOOM REGION
