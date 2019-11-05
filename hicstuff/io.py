@@ -327,7 +327,10 @@ def save_cool(cool_out, mat, frags, metadata={}):
     if (abs(mat - mat.T) > 1e-10).nnz != 0:
         up_tri = True
     # Drop useless column
-    bins = frags.drop("id", axis=1)
+    try:
+        bins = frags.drop("id", axis=1)
+    except KeyError:
+        bins = frags
     # Get column names right
     bins.rename(columns={"seq": "chrom", "start_pos": "start", "end_pos": "end"}, inplace=True)
     mat_dict = {"bin1_id": mat.row, "bin2_id": mat.col, "count": mat.data}
