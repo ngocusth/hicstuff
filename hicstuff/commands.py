@@ -953,8 +953,9 @@ class Subsample(AbstractCommand):
 
     options:
         -p, --prop=FLOAT                 Proportion of contacts to sample from
-                                         the input matrix. Given as a value
-                                         between 0 and 1. [default: 0.1]
+                                         the input matrix if between 0 and 1. 
+                                         Raw number of contacts to keep if
+                                         superior to 1. [default: 0.1]
     """
 
     def execute(self):

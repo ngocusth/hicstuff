@@ -1297,48 +1297,55 @@ def distance_to_contact(D, alpha=1):
     return M
 
 
-def subsample_contacts(M, prop):
+def subsample_contacts(M, n_contacts):
     """Bootstrap sampling of contacts in a sparse Hi-C map.
 
     Parameters
     ----------
-    M : scipy.sparse.csr_matrix
+    M : scipy.sparse.coo_matrix
         The input Hi-C contact map in sparse format.
-    prop : float
-        The proportion of contacts to sample.
-
+    n_contacts : float
+        The number of contacts to be sampled if larger than one.
+        The proportion of contacts to be sampled if between 0 and 1.
     Returns
     -------
-    scipy.sparse.csr_matrix
+    scipy.sparse.coo_matrix
         A new matrix with a fraction of the original contacts.
     """
-    # NOTE: RAM usage vs speed could be balanced by flushing
-    # dictionary and recomputing cumsum a given number of times.
-
-    if prop > 1 or prop < 0:
-        raise ValueError(
-            "The proportion of contacts to sample must be between 0 and 1."
-        )
-    # Only work with non-zero data of matrices
-    O = csr_matrix(M).data
-    S = O.copy()
+    try:
+        if n_contacts <= 1 and n_contacts > 0:
+            n_contacts *= M.data.sum()
+        elif n_contacts < 0:
+            logger.error("n_contacts must be strictly positive")
+    except ValueError as e:
+        logger.error("n_contacts must be a float")
+        raise e
+    S = M.data.copy()
     # Match cell idx to cumulative number of contacts
-    cum_sum = np.cumsum(O)
-    # Total number of contacts to remove
-    tot_contacts = int(max(cum_sum))
-    n_remove = int((1 - prop) * tot_contacts)
-    # Store contacts that have already been removed
-    removed = {}
+    cum_counts = np.cumsum(S)
+    # Total number of contacts to sample
+    tot_contacts = int(cum_counts[-1])
+    
+    # Sample desired number of contacts from the range(0, n_contacts) array
+    sampled_contacts = np.random.choice(
+        int(tot_contacts),
+        size=int(n_contacts),
+        replace=False
+    )
+    
+    # Get indices of sampled contacts in the cum_counts array
+    idx = np.searchsorted(cum_counts, sampled_contacts, side='right')
 
-    for _ in range(n_remove):
-        to_remove = np.random.randint(tot_contacts)
-        while to_remove in removed:
-            to_remove = np.random.randint(tot_contacts)
-        # Find idx of cell to deplete and deplete it
-        removed[to_remove] = np.searchsorted(cum_sum, to_remove)
-        S[removed[to_remove]] -= 1
+    # Bin those indices to the same dimensions as matrix data to get counts
+    sampled_counts = np.bincount(idx, minlength=S.shape[0])
 
-    return csr_matrix((S, (M.row, M.col)), shape=(M.shape[0], M.shape[1]))
+    # Get nonzero values to build new sparse matrix
+    nnz_mask = sampled_counts > 0
+    sampled_counts = sampled_counts[nnz_mask].astype(np.float64)
+    sampled_rows = M.row[nnz_mask]
+    sampled_cols = M.col[nnz_mask]
+
+    return coo_matrix((sampled_counts, (sampled_rows, sampled_cols)), shape=(M.shape[0], M.shape[1]))
 
 
 def shortest_path_interpolation(matrix, alpha=1, strict=True):
