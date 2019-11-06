@@ -606,20 +606,30 @@ def full_pipeline(
     # If the user chose bowtie2 and supplied an index, extract fasta from it
     # For later steps of the pipeline (digestion / frag attribution)
     if aligner == "bowtie2":
-        bt2fa = sp.Popen(
-            ["bowtie2-inspect", genome], stdout=open(tmp_genome, "w"), stderr=sp.PIPE
-        )
-        _, bt2err = bt2fa.communicate()
-        # bowtie2-inspect still has return code 0 when crashing, need to
-        # actively look for error in stderr
-        fasta = tmp_genome
-        if re.search(r"[Ee]rror", bt2err.decode()):
-            logger.error(bt2err)
-            logger.error(
-                "bowtie2-inspect has failed, make sure you provided "
-                "the path to the bowtie2 index without the extension."
+        split_genome_name = genome.split('.')
+        genome_ext = split_genome_name[-1]
+        genome_prefix = '.'.join(split_genome_name[:-1])
+        # If no index is supplied build it first
+        if 'f' in genome_ext and 'a' in genome_ext: # Catch-all for fa, fasta, faa, fsa etc.
+            logger.info("Bowtie2 index not found at %s, now generating one." % genome_prefix)
+            sp.run(["bowtie2-build", genome, genome_prefix], stderr=sp.PIPE)
+            genome = genome_prefix
+        else:
+            bt2fa = sp.Popen(
+                ["bowtie2-inspect", genome], stdout=open(tmp_genome, "w"), stderr=sp.PIPE
             )
-            sys.exit(1)
+            _, bt2err = bt2fa.communicate()
+            # bowtie2-inspect still has return code 0 when crashing, need to
+            # actively look for error in stderr
+            fasta = tmp_genome
+            if re.search(r"[Ee]rror", bt2err.decode()):
+            
+                logger.error(bt2err)
+                logger.error(
+                    "bowtie2-inspect has failed, make sure you provided "
+                    "the path to the bowtie2 index without the extension."
+                )
+                sys.exit(1)
     else:
         fasta = genome
     # Check for spaces in fasta headers and issue error if found
