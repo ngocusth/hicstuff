@@ -613,6 +613,7 @@ def full_pipeline(
         if 'f' in genome_ext and 'a' in genome_ext: # Catch-all for fa, fasta, faa, fsa etc.
             logger.info("Bowtie2 index not found at %s, now generating one." % genome_prefix)
             sp.run(["bowtie2-build", genome, genome_prefix], stderr=sp.PIPE)
+            fasta = genome
             genome = genome_prefix
         else:
             bt2fa = sp.Popen(
