@@ -727,12 +727,18 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
         Normalized sparse matrix.
     """
     # Making full symmetric matrix if not symmetric already (e.g. upper triangle)
-    r = csr_matrix(M)
-    r = r.astype(np.float64)
+    r = M.astype(np.float64)
     good_bins = get_good_bins(M, n_mad=n_mad)
     # Set values in non detectable bins to 0
-    r[~good_bins, :] = 0
-    r[:, ~good_bins] = 0
+    # For faster masking of bins, mask bins using dot product with an identity
+    # matrix where bad bins have been masked on the diagonal
+    # E.g. if removing the second bin (row and column):
+    # 1 0 0     9 6 5     1 0 0     9 0 5
+    # 0 0 0  X  6 8 7  X  0 0 0  =  0 0 0
+    # 0 0 1     6 7 8     0 0 1     6 0 8
+    mask_mat = sparse.eye([0])
+    mask_mat.data[0][~good_bins] = 0
+    r = mask_mat.dot(r).dot(mask_mat)
     r = coo_matrix(r)
     r.eliminate_zeros()
     if norm == "ICE":
