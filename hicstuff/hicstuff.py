@@ -736,7 +736,7 @@ def normalize_sparse(M, norm="ICE", iterations=40, n_mad=3.0):
     # 1 0 0     9 6 5     1 0 0     9 0 5
     # 0 0 0  X  6 8 7  X  0 0 0  =  0 0 0
     # 0 0 1     6 7 8     0 0 1     6 0 8
-    mask_mat = sparse.eye([0])
+    mask_mat = sparse.eye(r.shape[0])
     mask_mat.data[0][~good_bins] = 0
     r = mask_mat.dot(r).dot(mask_mat)
     r = coo_matrix(r)
