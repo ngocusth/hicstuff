@@ -36,7 +36,7 @@ import pandas as pd
 import sys
 from hicstuff.log import logger
 
-
+ 
 def distance_law_from_mat(matrix, indices=None, log_bins=True, base=1.1):
     """Compute distance law as a function of the genomic coordinate aka P(s).
     Bin length increases exponentially with distance if log_bins is True. Works

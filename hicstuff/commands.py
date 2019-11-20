@@ -281,7 +281,7 @@ class View(AbstractCommand):
     usage:
         view [--binning=1] [--despeckle] [--frags FILE] [--trim INT] [--n-mad FLOAT]
              [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP] [--dpi=INT]
-             [--transform=FUN] [--circular] [--region=STR] <contact_map> [<contact_map2>]
+             [--transform=FUN] [--circular] [--region=STR] [--title=STR] <contact_map> [<contact_map2>]
 
     arguments:
         contact_map             Sparse contact matrix in GRAAL format
@@ -328,6 +328,7 @@ class View(AbstractCommand):
                                          matrix if the sum of their contacts
                                          deviates from the mean by more than
                                          INT standard deviations.
+        -l, --title=STR                  the title of the contact map.
     """
 
     def data_transform(self, dense_map, operation="log10"):
@@ -441,6 +442,7 @@ class View(AbstractCommand):
         bin_str = self.args["--binning"].upper()
         self.symmetric = True
         transform = self.args["--transform"]
+        title = self.args["--title"]
         try:
             # Subsample binning
             self.binning = int(bin_str)
@@ -481,7 +483,7 @@ class View(AbstractCommand):
             processed_map = processed_map.tocsr() - processed_map2.tocsr()
             processed_map = processed_map.tocoo()
             processed_map.data[np.isnan(processed_map.data)] = 0.0
-            cmap = "coolwarm"
+            # cmap = "coolwarm"
             # Log transformation done already
             transform = False
 
@@ -514,6 +516,7 @@ class View(AbstractCommand):
                 vmax=self.vmax,
                 dpi=int(self.args["--dpi"]),
                 cmap=cmap,
+                title=title
             )
         except MemoryError:
             logger.error("contact map is too large to load, try binning more")
