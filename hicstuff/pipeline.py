@@ -649,15 +649,15 @@ def full_pipeline(
                 % genome_prefix
             )
             sp.run(
-                ["bowtie2-build", str(genome.absolute()), genome_prefix],
+                ["bowtie2-build", str(genome), genome_prefix],
                 stderr=sp.PIPE,
             )
-            fasta = genome.absolute()
+            fasta = str(genome)
             genome = genome_prefix
         else:
             # Index is present, extract fasta file from it
             bt2fa = sp.Popen(
-                ["bowtie2-inspect", genome.absolute()],
+                ["bowtie2-inspect", str(genome)],
                 stdout=open(tmp_genome, "w"),
                 stderr=sp.PIPE,
             )
@@ -674,7 +674,7 @@ def full_pipeline(
                 )
                 sys.exit(1)
     else:
-        fasta = genome.absolute()
+        fasta = str(genome)
     # Check for spaces in fasta headers and issue error if found
     for record in SeqIO.parse(fasta, "fasta"):
         if " " in record.id:
