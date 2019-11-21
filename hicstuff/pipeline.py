@@ -21,6 +21,7 @@ import hicstuff.filter as hcf
 import hicstuff.io as hio
 import hicstuff.distance_law as hcdl
 import matplotlib
+import pathlib
 from hicstuff.version import __version__
 import hicstuff.log as hcl
 from hicstuff.log import logger
@@ -262,7 +263,9 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
     reads_count = 0
     # Store header lines
     header = hio.get_pairs_header(pairs_idx_file)
-    with open(pairs_idx_file, "r") as pairs, open(filtered_file, "w") as filtered:
+    with open(pairs_idx_file, "r") as pairs, open(
+        filtered_file, "w"
+    ) as filtered:
         # Copy header lines to filtered file
         for head_line in header:
             filtered.write(head_line + "\n")
@@ -282,15 +285,21 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
         ]
         # Columns used for comparison of coordinates
         coord_cols = [col for col in paircols if col != "readID"]
-        pair_reader = csv.DictReader(pairs, delimiter="\t", fieldnames=paircols)
-        filt_writer = csv.DictWriter(filtered, delimiter="\t", fieldnames=paircols)
+        pair_reader = csv.DictReader(
+            pairs, delimiter="\t", fieldnames=paircols
+        )
+        filt_writer = csv.DictWriter(
+            filtered, delimiter="\t", fieldnames=paircols
+        )
 
         # Initialise a variable to store coordinates of reads in previous pair
         prev = {k: 0 for k in paircols}
         for pair in pair_reader:
             reads_count += 1
             # If coordinates are the same as before, skip pair
-            if all(pair[pair_var] == prev[pair_var] for pair_var in coord_cols):
+            if all(
+                pair[pair_var] == prev[pair_var] for pair_var in coord_cols
+            ):
                 filter_count += 1
                 continue
             # Else write pair and store new coordinates as previous
@@ -299,7 +308,11 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
                 prev = pair
         logger.info(
             "%d%% PCR duplicates have been filtered out (%d / %d pairs) "
-            % (100 * round(filter_count / reads_count, 3), filter_count, reads_count)
+            % (
+                100 * round(filter_count / reads_count, 3),
+                filter_count,
+                reads_count,
+            )
         )
 
 
@@ -320,16 +333,27 @@ def pairs2cool(pairs_file, cool_file, bins_file):
 
     # Make bins file compatible with cooler cload
     bins_tmp = bins_file + ".cooler"
-    bins = pd.read_csv(bins_file, sep="\t", usecols=[1, 2, 3], skiprows=1, header=None)
+    bins = pd.read_csv(
+        bins_file, sep="\t", usecols=[1, 2, 3], skiprows=1, header=None
+    )
     bins.to_csv(bins_tmp, sep="\t", header=False, index=False)
 
-    cooler_cmd = "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
+    cooler_cmd = (
+        "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
+    )
     cool_args = {"bins": bins_tmp, "pairs": pairs_file, "cool": cool_file}
     sp.call(cooler_cmd.format(**cool_args), shell=True)
     os.remove(bins_tmp)
 
 
-def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=1, tmp_dir=None):
+def pairs2matrix(
+    pairs_file,
+    mat_file,
+    fragments_file,
+    mat_fmt="GRAAL",
+    threads=1,
+    tmp_dir=None,
+):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a pairs file.
 
@@ -378,7 +402,13 @@ def pairs2matrix(pairs_file, mat_file, fragments_file, mat_fmt="GRAAL", threads=
             )
 
     pre_mat_file = mat_file + ".pre.pairs"
-    hio.sort_pairs(pairs_file, pre_mat_file, keys=["frag1", "frag2"], threads=threads, tmp_dir=tmp_dir)
+    hio.sort_pairs(
+        pairs_file,
+        pre_mat_file,
+        keys=["frag1", "frag2"],
+        threads=threads,
+        tmp_dir=tmp_dir,
+    )
     header_size = len(hio.get_pairs_header(pre_mat_file))
     with open(pre_mat_file, "r") as pairs, open(mat_file, "w") as mat:
         # Skip header lines
@@ -545,7 +575,9 @@ def full_pipeline(
         if check_tool(aligner) is None:
             logger.error("%s is not installed or not on PATH", aligner)
     else:
-        logger.error("Incompatible aligner software, choose bowtie2 or minimap2")
+        logger.error(
+            "Incompatible aligner software, choose bowtie2 or minimap2"
+        )
     if check_tool("samtools") is None:
         logger.error("Samtools is not installed or not on PATH")
 
@@ -605,26 +637,36 @@ def full_pipeline(
 
     # If the user chose bowtie2 and supplied an index, extract fasta from it
     # For later steps of the pipeline (digestion / frag attribution)
+    genome = pathlib.Path(genome)
     if aligner == "bowtie2":
-        split_genome_name = genome.split('.')
-        genome_ext = split_genome_name[-1]
-        genome_prefix = '.'.join(split_genome_name[:-1])
-        # If no index is supplied build it first
-        if 'f' in genome_ext and 'a' in genome_ext: # Catch-all for fa, fasta, faa, fsa etc.
-            logger.info("Bowtie2 index not found at %s, now generating one." % genome_prefix)
-            sp.run(["bowtie2-build", genome, genome_prefix], stderr=sp.PIPE)
-            fasta = genome
+        genome_prefix = genome.with_suffix("")
+        # Check if input file has index files
+        bt2_idx_files = list(genome.parent.glob(f"{genome.name}*bt2*"))
+        if len(bt2_idx_files) != 6:
+            # If no index present assume input is fasta and build it first
+            logger.info(
+                "Bowtie2 index not found at %s, now generating one."
+                % genome_prefix
+            )
+            sp.run(
+                ["bowtie2-build", str(genome.absolute()), genome_prefix],
+                stderr=sp.PIPE,
+            )
+            fasta = genome.absolute()
             genome = genome_prefix
         else:
+            # Index is present, extract fasta file from it
             bt2fa = sp.Popen(
-                ["bowtie2-inspect", genome], stdout=open(tmp_genome, "w"), stderr=sp.PIPE
+                ["bowtie2-inspect", genome.absolute()],
+                stdout=open(tmp_genome, "w"),
+                stderr=sp.PIPE,
             )
             _, bt2err = bt2fa.communicate()
             # bowtie2-inspect still has return code 0 when crashing, need to
             # actively look for error in stderr
             fasta = tmp_genome
             if re.search(r"[Ee]rror", bt2err.decode()):
-            
+
                 logger.error(bt2err)
                 logger.error(
                     "bowtie2-inspect has failed, make sure you provided "
@@ -632,12 +674,14 @@ def full_pipeline(
                 )
                 sys.exit(1)
     else:
-        fasta = genome
+        fasta = genome.absolute()
     # Check for spaces in fasta headers and issue error if found
-    for record in SeqIO.parse(fasta, 'fasta'):
+    for record in SeqIO.parse(fasta, "fasta"):
         if " " in record.id:
-            logger.error('Sequence identifiers contain spaces. Please clean the input genome.')
-    
+            logger.error(
+                "Sequence identifiers contain spaces. Please clean the input genome."
+            )
+
     # Enable file logging
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)
@@ -695,9 +739,13 @@ def full_pipeline(
             read_len=read_len,
         )
         # Sort alignments by read name
-        ps.sort("-@", str(threads), "-n", "-O", "BAM", "-o", bam1 + ".sorted", bam1)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "BAM", "-o", bam1 + ".sorted", bam1
+        )
         st.move(bam1 + ".sorted", bam1)
-        ps.sort("-@", str(threads), "-n", "-O", "BAM", "-o", bam2 + ".sorted", bam2)
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "BAM", "-o", bam2 + ".sorted", bam2
+        )
         st.move(bam2 + ".sorted", bam2)
 
     # Starting from bam files
@@ -715,7 +763,9 @@ def full_pipeline(
         )
 
         # Log fragment size distribution
-        hcd.frag_len(frags_file_name=fragments_list, plot=plot, fig_path=frag_plot)
+        hcd.frag_len(
+            frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
+        )
 
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         bam2pairs(bam1, bam2, pairs, info_contigs, min_qual=min_qual)
@@ -739,7 +789,7 @@ def full_pipeline(
         pairs_idx + ".sorted",
         keys=["chr1", "pos1", "chr2", "pos2"],
         threads=threads,
-        tmp_dir=tmp_dir
+        tmp_dir=tmp_dir,
     )
     os.rename(pairs_idx + ".sorted", pairs_idx)
 
@@ -792,9 +842,13 @@ def full_pipeline(
             _, _, chr_labels = hcdl.import_distance_law(out_distance_law)
             chr_labels = [lab[0] for lab in chr_labels]
             chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
-            chr_labels = [chr_labels[index] for index in sorted(chr_labels_idx)]
+            chr_labels = [
+                chr_labels[index] for index in sorted(chr_labels_idx)
+            ]
             p_s = hcdl.normalize_distance_law(x_s, p_s)
-            hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
+            hcdl.plot_ps_slope(
+                x_s, p_s, labels=chr_labels, fig_path=distance_law_plot
+            )
 
     # Filter out PCR duplicates if requested
     if pcr_duplicates:
@@ -807,7 +861,14 @@ def full_pipeline(
         cool_file = os.path.splitext(mat)[0] + ".cool"
         pairs2cool(use_pairs, cool_file, fragments_list)
     else:
-        pairs2matrix(use_pairs, mat, fragments_list, mat_fmt=mat_fmt, threads=threads, tmp_dir=tmp_dir)
+        pairs2matrix(
+            use_pairs,
+            mat,
+            fragments_list,
+            mat_fmt=mat_fmt,
+            threads=threads,
+            tmp_dir=tmp_dir,
+        )
 
     # Clean temporary files
     if not no_cleanup:
