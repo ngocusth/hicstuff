@@ -681,7 +681,7 @@ def full_pipeline(
             logger.error(
                 "Sequence identifiers contain spaces. Please clean the input genome."
             )
-
+    genome = str(genome)
     # Enable file logging
     hcl.set_file_handler(log_file)
     generate_log_header(log_file, input1, input2, genome, enzyme)
