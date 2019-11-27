@@ -3,21 +3,27 @@
 # TODO: add tests to check for output contents
 import hicstuff.commands as hcmd
 import os
+import pytest
+from pathlib import Path
 import shutil as su
 
 # Use global variables for input files
-MAT = "test_data/abs_fragments_contacts_weighted.txt"
+GRAAL = "test_data/abs_fragments_contacts_weighted.txt"
+BG2 = "test_data/mat.bg2"
+COOL = "test_data/mat.cool"
 FRAG = "test_data/fragments_list.txt"
 CHROM = "test_data/info_contigs.txt"
 OUT = "test_cli"
 os.makedirs(OUT, exist_ok=True)
+MATS = ('mat', [GRAAL, BG2, COOL])
 
 
-def test_view():
+@pytest.mark.parametrize(*MATS)
+def test_view(mat):
     args = (
         "-b 500bp -c Reds -d -f {0} -T log2 -n -t 2 -m 0.98 -r seq1:100-50000 "
         + "-o {1}/test.png {2}"
-    ).format(FRAG, OUT, MAT)
+    ).format(FRAG, OUT, mat)
     proc = hcmd.View(args.split(" "), {})
     proc.execute()
 
@@ -31,14 +37,15 @@ def test_pipeline():
     proc.execute()
 
 
-def test_rebin():
-    args = "-b 1kb -f {0} -c {1} -o {2} {3}".format(FRAG, CHROM, OUT, MAT)
+@pytest.mark.parametrize(*MATS)
+def test_rebin(mat):
+    args = "-b 1kb -f {0} -c {1} {2} {3}".format(FRAG, CHROM, mat, str(Path(OUT) / 'rebinned'))
     proc = hcmd.Rebin(args.split(" "), {})
     proc.execute()
 
 
 def test_convert():
-    args = "-f {0} -c {1} -o {2} {3}".format(FRAG, CHROM, OUT, MAT)
+    args = "-f {0} -c {1} {2} {3}".format(FRAG, CHROM, GRAAL, str(Path(OUT) / 'converted'))
     proc = hcmd.Convert(args.split(" "), {})
     proc.execute()
 
@@ -85,15 +92,14 @@ def test_filter():
 
 
 def test_scalogram():
-    args = "-C viridis -n -t 1 -o {0}/scalo.png {1}".format(OUT, MAT)
+    args = "-C viridis -n -t 1 -o {0}/scalo.png {1}".format(OUT, GRAAL)
     proc = hcmd.Scalogram(args.split(" "), {})
     proc.execute()
 
 
-def test_subsample():
-    args = "-p 0.5 {0} {1}/subsampled.tsv".format(MAT, OUT)
+@pytest.mark.parametrize(*MATS)
+def test_subsample(mat):
+    args = "-p 0.5 {0} {1}".format(mat, str(Path(OUT) / 'subsampled'))
     proc = hcmd.Subsample(args.split(" "), {})
     proc.execute()
 
-
-# su.rmtree(OUT)

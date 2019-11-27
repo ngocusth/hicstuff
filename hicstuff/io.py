@@ -809,7 +809,7 @@ def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
     return mat, frags, chroms
 
 
-def flexible_hic_loader(mat, fragments_file=None, chroms_file=None):
+def flexible_hic_loader(mat, fragments_file=None, chroms_file=None, quiet=False):
     """
     Wrapper function to load COO, bg2 or cool input and return the same output.
     COO formats requires fragments_file and chroms_file options. bg2 format can
@@ -827,6 +827,8 @@ def flexible_hic_loader(mat, fragments_file=None, chroms_file=None):
     chroms_file : str or None
         Path to the file with chromosome information (info_contigs.txt). Only required
         if the matrix is in graal format.
+    quiet : bool
+        If True, will silence warnings for empty outputs.
 
     Returns
     -------
@@ -854,7 +856,7 @@ def flexible_hic_loader(mat, fragments_file=None, chroms_file=None):
             # Use only the bg2
             if size_mad > 0:
                 mat, frags, chroms = load_bedgraph2d(mat)
-                logger.warn(
+                logger.warning(
                     "Input is a bedgraph2d file with uneven bin size, "
                     "but no fragments_file was provided. Empty bins will "
                     "be missing from the output. To avoid this, provide a "
@@ -870,16 +872,23 @@ def flexible_hic_loader(mat, fragments_file=None, chroms_file=None):
         try:
             mat = load_sparse_matrix(mat)
             frags = pd.read_csv(fragments_file, sep="\t")
-            chroms = pd.read_csv(chroms_file, sep="\t")
-        except NameError:
-            logger.warn(
-                "frags and chroms files must be provided when "
-                "loading a matrix in COO/graal format."
-            )
+        except ValueError:
+            if not quiet:
+                logger.warning(
+                    "fragments_file was not provided when "
+                    "loading a matrix in COO/graal format. frags will be None."
+                )
             frags = None
+        try:
+            chroms = pd.read_csv(chroms_file, sep="\t")
+        except ValueError:
+            if not quiet:
+                logger.warning(
+                    "chroms_file was not provided when "
+                    "loading a matrix in COO/graal format. chroms will be None."
+                )
+
             chroms = None
-    else:
-        raise ValueError(f"Unknown file format: {mat}")
 
     return mat, frags, chroms
 
@@ -905,6 +914,8 @@ def get_hic_format(mat):
             hic_format = "bg2"
         elif ncols == 3:
             hic_format = "graal"
+        else:
+            raise ValueError("Unkown file format")
     return hic_format
 
 
@@ -923,30 +934,30 @@ def flexible_hic_saver(mat, out_prefix, frags=None, chroms=None, hic_fmt="graal"
         Output format. Can be one of graal for GRAAL-compatible COO format, bg2 for
         2D bedgraph format, or cool for cooler compatible format.
     """
-    if format == "graal":
-        save_sparse_matrix(out_prefix + ".mat.tsv", mat)
+    if hic_fmt == "graal":
+        save_sparse_matrix(mat, out_prefix + ".mat.tsv")
         try:
-            self.frags.to_csv(out_prefix + ".frag.tsv", sep="\t", index=False)
-        except NameError:
+            frags.to_csv(out_prefix + ".frag.tsv", sep="\t", index=False)
+        except AttributeError:
             logger.warning("Could not create fragments_list.txt from input files")
         try:
-            self.chroms.to_csv(out_prefix + ".chr.tsv", sep="\t", index=False)
-        except NameError:
+            chroms.to_csv(out_prefix + ".chr.tsv", sep="\t", index=False)
+        except AttributeError:
             logger.warning("Could not create info_contigs.txt from input files")
-    elif format == "cool":
+    elif hic_fmt == "cool":
         try:
             save_cool(
                 out_prefix + ".cool", mat, frags, metadata={"hicstuff": __version__}
             )
         except NameError:
             NameError("frags is required to save a cool file")
-    elif format == "bg2":
+    elif hic_fmt == "bg2":
         try:
             save_bedgraph2d(mat, frags, out_prefix + ".bg2")
         except NameError:
             NameError("frags is required to save a bg2 file")
     else:
-        raise ValueError("Unknown output format")
+        raise ValueError(f"Unknown output format: {hic_fmt}")
 
 
 def save_bedgraph2d(mat, frags, out_path):

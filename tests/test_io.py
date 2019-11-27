@@ -10,6 +10,7 @@ import filecmp
 import numpy as np
 import hicstuff.io as hio
 import cooler
+import pytest
 
 MAT_GRAAL = hio.load_sparse_matrix(
     "test_data/abs_fragments_contacts_weighted.txt"
@@ -96,3 +97,11 @@ def test_cooler_io():
     # Read custom cool into GRAAL objects
     mat, frags, chroms = hio.load_cool(f.name)
     os.unlink(f.name)
+
+def test_hic_format():
+    assert hio.get_hic_format("test_data/mat_5kb.bg2") == 'bg2'
+    assert hio.get_hic_format("test_data/abs_fragments_contacts_weighted.txt") == 'graal'
+    with pytest.raises(ValueError):
+        assert hio.get_hic_format("test_data/valid.pairs")
+
+

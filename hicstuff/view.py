@@ -67,7 +67,7 @@ def sparse_to_dense(M, remove_diag=True):
 
     """
     sub_diag = 2 if remove_diag else 1
-    D = M.todense()
+    D = M.toarray()
     E = D + np.transpose(D) - sub_diag * np.diag(np.diag(D))
     return np.array(E)
 
