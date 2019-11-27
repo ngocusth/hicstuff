@@ -19,6 +19,8 @@ from scipy.sparse import coo_matrix
 from Bio import SeqIO
 import hicstuff.hicstuff as hcs
 from hicstuff.log import logger
+from hicstuff.version import __version__
+import scipy.stats as ss
 
 DEFAULT_MAX_MATRIX_SHAPE = 10000
 
@@ -84,7 +86,7 @@ def load_sparse_matrix(mat_path, binning=1, dtype=np.float64):
     Parameters
     ----------
     mat_path : file, str or pathlib.Path
-        The input matrix file in instaGRAAL format.
+        The input matrix file in instagraal format.
     binning : int or "auto"
         The binning to perform. If "auto", binning will
         be automatically inferred so that the matrix size
@@ -221,6 +223,7 @@ def _check_cooler(fun):
     def wrapped(*args, **kwargs):
         try:
             import cooler
+
             fun.__globals__["cooler"] = cooler
         except ImportError:
             logger.error(
@@ -235,7 +238,9 @@ def _check_cooler(fun):
 
 
 @_check_cooler
-def add_cool_column(clr, column, column_name, table_name="bins", metadata={}, dtype=None):
+def add_cool_column(
+    clr, column, column_name, table_name="bins", metadata={}, dtype=None
+):
     """
     Adds a new column to a loaded Cooler store. If the column exists,
     it is replaced. This will affect the .cool file.
@@ -265,7 +270,7 @@ def add_cool_column(clr, column, column_name, table_name="bins", metadata={}, dt
 @_check_cooler
 def load_cool(cool):
     """
-    Reads a cool file into memory and parses it into GRAAL style tables.
+    Reads a cool file into memory and parses it into graal style tables.
     
     Parameters
     ----------
@@ -281,26 +286,28 @@ def load_cool(cool):
     chroms : pandas DataFrame
         Table of chromosome informations.
     """
-    c = cooler.Cooler(cool)  #pylint: disable=undefined-variable
+    c = cooler.Cooler(cool)  # pylint: disable=undefined-variable
     frags = c.bins()[:]
     chroms = c.chroms()[:]
     mat = c.pixels()[:]
     frags.rename(columns={"start": "start_pos", "end": "end_pos"}, inplace=True)
-    frags['id'] = frags.groupby('chrom', sort=False).cumcount() + 1
+    frags["id"] = frags.groupby("chrom", sort=False).cumcount() + 1
     # Try loading hicstuff-specific columns
     try:
-        frags = frags[['id', 'chrom', 'start_pos', 'end_pos', 'size', 'gc_content']]
+        frags = frags[["id", "chrom", "start_pos", "end_pos", "size", "gc_content"]]
     # If absent, only load standard columns
     except KeyError:
-        frags = frags[['id', 'chrom', 'start_pos', 'end_pos']]
-        
-    chroms['cumul_length'] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
-    n_frags = c.bins()[:].groupby('chrom', sort=False).count().start
-    chroms['n_frags'] = chroms.merge(n_frags, right_index=True, left_on='name', how='left').start
-    chroms.rename(columns={'name': 'contig'}, inplace=True)
+        frags = frags[["id", "chrom", "start_pos", "end_pos"]]
+
+    chroms["cumul_length"] = chroms.length.shift(1).fillna(0).cumsum().astype(int)
+    n_frags = c.bins()[:].groupby("chrom", sort=False).count().start
+    chroms["n_frags"] = chroms.merge(
+        n_frags, right_index=True, left_on="name", how="left"
+    ).start
+    chroms.rename(columns={"name": "contig"}, inplace=True)
     n = int(max(np.amax(mat.bin1_id), np.amax(mat.bin2_id))) + 1
     shape = (n, n)
-    mat = coo_matrix((mat['count'], (mat.bin1_id, mat.bin2_id)), shape=shape)
+    mat = coo_matrix((mat["count"], (mat.bin1_id, mat.bin2_id)), shape=shape)
 
     return mat, frags, chroms
 
@@ -308,7 +315,7 @@ def load_cool(cool):
 @_check_cooler
 def save_cool(cool_out, mat, frags, metadata={}):
     """
-    Writes a .cool file from GRAAL style tables.
+    Writes a .cool file from graal style tables.
     
     Parameters
     ----------
@@ -332,10 +339,19 @@ def save_cool(cool_out, mat, frags, metadata={}):
     except KeyError:
         bins = frags
     # Get column names right
-    bins.rename(columns={"seq": "chrom", "start_pos": "start", "end_pos": "end"}, inplace=True)
+    bins.rename(
+        columns={"seq": "chrom", "start_pos": "start", "end_pos": "end"}, inplace=True
+    )
     mat_dict = {"bin1_id": mat.row, "bin2_id": mat.col, "count": mat.data}
     pixels = pd.DataFrame(mat_dict)
-    cooler.create_cooler(cool_out, bins, pixels, metadata=metadata, symmetric_upper=up_tri, triucheck=False)  #pylint: disable=undefined-variable
+    cooler.create_cooler(  # pylint: disable=undefined-variable
+        cool_out,
+        bins,
+        pixels,
+        metadata=metadata,
+        symmetric_upper=up_tri,
+        triucheck=False,
+    )
 
 
 def read_compressed(filename):
@@ -591,7 +607,7 @@ def load_from_redis(key):
     return M
 
 
-def dade_to_GRAAL(
+def dade_to_graal(
     filename,
     output_matrix=DEFAULT_SPARSE_MATRIX_FILE_NAME,
     output_contigs=DEFAULT_INFO_CONTIGS_FILE_NAME,
@@ -599,7 +615,7 @@ def dade_to_GRAAL(
     output_dir=None,
 ):
     """Convert a matrix from DADE format (https://github.com/scovit/dade)
-    to a GRAAL-compatible format. Since DADE matrices contain both fragment
+    to a graal-compatible format. Since DADE matrices contain both fragment
     and contact information all files are generated at the same time.
     """
 
@@ -715,46 +731,56 @@ def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
     elif fragments_file is None:
         logger.warning(
             "Please be aware that not all information can be restored from a "
-            "cooler file without fixed bin size; fragments without any contact "
+            "bg2 file without fixed bin size; fragments without any contact "
             "will be lost"
         )
     # Get all possible fragment chrom-positions into an array
-    frag_pos = np.vstack([np.array(bed2d[[0, 1]]), np.array(bed2d[[3, 4]])])
+    frag_pos = np.vstack([np.array(bed2d[[0, 1, 2]]), np.array(bed2d[[3, 4, 5]])])
     # Sort by position (least important, col 1)
     frag_pos = frag_pos[frag_pos[:, 1].argsort(kind="mergesort")]
     # Then by chrom (most important, col 0)
     frag_pos = frag_pos[frag_pos[:, 0].argsort(kind="mergesort")]
     # Get unique names for fragments (chrom+pos)
-    ordered_frag_pos = (
-        pd.DataFrame(frag_pos)
-        .drop_duplicates()
-        .apply(lambda x: "".join(x.astype(str)), axis=1)
-        .tolist()
-    )
-    frag_pos_a = np.array(
-        bed2d[[0, 1]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
-    )
-    frag_pos_b = np.array(
-        bed2d[[3, 4]].apply(lambda x: "".join(x.astype(str)), axis=1).tolist()
-    )
+    ordered_frag_pos = pd.DataFrame(frag_pos).drop_duplicates().reset_index(drop=True)
+    frag_pos_a = bed2d[[0, 1]].apply(lambda x: tuple(x), axis=1)
+    frag_pos_b = bed2d[[3, 4]].apply(lambda x: tuple(x), axis=1)
     # If fragments file is provided, use fragments positions to indices mapping
     if fragments_file is not None:
         frags = pd.read_csv(fragments_file, delimiter="\t")
-        frag_map = frags.apply(
-            lambda x: "".join([str(x.chrom), str(x.start_pos)]), axis=1
-        )
+        frag_map = frags.apply(lambda x: (str(x.chrom), x.start_pos), axis=1)
         frag_map = {f_name: f_idx for f_idx, f_name in enumerate(frag_map)}
     # If fixed fragment size available, use it to reconstruct original
     # fragments ID (even if they are absent from the bedgraph file).
     elif bin_size is not None:
         frag_map = {}
+        chrom_frags = []
         for chrom, size in chrom_sizes.items():
             prev_frags = len(frag_map)
             for bin_id, bin_pos in enumerate(range(0, size, bin_size)):
-                frag_map["".join([chrom, str(bin_pos)])] = bin_id + prev_frags
+                frag_map[(chrom, bin_pos)] = bin_id + prev_frags
+            n_bins = size // bin_size
+            chrom_frags.append(
+                pd.DataFrame(
+                    {
+                        "id": range(1, n_bins + 1),
+                        "chrom": np.repeat(chrom, n_bins),
+                        "start_pos": range(0, size, bin_size),
+                        "end_pos": range(bin_size, size + bin_size, bin_size),
+                    }
+                )
+            )
+        frags = pd.concat(chrom_frags, axis=0).reset_index(drop=True)
+        frags.insert(loc=3, column="size", value=frags.end_pos - frags.start_pos)
     # If None available, guess fragments indices from bedgraph (potentially wrong)
     else:
-        frag_map = {v: i for i, v in enumerate(ordered_frag_pos)}
+        frag_map = {
+            (v[0], v[1]): i for i, v in ordered_frag_pos.iloc[:, [0, 1]].iterrows()
+        }
+        frags = ordered_frag_pos.copy()
+        frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
+        frags.insert(loc=0, column="id", value=0)
+        frags.id = frags.groupby([0], sort=False).cumcount() + 1
+        frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
     # Match bin indices to their names
     frag_id_a = np.array(list(map(lambda x: frag_map[x], frag_pos_a)))
     frag_id_b = np.array(list(map(lambda x: frag_map[x], frag_pos_b)))
@@ -762,12 +788,165 @@ def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
     # Use index to build matrix
     n_frags = len(frag_map.keys())
     mat = coo_matrix((contacts, (frag_id_a, frag_id_b)), shape=(n_frags, n_frags))
-    frags = bed2d.groupby([0, 1], sort=False).first().reset_index().iloc[:, [0, 1, 2]]
-    frags[3] = frags.iloc[:, 2] - frags.iloc[:, 1]
-    frags.insert(loc=0, column="id", value=0)
-    frags.id = frags.groupby([0], sort=False).cumcount() + 1
-    frags.columns = ["id", "chrom", "start_pos", "end_pos", "size"]
-    return mat, frags
+
+    # Get size of each chromosome in basepairs
+    chromsizes = frags.groupby("chrom", sort=False).apply(
+        lambda x: np.int64(max(x.end_pos))
+    )
+    chrom_bins = frags.groupby("chrom", sort=False).size()
+    # Shift chromsizes by one to get starting bin, first one is zero
+    # Make chromsize cumulative to get start bin of each chrom
+    # Get chroms into a 1D array of bin starts
+    chrom_start = chrom_bins.shift(1, fill_value=0).cumsum()
+    chroms = pd.DataFrame(
+        {
+            "contig": chromsizes.index,
+            "length": chromsizes.values,
+            "n_frags": chrom_bins,
+            "cumul_length": chrom_start,
+        }
+    )
+    return mat, frags, chroms
+
+
+def flexible_hic_loader(mat, fragments_file=None, chroms_file=None):
+    """
+    Wrapper function to load COO, bg2 or cool input and return the same output.
+    COO formats requires fragments_file and chroms_file options. bg2 format can
+    infer bin_size if fixed. When providing a bg2 matrix with uneven fragments
+    length, one should provide fragments_file as well or empty bins will be
+    truncated from the output.
+    
+    Parameters
+    ----------
+    mat : str
+        Path to the matrix in graal, bedgraph2 or cool format.
+    fragments_file : str or None
+        Path to the file with fragments information (fragments_list.txt).
+        Only required if the matrix is in graal format.
+    chroms_file : str or None
+        Path to the file with chromosome information (info_contigs.txt). Only required
+        if the matrix is in graal format.
+
+    Returns
+    -------
+    mat : scipy.sparse.coo_matrix
+        Sparse upper triangle Hi-C matrix.
+    frags : pandas.DataFrame or None
+        Table of fragment informations. None if information was not provided.
+    chroms : pandas.DataFrame or None
+        Table of chromosomes/contig information. None if information was not provided.
+    """
+    hic_format = get_hic_format(mat)
+    # Load cool based on file extension
+    if hic_format == "cool":
+        mat, frags, chroms = load_cool(mat)
+    # Use the first line to determine COO / bg2 format
+    if hic_format == "bg2":
+        # Use the frags file to define bins if available
+        if fragments_file is not None:
+            mat, frags, chroms = load_bedgraph2d(mat, fragments_file=fragments_file)
+        else:
+            # Guess if bin size is fixed based on MAD
+            bg2 = pd.read_csv(mat, sep="\t")
+            sizes = np.array(bg2.iloc[:, 2] - bg2.iloc[:, 1])
+            size_mad = ss.median_absolute_deviation(sizes)
+            # Use only the bg2
+            if size_mad > 0:
+                mat, frags, chroms = load_bedgraph2d(mat)
+                logger.warn(
+                    "Input is a bedgraph2d file with uneven bin size, "
+                    "but no fragments_file was provided. Empty bins will "
+                    "be missing from the output. To avoid this, provide a "
+                    "fragments file."
+                )
+            # Use fixed bin size
+            else:
+                mat, frags, chroms = load_bedgraph2d(
+                    mat, bin_size=int(np.median(sizes))
+                )
+
+    elif hic_format == "graal":
+        try:
+            mat = load_sparse_matrix(mat)
+            frags = pd.read_csv(fragments_file, sep="\t")
+            chroms = pd.read_csv(chroms_file, sep="\t")
+        except NameError:
+            logger.warn(
+                "frags and chroms files must be provided when "
+                "loading a matrix in COO/graal format."
+            )
+            frags = None
+            chroms = None
+    else:
+        raise ValueError(f"Unknown file format: {mat}")
+
+    return mat, frags, chroms
+
+
+def get_hic_format(mat):
+    """Returns the format of the input Hi-C matrix
+    
+    Parameters
+    ----------
+    mat : str
+        Path to the input Hi-C matrix
+    Returns
+    -------
+    str :
+        Hi-C format string. One of graal, bg2, cool
+    """
+    if mat.endswith(".cool"):
+        hic_format = "cool"
+    else:
+        # Use the first line to determine COO / bg2 format
+        ncols = len(open(mat).readline().split("\t"))
+        if ncols == 7:
+            hic_format = "bg2"
+        elif ncols == 3:
+            hic_format = "graal"
+    return hic_format
+
+
+def flexible_hic_saver(mat, out_prefix, frags=None, chroms=None, hic_fmt="graal"):
+    """
+    Saves objects to the desired Hi-C file format. 
+
+    Parameters
+    ----------
+    mat : scipy.sparse.coo_matrix
+    frags : pandas.DataFrame or None
+        Table of fragments informations.
+    chroms : pandas.DataFrame or None
+        Table of chromosomes / contigs informations.
+    hic_fmt : str
+        Output format. Can be one of graal for GRAAL-compatible COO format, bg2 for
+        2D bedgraph format, or cool for cooler compatible format.
+    """
+    if format == "graal":
+        save_sparse_matrix(out_prefix + ".mat.tsv", mat)
+        try:
+            self.frags.to_csv(out_prefix + ".frag.tsv", sep="\t", index=False)
+        except NameError:
+            logger.warning("Could not create fragments_list.txt from input files")
+        try:
+            self.chroms.to_csv(out_prefix + ".chr.tsv", sep="\t", index=False)
+        except NameError:
+            logger.warning("Could not create info_contigs.txt from input files")
+    elif format == "cool":
+        try:
+            save_cool(
+                out_prefix + ".cool", mat, frags, metadata={"hicstuff": __version__}
+            )
+        except NameError:
+            NameError("frags is required to save a cool file")
+    elif format == "bg2":
+        try:
+            save_bedgraph2d(mat, frags, out_prefix + ".bg2")
+        except NameError:
+            NameError("frags is required to save a bg2 file")
+    else:
+        raise ValueError("Unknown output format")
 
 
 def save_bedgraph2d(mat, frags, out_path):

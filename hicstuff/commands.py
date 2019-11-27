@@ -47,7 +47,7 @@ import hicstuff.pipeline as hpi
 import hicstuff.distance_law as hcdl
 from scipy.sparse import csr_matrix
 import sys, os, shutil, csv
-from os.path import join, basename
+from os.path import join, basename, dirname
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from docopt import docopt
@@ -107,8 +107,8 @@ class Iteralign(AbstractCommand):
     """
 
     def execute(self):
-        read_len = self.args['--read-len'] 
-        
+        read_len = self.args["--read-len"]
+
         if read_len is not None:
             read_len = int(read_len)
 
@@ -116,7 +116,7 @@ class Iteralign(AbstractCommand):
             self.args["--tempdir"] = "."
 
         temp_directory = hio.generate_temp_dir(self.args["--tempdir"])
-        
+
         hci.iterative_align(
             self.args["<reads.fq>"],
             temp_directory,
@@ -284,10 +284,10 @@ class View(AbstractCommand):
              [--transform=FUN] [--circular] [--region=STR] <contact_map> [<contact_map2>]
 
     arguments:
-        contact_map             Sparse contact matrix in GRAAL format
-        contact_map2            Sparse contact matrix in GRAAL format,
-                                if given, the log ratio of
-                                contact_map/contact_map2 will be shown
+        contact_map             Sparse contact matrix in bg2, cool or graal format
+        contact_map2            Sparse contact matrix in bg2, cool or graal format,
+                                if given, the log ratio of contact_map/contact_map2
+                                will be shown.
 
 
     options:
@@ -380,7 +380,9 @@ class View(AbstractCommand):
 
         # NORMALIZATION
         if self.args["--normalize"]:
-            binned_map = hcs.normalize_sparse(binned_map, norm="ICE", n_mad=float(self.args['--n-mad']))
+            binned_map = hcs.normalize_sparse(
+                binned_map, norm="ICE", n_mad=float(self.args["--n-mad"])
+            )
 
         self.vmax = np.percentile(binned_map.data, self.perc_vmax)
         # ZOOM REGION
@@ -453,19 +455,22 @@ class View(AbstractCommand):
                     )
                     sys.exit(1)
                 # Load positions from fragments list
-                self.pos = hio.load_pos_col(self.args["--frags"], 2)
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
                 logger.error("Please provide an integer or basepair value for binning.")
                 raise
-
+        sparse_map, frags, _ = hio.flexible_hic_loader(
+            input_map, fragments_file=self.args["--frags"]
+        )
+        self.pos = frags.iloc[:, 2]
         output_file = self.args["--output"]
-        sparse_map = hio.load_sparse_matrix(input_map)
         processed_map = self.process_matrix(sparse_map)
         # If 2 matrices given compute log ratio
         if self.args["<contact_map2>"]:
-            sparse_map2 = hio.load_sparse_matrix(self.args["<contact_map2>"])
+            sparse_map2, _, _ = hio.flexible_hic_loader(
+                self.args["<contact_map2>"], fragments_file=self.args["--frags"]
+            )
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
                 logger.error(
@@ -545,8 +550,8 @@ class Pipeline(AbstractCommand):
         -M, --matfmt=FMT              The format of the output sparse matrix.
                                       Can be "bg2" for 2D Bedgraph format, 
                                       "cool" for Mirnylab's cooler software, or
-                                      "GRAAL" for GRAAL-compatible plain text
-                                      COO format. [default: GRAAL]
+                                      "graal" for graal-compatible plain text
+                                      COO format. [default: graal]
         -C, --circular                Enable if the genome is circular. 
                                       Discordant with the centromeres option.   
         -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
@@ -580,7 +585,7 @@ class Pipeline(AbstractCommand):
                                       directory.
         -p, --plot                    Generates plots in the output directory
                                       at different steps of the pipeline.
-        -P, --prefix=PREFIX           Overrides default GRAAL-compatible
+        -P, --prefix=PREFIX           Overrides default graal-compatible
                                       filenames and use a prefix with
                                       extensions instead.
         -q, --quality-min=INT         Minimum mapping quality for selecting
@@ -629,11 +634,11 @@ class Pipeline(AbstractCommand):
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
 
-        if self.args["--matfmt"] not in ("GRAAL", "bg2", "cool"):
-            logger.error("matfmt must be either bg2, cool or GRAAL.")
+        if self.args["--matfmt"] not in ("graal", "bg2", "cool"):
+            logger.error("matfmt must be either bg2, cool or graal.")
             raise ValueError
 
-        read_len = self.args['--read-len']
+        read_len = self.args["--read-len"]
         if read_len is not None:
             read_len = int(read_len)
 
@@ -660,7 +665,7 @@ class Pipeline(AbstractCommand):
             distance_law=self.args["--distance-law"],
             centromeres=self.args["--centromeres"],
             remove_centros=self.args["--remove-centromeres"],
-            read_len=read_len
+            read_len=read_len,
         )
 
 
@@ -702,7 +707,9 @@ class Scalogram(AbstractCommand):
     """
 
     def execute(self):
-        frags = self.args["--frags"]
+        mat, frags, chroms = hio.flexible_hic_loader(
+            self.args["<contact_map>"], fragments_file=self.args["--frags"]
+        )
         if frags is not None:
             # If fragments_list.txt is provided, load chrom start and end columns
             frags = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2, 3))
@@ -733,9 +740,8 @@ class Scalogram(AbstractCommand):
         input_map = self.args["<contact_map>"]
         vmax = float(self.args["--max"])
         output_file = self.args["--output"]
-        S = hio.load_sparse_matrix(input_map)
         # good_bins = np.array(range(S.shape[0]))
-        S = csr_matrix(S)
+        S = mat.tocsr()
         if not self.args["--range"]:
             shortest = 0
             longest = S.shape[0]
@@ -776,14 +782,14 @@ class Scalogram(AbstractCommand):
 class Rebin(AbstractCommand):
     """
     Rebins a Hi-C matrix and modifies its fragment and chrom files accordingly.
-    Output files are given the same name as the input files, in the target
-    directory.
+    Output files are in the same format as the input files (cool, graal or bg2).
     usage:
         rebin [--binning=1] --frags=FILE --chrom=FILE --outdir=DIR
-               <contact_map>
+               <contact_map> <out_prefix>
 
     arguments:
-        contact_map             Sparse contact matrix in GRAAL format
+        contact_map             Sparse contact matrix in graal, cool or bg2 format
+        out_prefix              Prefix path (without extension) for the output files.
 
     options:
         -b, --binning=INT[bp|kb|Mb|Gb]   Subsampling factor or fix value in
@@ -793,22 +799,23 @@ class Rebin(AbstractCommand):
                                          containing fragments start position in
                                          the 3rd column, as generated by
                                          hicstuff pipeline.
-        -c, --chrom=file                 Tab-separated with headers, containing
+        -c, --chroms=file                Tab-separated with headers, containing
                                          chromosome names, size, number of
                                          restriction fragments.
-        -o, --outdir=DIR                 Directory where the new binned files
-                                         will be written.
     """
 
     def execute(self):
+        prefix = self.args['<prefix>']
         bin_str = self.args["--binning"].upper()
         # Load positions from fragments list and chromosomes from chrom file
-        frags = pd.read_csv(self.args["--frags"], sep="\t")
-        chromlist = pd.read_csv(self.args["--chrom"], sep="\t")
-        outdir = self.args["--outdir"]
+        mat, frags, chromlist = hio.flexible_hic_loader(
+            self.args["<contact_map>"],
+            fragments_file=self.args["--frags"],
+            chroms_file=self.args["--chroms"],
+        )
         # Create output directory if it does not exist
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+        if not os.path.exists(dirname(prefix)):
+            os.makedirs(dirname(prefix), exist_ok=True)
         bp_unit = False
         try:
             # Subsample binning
@@ -927,15 +934,11 @@ class Rebin(AbstractCommand):
             chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
             cumul_bins += n_bins
 
-        # Write 3 binned output files
-        hio.save_sparse_matrix(hic_map, join(outdir, basename(map_path)))
         # Keep original column order
         frags = frags.reindex(columns=col_ordered)
-        frags.to_csv(
-            join(outdir, basename(self.args["--frags"])), index=False, sep="\t"
-        )
-        chromlist.to_csv(
-            join(outdir, basename(self.args["--chrom"])), index=False, sep="\t"
+        # Write 3 binned output files
+        hio.flexible_hic_saver(
+            hic_map, self.args["<prefix_out>"], frags=frags, chroms=chromlist
         )
 
 
@@ -947,138 +950,68 @@ class Subsample(AbstractCommand):
         subsample  [--prop=FLOAT] <contact_map> <subsampled_map>
 
     arguments:
-        contact_map             Sparse contact matrix in GRAAL format
-        subsampled_map          Output map containing only a fraction of the
-                                contacts
+        contact_map             Sparse contact matrix in graal, bg2 or cool format.
+        subsampled_prefix       Path without extension to the output map in the same
+                                format as the input containing only a fraction of the
+                                contacts.
 
     options:
-        -p, --prop=FLOAT                 Proportion of contacts to sample from
-                                         the input matrix if between 0 and 1. 
-                                         Raw number of contacts to keep if
-                                         superior to 1. [default: 0.1]
+        -p, --prop=FLOAT        Proportion of contacts to sample from the input matrix
+                                if between 0 and 1. Raw number of contacts to keep if
+                                superior to 1. [default: 0.1]
     """
 
     def execute(self):
-        map_in = hio.load_sparse_matrix(self.args["<contact_map>"])
-        map_out = self.args["<subsampled_map>"]
-        subsampled = hcs.subsample_contacts(map_in, float(self.args["--prop"]))
+        hic_fmt = hio.get_hic_format(self.args["<contact_map>"])
+        mat, _, _ = hio.flexible_hic_loader(
+            self.args["<contact_map>"], fragments_file=self.args["--frags"]
+        )
+        prefix = self.args["<subsampled_prefix>"]
+        subsampled = hcs.subsample_contacts(mat, float(self.args["--prop"]))
         subsampled = subsampled.tocoo()
-        hio.save_sparse_matrix(subsampled, map_out)
+        hio.flexible_hic_saver(subsampled, prefix, hic_fmt=hic_fmt)
 
 
 class Convert(AbstractCommand):
     """
-    Convert between different Hi-C dataformats. Currently supports tsv (GRAAL),
-    bedgraph2D (bg2), cooler (cool) and DADE.
+    Convert between different Hi-C dataformats. Currently supports tsv (graal),
+    bedgraph2D (bg2) and cooler (cool)
 
     usage:
         convert [--frags=FILE] [--chroms=FILE]
-                [--out=DIR] [--prefix=NAME] [--from=FORMAT] [--to=FORMAT] <contact_map>
+                [--from=FORMAT] [--to=FORMAT] <contact_map> <prefix>
 
     arguments:
         contact_map               The file containing the contact frequencies.
+        prefix                    The prefix path for output files. An extension will be added to
+                                  the files depending on the output format.
 
     options:
         -f, --frags=FILE          File containing the fragments coordinates. If
                                   not already in the contact map file.
         -c, --chroms=FILE         File containing the chromosome informations, if not
                                   already in the contact map file.
-        -o, --out=DIR             The directory where output files must be written.
-        -P, --prefix=NAME         A prefix by which the output filenames should start.
-        -F, --from=FORMAT         The format from which to convert. [default: GRAAL]
+        -F, --from=FORMAT         The format from which to convert. [default: graal]
         -T, --to=FORMAT           The format to which files should be converted. [default: cool]
     """
-
-    def GRAAL_DADE(self):
-        mat = hio.load_sparse_matrix(self.mat_path)
-        frags = pd.read_csv(self.frags_path, delimiter="\t")
-        annot = frags.apply(lambda x: str(x.chrom) + "~" + str(x.start_pos), axis=1)
-        hio.to_dade_matrix(mat, annotations=annot, filename=self.out_mat)
-
-    def DADE_GRAAL(self):
-        hio.dade_to_GRAAL(
-            self.mat_path,
-            output_matrix=self.out_mat,
-            output_contigs=self.out_chr,
-            output_frags=self.out_frags,
-        )
-
-    def load_files(self, format):
-        if format == "GRAAL":
-            self.mat = hio.load_sparse_matrix(self.mat_path)
-            self.frags = pd.read_csv(self.frags_path, delimiter="\t")
-            self.chroms = pd.read_csv(self.chroms_path, delimiter="\t")
-        elif format == "cool":
-            self.mat, self.frags, self.chroms = hio.load_cool(self.mat_path)
-        elif format == "bg2":
-            self.mat, self.frags = hio.load_bedgraph2d(self.mat_path)
-        else:
-            logger.error("Unknown input format")
-
-    def save_files(self, format):
-        if format == "GRAAL":
-            hio.save_sparse_matrix(self.mat, self.out_mat)
-            self.frags.to_csv(self.out_frags, sep="\t", index=False)
-            try:
-                self.chroms.to_csv(self.out_chr, sep="\t", index=False)
-            except NameError as e:
-                logger.warning("Could not create info_contigs.txt from input files")
-                raise e
-        elif format == "cool":
-            hio.save_cool(
-                self.out_cool, self.mat, self.frags, metadata={"hicstuff": __version__}
-            )
-        elif format == "bg2":
-            hio.save_bedgraph2d(self.mat, self.frags, self.out_mat)
-        else:
-            logger.error("Unknown output format")
 
     def execute(self):
         in_fmt = self.args["--from"]
         out_fmt = self.args["--to"]
-        self.mat_path = self.args["<contact_map>"]
-        self.frags_path = self.args["--frags"]
-        self.chroms_path = self.args["--chroms"]
-        out_path = self.args["--out"]
-        if out_path is None:
-            out_path = os.getcwd()
-        os.makedirs(out_path, exist_ok=True)
-        prefix = self.args["--prefix"]
+        mat_path = self.args["<contact_map>"]
+        frags_path = self.args["--frags"]
+        chroms_path = self.args["--chroms"]
+        prefix = self.args["<prefix>"]
+        os.makedirs(dirname(prefix), exist_ok=True)
 
-        fun_map = {"GRAAL-DADE": self.GRAAL_DADE, "DADE-GRAAL": self.DADE_GRAAL}
-
-        # Build output file names
-        if out_fmt == "GRAAL":
-            mat_name = (
-                prefix + ".mat.tsv" if prefix else "abs_fragments_contacts_weighted.txt"
-            )
-            frags_name = prefix + ".frag.tsv" if prefix else "fragments_list.txt"
-            chr_name = prefix + ".chr.tsv" if prefix else "info_contigs.txt"
-            self.out_mat = join(out_path, mat_name)
-            self.out_frags = join(out_path, frags_name)
-            self.out_chr = join(out_path, chr_name)
-        elif out_fmt == "bg2":
-            mat_name = prefix + ".mat.bg2" if prefix else "mat.bg2"
-            self.out_mat = join(out_path, mat_name)
-        elif out_fmt == "DADE":
-            mat_name = prefix + ".DADE.tsv" if prefix else "DADE.mat.tsv"
-            self.out_mat = join(out_path, mat_name)
-        elif out_fmt == "cool":
-            cool_name = prefix + ".cool" if prefix else "mat.cool"
-            self.out_cool = join(out_path, cool_name)
-
-        # Run conversion
-        if in_fmt == "DADE" or out_fmt == "DADE":
-            conv = "-".join([in_fmt, out_fmt])
-            try:
-                conv_fun = fun_map[conv]
-            except KeyError:
-                logger.error("Conversion not implemented or unknown format")
-                sys.exit(1)
-            conv_fun()
-        else:
-            self.load_files(format=in_fmt)
-            self.save_files(format=out_fmt)
+        # Load
+        mat, frags, chroms = hio.flexible_hic_loader(
+            mat_path, fragments_file=frags_path, chroms_file=chroms_path
+        )
+        # Write
+        hio.flexible_hic_saver(
+            mat=mat, out_prefix=prefix, frags=frags, chroms=chroms, hic_fmt=out_fmt
+        )
 
 
 class Distancelaw(AbstractCommand):
