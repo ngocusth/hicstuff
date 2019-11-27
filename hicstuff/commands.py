@@ -972,7 +972,7 @@ class Convert(AbstractCommand):
     bedgraph2D (bg2), cooler (cool) and DADE.
 
     usage:
-        convert [--frags=FILE] [--binning=BIN] [--chroms=FILE]
+        convert [--frags=FILE] [--chroms=FILE]
                 [--out=DIR] [--prefix=NAME] [--from=FORMAT] [--to=FORMAT] <contact_map>
 
     arguments:
