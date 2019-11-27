@@ -957,7 +957,7 @@ def flexible_hic_saver(mat, out_prefix, frags=None, chroms=None, hic_fmt="graal"
         except NameError:
             NameError("frags is required to save a bg2 file")
     else:
-        raise ValueError(f"Unknown output format: {hic_fmt}")
+        raise ValueError("Unknown output format: {0}".format(hic_fmt)
 
 
 def save_bedgraph2d(mat, frags, out_path):
