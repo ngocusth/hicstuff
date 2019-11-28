@@ -605,7 +605,8 @@ class Pipeline(AbstractCommand):
         -f, --filter                  Filter out spurious 3C events (loops and
                                       uncuts) using hicstuff filter. Requires
                                       "-e" to be a restriction enzyme, not a
-                                      chunk size.
+                                      chunk size. For more informations, see
+                                      Cournac et al. BMC Genomics, 2012.
         -F, --force                   Write even if the output file already exists.
         -i, --iterative               Map reads iteratively using hicstuff
                                       iteralign, by truncating reads to 20bp
@@ -994,7 +995,7 @@ class Rebin(AbstractCommand):
         frags = frags.reindex(columns=col_ordered)
         # Write 3 binned output files
         hio.flexible_hic_saver(
-            hic_map, self.args["<out_prefix>"], frags=frags, chroms=chromlist
+            hic_map, self.args["<out_prefix>"], frags=frags, chroms=chromlist, hic_fmt=hic_fmt
         )
 
 

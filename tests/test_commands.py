@@ -30,24 +30,34 @@ def test_view(mat):
 
 def test_pipeline():
     args = (
-        "-e DpnII -t 1 -F -D -d -i -n -P test -o {0} -g test_data/genome/seq "
+        "-e DpnII -t 1 -f -D -d -i -n -P test -o {0} -g test_data/genome/seq "
         + "test_data/sample.reads_for.fastq.gz test_data/sample.reads_rev.fastq.gz"
     ).format(OUT)
-    proc = hcmd.Pipeline(args.split(" "), {})
+    proc = hcmd.Pipeline(args.split(" ") + ['-F'], {})
     proc.execute()
+    with pytest.raises(IOError):
+        proc = hcmd.Pipeline(args.split(" "), {})
+        proc.execute()
+
 
 
 @pytest.mark.parametrize(*MATS)
 def test_rebin(mat):
     args = "-b 1kb -f {0} -c {1} {2} {3}".format(FRAG, CHROM, mat, str(Path(OUT) / 'rebinned'))
-    proc = hcmd.Rebin(args.split(" "), {})
+    proc = hcmd.Rebin(args.split(" ") + ['-F'], {})
     proc.execute()
+    with pytest.raises(IOError):
+        proc = hcmd.Rebin(args.split(" "), {})
+        proc.execute()
 
 
 def test_convert():
     args = "-f {0} -c {1} {2} {3}".format(FRAG, CHROM, GRAAL, str(Path(OUT) / 'converted'))
-    proc = hcmd.Convert(args.split(" "), {})
+    proc = hcmd.Convert(args.split(" ") + ['-F'], {})
     proc.execute()
+    with pytest.raises(IOError):
+        proc = hcmd.Convert(args.split(" "), {})
+        proc.execute()
 
 
 def test_distancelaw():
@@ -100,6 +110,9 @@ def test_scalogram():
 @pytest.mark.parametrize(*MATS)
 def test_subsample(mat):
     args = "-p 0.5 {0} {1}".format(mat, str(Path(OUT) / 'subsampled'))
-    proc = hcmd.Subsample(args.split(" "), {})
+    proc = hcmd.Subsample(args.split(" ") + ['-F'], {})
     proc.execute()
+    with pytest.raises(IOError):
+        proc = hcmd.Subsample(args.split(" "), {})
+        proc.execute()
 
