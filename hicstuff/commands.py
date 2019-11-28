@@ -195,7 +195,9 @@ class Digest(AbstractCommand):
         )
 
         hcd.frag_len(
-            output_dir=self.args["--outdir"], plot=self.args["--plot"], fig_path=figpath
+            output_dir=self.args["--outdir"],
+            plot=self.args["--plot"],
+            fig_path=figpath,
         )
 
 
@@ -241,7 +243,9 @@ class Filter(AbstractCommand):
                 uncut_thr = int(uncut_thr)
                 loop_thr = int(loop_thr)
             except ValueError:
-                logger.error("You must provide integer numbers for the thresholds.")
+                logger.error(
+                    "You must provide integer numbers for the thresholds."
+                )
         else:
             # Threshold defined at runtime
             if self.args["--figdir"]:
@@ -335,7 +339,12 @@ class View(AbstractCommand):
         Apply a mathematical operation on a dense Hi-C map. Valid
         operations are: log2, log10, ln, sqrt, exp0.2
         """
-        ops = {"log10": np.log10, "log2": np.log2, "ln": np.log, "sqrt": np.sqrt}
+        ops = {
+            "log10": np.log10,
+            "log2": np.log2,
+            "ln": np.log,
+            "sqrt": np.sqrt,
+        }
         if operation in ops:
             return ops[operation](dense_map)
         elif re.match(r"exp", operation):
@@ -373,7 +382,8 @@ class View(AbstractCommand):
                 trim_std = float(self.args["--trim"])
             except ValueError:
                 logger.error(
-                    "You must specify a number of standard deviations for " "trimming"
+                    "You must specify a number of standard deviations for "
+                    "trimming"
                 )
                 raise
             binned_map = hcs.trim_sparse(binned_map, n_mad=trim_std)
@@ -394,7 +404,9 @@ class View(AbstractCommand):
                 )
                 sys.exit(1)
             # Load chromosomes and positions from fragments list
-            reg_pos = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2))
+            reg_pos = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2)
+            )
             # Readjust bin coords post binning
             if self.binning:
                 # Fixed genomic bins
@@ -407,12 +419,17 @@ class View(AbstractCommand):
                     num_binned = binned_start[1:] - binned_start[:-1]
                     # Get unique chromosome names without losing original order
                     # (numpy.unique sorts output)
-                    chr_names_idx = np.unique(reg_pos.iloc[:, 0], return_index=True)[1]
+                    chr_names_idx = np.unique(
+                        reg_pos.iloc[:, 0], return_index=True
+                    )[1]
                     chr_names = [
-                        reg_pos.iloc[index, 0] for index in sorted(chr_names_idx)
+                        reg_pos.iloc[index, 0]
+                        for index in sorted(chr_names_idx)
                     ]
                     binned_chrom = np.repeat(chr_names, num_binned)
-                    reg_pos = pd.DataFrame({0: binned_chrom, 1: binned_frags[:, 0]})
+                    reg_pos = pd.DataFrame(
+                        {0: binned_chrom, 1: binned_frags[:, 0]}
+                    )
                 # Subsample binning (group by N frags)
                 else:
                     reg_pos = reg_pos.iloc[:: self.binning, :]
@@ -449,7 +466,7 @@ class View(AbstractCommand):
             self.binning = int(bin_str)
         except ValueError:
             if re.match(r"^[0-9]+[KMG]?B[P]?$", bin_str):
-                if hic_fmt == 'graal' and not self.args["--frags"]:
+                if hic_fmt == "graal" and not self.args["--frags"]:
                     logger.error(
                         "A fragment file must be provided to perform "
                         "basepair binning. See hicstuff view --help"
@@ -459,7 +476,9 @@ class View(AbstractCommand):
                 self.binning = parse_bin_str(bin_str)
                 self.bp_unit = True
             else:
-                logger.error("Please provide an integer or basepair value for binning.")
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
+                )
                 raise
         sparse_map, frags, _ = hio.flexible_hic_loader(
             input_map, fragments_file=self.args["--frags"]
@@ -470,7 +489,8 @@ class View(AbstractCommand):
         # If 2 matrices given compute log ratio
         if self.args["<contact_map2>"]:
             sparse_map2, _, _ = hio.flexible_hic_loader(
-                self.args["<contact_map2>"], fragments_file=self.args["--frags"]
+                self.args["<contact_map2>"],
+                fragments_file=self.args["--frags"],
             )
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
@@ -495,7 +515,9 @@ class View(AbstractCommand):
             processed_map = hcs.despeckle_simple(processed_map)
         try:
             if self.symmetric:
-                dense_map = hcv.sparse_to_dense(processed_map, remove_diag=False)
+                dense_map = hcv.sparse_to_dense(
+                    processed_map, remove_diag=False
+                )
             else:
                 dense_map = processed_map.toarray()
             dense_map = dense_map.astype(float)
@@ -542,44 +564,49 @@ class Pipeline(AbstractCommand):
     arguments:
         input1:             Forward fastq file, if start_stage is "fastq", sam
                             file for aligned forward reads if start_stage is
-                            "sam", or a .pairs file if start_stage is "pairs".
+                            "bam", or a .pairs file if start_stage is "pairs".
         input2:             Reverse fastq file, if start_stage is "fastq", sam
                             file for aligned reverse reads if start_stage is
-                            "sam", or nothing if start_stage is "pairs".
+                            "bam", or nothing if start_stage is "pairs".
 
 
     options:
+        -a, --aligner=bowtie2         Alignment software to use. Can be either
+                                      bowtie2 or minimap2. [default: bowtie2]
+        -c, --centromeres=FILE        Positions of the centromeres separated by
+                                      a space and in the same order than the 
+                                      chromosomes. Discordant with the circular
+                                      option.
+        -C, --circular                Enable if the genome is circular. 
+                                      Discordant with the centromeres option.   
+        -d, --distance-law            If enabled, generates a distance law file
+                                      with the values of the probabilities to 
+                                      have a contact between two distances for
+                                      each chromosomes or arms if the file with
+                                      the positions has been given. The values
+                                      are not normalized, or averaged.
+        -D, --duplicates              Filter out PCR duplicates based on read
+                                      positions.
+        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
+                                      size (i.e. resolution) if a number. Can
+                                      also be multiple comma-separated enzymes.
+                                      [default: 5000]
+        -i, --iterative               Map reads iteratively using hicstuff
+                                      iteralign, by truncating reads to 20bp
+                                      and then repeatedly extending and
+                                      aligning them.
+        -F, --filter                  Filter out spurious 3C events (loops and
+                                      uncuts) using hicstuff filter. Requires
+                                      "-e" to be a restriction enzyme, not a
+                                      chunk size.
+        -g, --genome=FILE             Reference genome to map against. Path to
+                                      the bowtie2 index if using bowtie2, or to
+                                      a FASTA file if using minimap2.
         -M, --matfmt=FMT              The format of the output sparse matrix.
                                       Can be "bg2" for 2D Bedgraph format, 
                                       "cool" for Mirnylab's cooler software, or
                                       "graal" for graal-compatible plain text
                                       COO format. [default: graal]
-        -C, --circular                Enable if the genome is circular. 
-                                      Discordant with the centromeres option.   
-        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
-                                      size (i.e. resolution) if a number. Can
-                                      also be multiple comma-separated enzymes.
-                                      [default: 5000]
-        -g, --genome=FILE             Reference genome to map against. Path to
-                                      the bowtie2 index if using bowtie2, or to
-                                      a FASTA file if using minimap2.
-        -F, --filter                  Filter out spurious 3C events (loops and
-                                      uncuts) using hicstuff filter. Requires
-                                      "-e" to be a restriction enzyme, not a
-                                      chunk size.
-        -S, --start-stage=STAGE       Define the starting point of the pipeline
-                                      to skip some steps. Default is "fastq" to
-                                      run from the start. Can also be "bam" to
-                                      skip the alignment, "pairs" to start from a
-                                      single pairs file or "pairs_idx" to skip
-                                      fragment attribution and only build the 
-                                      matrix. [default: fastq]
-        -i, --iterative               Map reads iteratively using hicstuff
-                                      iteralign, by truncating reads to 20bp
-                                      and then repeatedly extending and
-                                      aligning them.
-        -a, --aligner=bowtie2         Alignment software to use. Can be either
-                                      bowtie2 or minimap2. [default: bowtie2]
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
@@ -592,33 +619,28 @@ class Pipeline(AbstractCommand):
                                       extensions instead.
         -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
+        -r, --remove-centromeres=INT  Integer. Number of kb that will be remove around 
+                                      the centromere position given by in the centromere
+                                      file. [default: 0]
+        -R, --read-len=INT            Maximum read length in the fastq file. Optionally
+                                      used in iterative alignment mode. Estimated from
+                                      the first read by default. Useful if input fastq
+                                      is a composite of different read lengths.
         -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
                                       [default: 0]
+        -S, --start-stage=STAGE       Define the starting point of the pipeline
+                                      to skip some steps. Default is "fastq" to
+                                      run from the start. Can also be "bam" to
+                                      skip the alignment, "pairs" to start from a
+                                      single pairs file or "pairs_idx" to skip
+                                      fragment attribution and only build the 
+                                      matrix. [default: fastq]
         -t, --threads=INT             Number of threads to allocate.
                                       [default: 1].
         -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
-        -d, --distance-law            If enabled, generates a distance law file
-                                      with the values of the probabilities to 
-                                      have a contact between two distances for
-                                      each chromosomes or arms if the file with
-                                      the positions has been given. The values
-                                      are not normalized, or averaged.
-        -D, --duplicates              Filter out PCR duplicates based on read
-                                      positions.
-        -c, --centromeres=FILE        Positions of the centromeres separated by
-                                      a space and in the same order than the 
-                                      chromosomes. Discordant with the circular
-                                      option.
-        -r, --remove-centromeres=INT    Integer. Number of kb that will be remove around 
-                                        the centromere position given by in the centromere
-                                        file. [default: 0]
-        -R, --read-len=INT            Maximum read length in the fastq file. Optionally
-                                      used in iterative alignment mode. Estimated from
-                                      the first read by default. Useful if input fastq
-                                      is a composite of different read lengths.
 
     output:
         abs_fragments_contacts_weighted.txt: the sparse contact map
@@ -714,7 +736,9 @@ class Scalogram(AbstractCommand):
         )
         if frags is not None:
             # If fragments_list.txt is provided, load chrom start and end columns
-            frags = pd.read_csv(self.args["--frags"], delimiter="\t", usecols=(1, 2, 3))
+            frags = pd.read_csv(
+                self.args["--frags"], delimiter="\t", usecols=(1, 2, 3)
+            )
         if self.args["--range"]:
             shortest, longest = self.args["--range"].split("-")
             # If range given in number of bins
@@ -722,10 +746,16 @@ class Scalogram(AbstractCommand):
                 shortest, longest = int(shortest), int(longest)
             # If range given in genomic scale
             except ValueError:
-                shortest, longest = (parse_bin_str(shortest), parse_bin_str(longest))
+                shortest, longest = (
+                    parse_bin_str(shortest),
+                    parse_bin_str(longest),
+                )
                 # Use average bin size to convert genomic scale to number of bins
                 avg_res = (frags.end_pos - frags.start_pos).mean()
-                shortest, longest = (int(shortest // avg_res), int(longest // avg_res))
+                shortest, longest = (
+                    int(shortest // avg_res),
+                    int(longest // avg_res),
+                )
 
         if self.args["--indices"]:
             start, end = self.args["--indices"].split("-")
@@ -736,7 +766,8 @@ class Scalogram(AbstractCommand):
             # If given in genomic coordinates
             except ValueError:
                 start, end = parse_ucsc(
-                    self.args["--indices"], frags.loc[:, ["chrom", "start_pos"]]
+                    self.args["--indices"],
+                    frags.loc[:, ["chrom", "start_pos"]],
                 )
 
         input_map = self.args["<contact_map>"]
@@ -807,9 +838,9 @@ class Rebin(AbstractCommand):
     """
 
     def execute(self):
-        prefix = self.args['<out_prefix>']
+        prefix = self.args["<out_prefix>"]
         bin_str = self.args["--binning"].upper()
-        hic_fmt = hio.get_hic_format(self.args['<contact_map>'])
+        hic_fmt = hio.get_hic_format(self.args["<contact_map>"])
         # Load positions from fragments list and chromosomes from chrom file
         map_path = self.args["<contact_map>"]
         hic_map, frags, chromlist = hio.flexible_hic_loader(
@@ -817,7 +848,7 @@ class Rebin(AbstractCommand):
             fragments_file=self.args["--frags"],
             chroms_file=self.args["--chroms"],
         )
-        if hic_fmt == 'graal' and (frags is None or chromlist is None):
+        if hic_fmt == "graal" and (frags is None or chromlist is None):
             raise ValueError(
                 "You must provide a chroms file and a fragments file "
                 "when rebinning a matrix in graal format. (hint: the "
@@ -836,7 +867,9 @@ class Rebin(AbstractCommand):
                 binning = parse_bin_str(bin_str)
                 bp_unit = True
             else:
-                logger.error("Please provide an integer or basepair value for binning.")
+                logger.error(
+                    "Please provide an integer or basepair value for binning."
+                )
                 raise
         chromnames = np.unique(frags.chrom)
 
@@ -851,14 +884,17 @@ class Rebin(AbstractCommand):
                 frags.loc[chrom_mask, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[0]
+                chromsize = chromlist.length[chromlist.contig == chrom].values[
+                    0
+                ]
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
 
             # Account for special cases where restriction fragments are larger than
             # bin size, resulting in missing bins (i.e. jumps in bin ids)
             id_diff = (
-                np.array(frags.loc[:, "id"])[1:] - np.array(frags.loc[:, "id"])[:-1]
+                np.array(frags.loc[:, "id"])[1:]
+                - np.array(frags.loc[:, "id"])[:-1]
             )
             # Normal jump is 1, new chromosome (reset id) is < 0, abnormal is > 1
             # Get panda indices of abnormal jumps
@@ -933,7 +969,9 @@ class Rebin(AbstractCommand):
         for chrom in chromnames:
             n_bins = frags.start_pos[frags.chrom == chrom].shape[0]
             chromlist.loc[chromlist.contig == chrom, "n_frags"] = n_bins
-            chromlist.loc[chromlist.contig == chrom, "cumul_length"] = cumul_bins
+            chromlist.loc[
+                chromlist.contig == chrom, "cumul_length"
+            ] = cumul_bins
             cumul_bins += n_bins
 
         # Keep original column order
@@ -965,11 +1003,15 @@ class Subsample(AbstractCommand):
 
     def execute(self):
         hic_fmt = hio.get_hic_format(self.args["<contact_map>"])
-        mat, frags, _ = hio.flexible_hic_loader(self.args["<contact_map>"], quiet=True)
+        mat, frags, _ = hio.flexible_hic_loader(
+            self.args["<contact_map>"], quiet=True
+        )
         prefix = self.args["<subsampled_prefix>"]
         subsampled = hcs.subsample_contacts(mat, float(self.args["--prop"]))
         subsampled = subsampled.tocoo()
-        hio.flexible_hic_saver(subsampled, prefix, frags=frags, hic_fmt=hic_fmt)
+        hio.flexible_hic_saver(
+            subsampled, prefix, frags=frags, hic_fmt=hic_fmt
+        )
 
 
 class Convert(AbstractCommand):
@@ -1007,11 +1049,18 @@ class Convert(AbstractCommand):
 
         # Load
         mat, frags, chroms = hio.flexible_hic_loader(
-            mat_path, fragments_file=frags_path, chroms_file=chroms_path, quiet=True
+            mat_path,
+            fragments_file=frags_path,
+            chroms_file=chroms_path,
+            quiet=True,
         )
         # Write
         hio.flexible_hic_saver(
-            mat=mat, out_prefix=prefix, frags=frags, chroms=chroms, hic_fmt=out_fmt
+            mat=mat,
+            out_prefix=prefix,
+            frags=frags,
+            chroms=chroms,
+            hic_fmt=out_fmt,
         )
 
 
@@ -1137,7 +1186,9 @@ class Distancelaw(AbstractCommand):
             names = [None] * length_files
             # Iterate on the different file given by the user.
             for i in range(length_files):
-                xs[i], ps[i], names[i] = hcdl.import_distance_law(distance_law_files[i])
+                xs[i], ps[i], names[i] = hcdl.import_distance_law(
+                    distance_law_files[i]
+                )
             names = [name[0] for name in names]
         # Put the inf and sup according to the arguments given.
         if self.args["--inf"]:

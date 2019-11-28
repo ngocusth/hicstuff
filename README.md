@@ -59,26 +59,49 @@ docker run koszullab/hicstuff
 
 ## Usage
 
+The hicstuff command line interface is composed of multiple subcommands. You can always get a summary of all available commands by running:
+
+```bash
+hicstuff --help
+
+Simple Hi-C pipeline for generating and manipulating contact matrices.
+
+usage:
+    hicstuff [-hv] <command> [<args>...]
+
+options:
+    -h, --help                  shows the help
+    -v, --version               shows the version
+
+The subcommands are:
+    digest          Digest genome into a list of fragments.
+    distancelaw     Analyse and plot distance law.
+    filter          Filters Hi-C pairs to exclude spurious events.
+    iteralign       Iteratively aligns reads to a reference genome.
+    pipeline        Hi-C pipeline to generate contact matrix from fastq files.
+    rebin           Bin the matrix and regenerate files accordingly.
+    subsample       Bootstrap subsampling of contacts from a Hi-C map.
+    view            Visualize a Hi-C matrix.  
+```
+
 ### Full pipeline
 
-All components of the pipelines can be run at once using the `hicstuff pipeline` command. This allows to generate a contact matrix from reads in a single command. By default, the output sparse matrix is in GRAAL format, but it can be a 2D bedgraph file if required. More detailed documentation can be found on the readthedocs website: https://hicstuff.readthedocs.io/en/latest/index.html
+All components of the pipeline can be run at once using the `hicstuff pipeline` command. This allows to generate a contact matrix from reads in a single command. By default, the output is in GRAAL compatible COO sparse matrix format, but it can be a 2D bedgraph or cool file instead using the `--matfmt` option. More detailed documentation can be found on the readthedocs website: https://hicstuff.readthedocs.io/en/latest/index.html
 
     usage:
         pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
                  [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
                  [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
-                 [--plot] [--circular] [--distance_law] [--duplicates]
-                 [--centromeres=FILE] --genome=FILE <input1> [<input2>]
+                 [--plot] [--circular] [--distance-law] [--duplicates] [--read-len=INT]
+                 [--centromeres=FILE] [--remove-centromeres=INT] --genome=FILE <input1> [<input2>]
 
     arguments:
-        input1:             Forward fastq file, if start_stage is "fastq", bam
+        input1:             Forward fastq file, if start_stage is "fastq", sam
                             file for aligned forward reads if start_stage is
                             "bam", or a .pairs file if start_stage is "pairs".
-        input2:             Reverse fastq file, if start_stage is "fastq", bam
+        input2:             Reverse fastq file, if start_stage is "fastq", sam
                             file for aligned reverse reads if start_stage is
                             "bam", or nothing if start_stage is "pairs".
-
-
 
 For example, to run the pipeline with minimap2 using 8 threads and generate a matrix in instagraal format in the directory `out`:
 
@@ -86,7 +109,7 @@ For example, to run the pipeline with minimap2 using 8 threads and generate a ma
 hicstuff pipeline -t 8 -a minimap2 -e DpnII -o out/ -g genome.fa reads_for.fq reads_rev.fq
 ```
 
-The pipeline can also be run from python, using the `hicstuff.pipeline` submodule. For example, this would run the pipeline with bowtie2 (default) using iterative alignment and keep all intermediate files.
+The pipeline can also be run from python, using the `hicstuff.pipeline` submodule. For example, this would run the pipeline with bowtie2 (default) using iterative alignment and keep all intermediate files. For more examples using the API, see the [API demo](https://hicstuff.readthedocs.io/en/latest/notebooks/demo_api.html)
 
 ```python
 from hicstuff import pipeline as hpi
@@ -145,9 +168,15 @@ Filters spurious 3C events such as loops and uncuts from the library based on a 
 Visualize a Hi-C matrix file as a heatmap of contact frequencies. Allows to tune visualisation by binning and normalizing the matrix, and to save the output image to disk. If no output is specified, the output is displayed interactively. If two contact maps are provided, the log ratio of the first divided by the second will be shown.
 
     usage:
-        view [--binning=1] [--despeckle] [--frags FILE] [--trim INT]
-             [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP]
-             [--log] [--region=STR] <contact_map> [<contact_map2>]
+        view [--binning=1] [--despeckle] [--frags FILE] [--trim INT] [--n-mad FLOAT]
+             [--normalize] [--max=99] [--output=IMG] [--cmap=CMAP] [--dpi=INT]
+             [--transform=FUN] [--circular] [--region=STR] <contact_map> [<contact_map2>]
+
+    arguments:
+        contact_map             Sparse contact matrix in bg2, cool or graal format
+        contact_map2            Sparse contact matrix in bg2, cool or graal format,
+                                if given, the log ratio of contact_map/contact_map2
+                                will be shown.
 
 For example, to view a 1Mb region of chromosome 1 from a full genome Hi-C matrix rebinned at 10kb:
 
@@ -170,7 +199,7 @@ import hicstuff.pipeline # Generation and processing of files to generate matric
 
 ### Connecting the modules
 
-All the steps described here are handled automatically when running the `hicstuff pipeline`. But if you want to connect the different modules manually, the intermediate input and output files must be processed using light python scripting.
+All the steps described here are handled automatically when running the `hicstuff pipeline`. But if you want to connect the different modules manually, the intermediate input and output files can be processed using some python scripting.
 
 #### Aligning the reads
 
@@ -245,7 +274,7 @@ hcf.filter_events("output_indexed.pairs", "output_filtered.pairs", uncut_thr, lo
 Note that both the command and the python function have various options to generate figure or tweak the filtering thresholds. These options can be displayed using `hicstuff filter -h`
 
 #### Matrix generation
-A Hi-C sparse contact matrix can then be generated using the python submodule `hicstuff.pipeline`. The matrix can be generated either in GRAAL format, or bedgraph2 (WIP) for cooler compatibility.
+A Hi-C sparse contact matrix can then be generated using the python submodule `hicstuff.pipeline`. The matrix can be generated in GRAAL-compatible COO format, bedgraph2 or cool format.
 
 ```python
 from hicstuff import pipeline as hpi
