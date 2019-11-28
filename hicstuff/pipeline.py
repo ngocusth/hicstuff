@@ -497,7 +497,7 @@ def full_pipeline(
     """
     Run the whole hicstuff pipeline. Starting from fastq files and a genome to
     obtain a contact matrix.
-    
+
     Parameters
     ----------
     genome : str
@@ -542,13 +542,13 @@ def full_pipeline(
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
         Step at which the pipeline should start. Can be "fastq", "bam", "pairs"
-        or "pairs_idx". With starting from bam allows to skip alignment and start 
+        or "pairs_idx". With starting from bam allows to skip alignment and start
         from named-sorted bam files. With
         "pairs", a single pairs file is given as input, and with "pairs_idx", the
         pairs in the input must already be attributed to fragments and fragment
         attribution is skipped.
     mat_fmt : str
-        Select the output matrix format. Can be either "bg2" for the 
+        Select the output matrix format. Can be either "bg2" for the
         bedgraph2 format, "cool" for Mirnylab's cool format, or GRAAL for a
         plain text COO format compatible with Koszullab's instagraal software.
     aligner : str
@@ -558,20 +558,20 @@ def full_pipeline(
         Pairs where both reads have exactly the same coordinates are considered
         duplicates and only one of those will be conserved.
     distance_law : bool
-        If True, generates a distance law file with the values of the probabilities 
+        If True, generates a distance law file with the values of the probabilities
         to have a contact between two distances for each chromosomes or arms if the
-        file with the positions has been given. The values are not normalized, or 
+        file with the positions has been given. The values are not normalized, or
         averaged.
     centromeres : None or str
         If not None, path of file with Positions of the centromeres separated by a
-        space and in the same order than the chromosomes. 
+        space and in the same order than the chromosomes.
     read_len : int
         Maximum read length to expect in the fastq file. Optionally used in iterative
         alignment mode. Estimated from the first read by default. Useful if input fastq
         is a composite of different read lengths.
     remove_centros : None or int
         If the distance law is computed, this is the number of kb that will be removed
-        around the centromere position given by in the centromere file. 
+        around the centromere position given by in the centromere file.
     """
     # Check if third parties can be run
     if aligner in ("bowtie2", "minimap2"):
@@ -623,7 +623,11 @@ def full_pipeline(
             fname = prefix + "." + fname
         full_path = join(tmp_dir, fname)
         if not force and os.path.exists(full_path):
-            raise IOError("Temporary file {} already exists. Use --force to overwrite".format(full_path))
+            raise IOError(
+                "Temporary file {} already exists. Use --force to overwrite".format(
+                    full_path
+                )
+            )
         return full_path
 
     def _out_file(fname):
@@ -631,7 +635,11 @@ def full_pipeline(
             fname = prefix + "." + fname
         full_path = join(out_dir, fname)
         if not force and os.path.exists(full_path):
-            raise IOError("Output file {} already exists. Use --force to overwrite".format(full_path))
+            raise IOError(
+                "Output file {} already exists. Use --force to overwrite".format(
+                    full_path
+                )
+            )
 
         return full_path
 
@@ -655,12 +663,11 @@ def full_pipeline(
         if len(bt2_idx_files) != 6:
             # If no index present assume input is fasta and build it first
             logger.info(
-                "Bowtie2 index not found at %s, now generating one."
-                % genome_prefix
+                "Bowtie2 index not found at %s, now generating one.",
+                genome_prefix,
             )
             sp.run(
-                ["bowtie2-build", str(genome), genome_prefix],
-                stderr=sp.PIPE,
+                ["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE
             )
             fasta = str(genome)
             genome = genome_prefix
@@ -837,7 +844,7 @@ def full_pipeline(
         if remove_centros is None:
             remove_centros = 0
         remove_centros = int(remove_centros)
-        x_s, p_s, names_distance_law = hcdl.get_distance_law(
+        x_s, p_s, _ = hcdl.get_distance_law(
             pairs_idx,
             fragments_list,
             centro_file=centromeres,
