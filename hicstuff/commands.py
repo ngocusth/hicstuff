@@ -67,10 +67,20 @@ class AbstractCommand:
         """Initialize the commands"""
         self.args = docopt(self.__doc__, argv=command_args)
         self.global_args = global_args
+        # Map Hi-C format to file extension
+        self.fmt2ext = {'cool': '.cool', 'bg2': '.bg2', 'graal': '.mat.tsv'}
 
     def execute(self):
         """Execute the commands"""
         raise NotImplementedError
+
+    def check_output_path(self, path, force=False):
+        """Throws error if the output file exists. Create required file tree otherwise."""
+        # Get complete output filename and prevent overwriting unless force is enabled
+        if not force and os.path.exists(out_name):
+            raise IOError("Output file already exists. Use --force to overwrite")
+        if dirname(path):
+            os.makedirs(dirname(path), exist_ok=True)
 
 
 class Iteralign(AbstractCommand):
@@ -533,11 +543,11 @@ class Pipeline(AbstractCommand):
     individual components of hicstuff.
 
     usage:
-        pipeline [--quality-min=INT] [--size=INT] [--no-cleanup] [--start-stage=STAGE]
-                 [--threads=INT] [--aligner=bowtie2] [--matfmt=FMT] [--prefix=PREFIX]
-                 [--tmpdir=DIR] [--iterative] [--outdir=DIR] [--filter] [--enzyme=ENZ]
-                 [--plot] [--circular] [--distance-law] [--duplicates] [--read-len=INT]
-                 [--centromeres=FILE] [--remove-centromeres=INT] --genome=FILE <input1> [<input2>]
+        pipeline [--aligner=bowtie2] [--centromeres=FILE] [--circular] [--distance-law]
+                 [--duplicates] [--enzyme=ENZ] [--filter] [--force] [--iterative] 
+                 [--matfmt=FMT] [--no-cleanup] [--outdir=DIR] [--plot] [--prefix=PREFIX]
+                 [--quality-min=INT] [--read-len=INT] [--remove-centromeres=INT] [--size=INT]
+                 [--start-stage=STAGE] [--threads=INT] [--tmpdir=DIR] --genome=FILE <input1> [<input2>]
 
     arguments:
         input1:             Forward fastq file, if start_stage is "fastq", sam
@@ -549,37 +559,43 @@ class Pipeline(AbstractCommand):
 
 
     options:
+        -a, --aligner=bowtie2         Alignment software to use. Can be either
+                                      bowtie2 or minimap2. [default: bowtie2]
+        -c, --centromeres=FILE        Positions of the centromeres separated by
+                                      a space and in the same order than the 
+                                      chromosomes. Discordant with the circular
+                                      option.
+        -C, --circular                Enable if the genome is circular. 
+                                      Discordant with the centromeres option.   
+        -d, --distance-law            If enabled, generates a distance law file
+                                      with the values of the probabilities to 
+                                      have a contact between two distances for
+                                      each chromosomes or arms if the file with
+                                      the positions has been given. The values
+                                      are not normalized, or averaged.
+        -D, --duplicates              Filter out PCR duplicates based on read
+                                      positions.
+        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
+                                      size (i.e. resolution) if a number. Can
+                                      also be multiple comma-separated enzymes.
+                                      [default: 5000]
+        -f, --filter                  Filter out spurious 3C events (loops and
+                                      uncuts) using hicstuff filter. Requires
+                                      "-e" to be a restriction enzyme, not a
+                                      chunk size.
+        -F, --force                   Write even if the output file already exists.
+        -i, --iterative               Map reads iteratively using hicstuff
+                                      iteralign, by truncating reads to 20bp
+                                      and then repeatedly extending and
+                                      aligning them.
+        -g, --genome=FILE             Reference genome to map against. Path to
+                                      the bowtie2 index if using bowtie2, or to
+                                      a FASTA file if using minimap2.
         -M, --matfmt=FMT              The format of the output sparse matrix.
                                       Can be "bg2" for 2D Bedgraph format, 
                                       "cool" for Mirnylab's cooler software, or
                                       "graal" for graal-compatible plain text
                                       COO format. [default: graal]
-        -C, --circular                Enable if the genome is circular. 
-                                      Discordant with the centromeres option.   
-        -e, --enzyme=ENZ              Restriction enzyme if a string, or chunk
-                                      size (i.e. resolution) if a number. Can
-                                      also be multiple comma-separated enzymes.
-                                      [default: 5000]
-        -g, --genome=FILE             Reference genome to map against. Path to
-                                      the bowtie2 index if using bowtie2, or to
-                                      a FASTA file if using minimap2.
-        -F, --filter                  Filter out spurious 3C events (loops and
-                                      uncuts) using hicstuff filter. Requires
-                                      "-e" to be a restriction enzyme, not a
-                                      chunk size.
-        -S, --start-stage=STAGE       Define the starting point of the pipeline
-                                      to skip some steps. Default is "fastq" to
-                                      run from the start. Can also be "bam" to
-                                      skip the alignment, "pairs" to start from a
-                                      single pairs file or "pairs_idx" to skip
-                                      fragment attribution and only build the 
-                                      matrix. [default: fastq]
-        -i, --iterative               Map reads iteratively using hicstuff
-                                      iteralign, by truncating reads to 20bp
-                                      and then repeatedly extending and
-                                      aligning them.
-        -a, --aligner=bowtie2         Alignment software to use. Can be either
-                                      bowtie2 or minimap2. [default: bowtie2]
         -n, --no-cleanup              If enabled, intermediary BED files will
                                       be kept after generating the contact map.
                                       Disabled by defaut.
@@ -592,33 +608,28 @@ class Pipeline(AbstractCommand):
                                       extensions instead.
         -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
+        -r, --remove-centromeres=INT  Integer. Number of kb that will be remove around 
+                                      the centromere position given by in the centromere
+                                      file. [default: 0]
+        -R, --read-len=INT            Maximum read length in the fastq file. Optionally
+                                      used in iterative alignment mode. Estimated from
+                                      the first read by default. Useful if input fastq
+                                      is a composite of different read lengths.
         -s, --size=INT                Minimum size threshold to consider
                                       contigs. Keep all contigs by default.
                                       [default: 0]
+        -S, --start-stage=STAGE       Define the starting point of the pipeline
+                                      to skip some steps. Default is "fastq" to
+                                      run from the start. Can also be "bam" to
+                                      skip the alignment, "pairs" to start from a
+                                      single pairs file or "pairs_idx" to skip
+                                      fragment attribution and only build the 
+                                      matrix. [default: fastq]
         -t, --threads=INT             Number of threads to allocate.
                                       [default: 1].
         -T, --tmpdir=DIR              Directory for storing intermediary BED
                                       files and temporary sort files. Defaults
                                       to the output directory.
-        -d, --distance-law            If enabled, generates a distance law file
-                                      with the values of the probabilities to 
-                                      have a contact between two distances for
-                                      each chromosomes or arms if the file with
-                                      the positions has been given. The values
-                                      are not normalized, or averaged.
-        -D, --duplicates              Filter out PCR duplicates based on read
-                                      positions.
-        -c, --centromeres=FILE        Positions of the centromeres separated by
-                                      a space and in the same order than the 
-                                      chromosomes. Discordant with the circular
-                                      option.
-        -r, --remove-centromeres=INT    Integer. Number of kb that will be remove around 
-                                        the centromere position given by in the centromere
-                                        file. [default: 0]
-        -R, --read-len=INT            Maximum read length in the fastq file. Optionally
-                                      used in iterative alignment mode. Estimated from
-                                      the first read by default. Useful if input fastq
-                                      is a composite of different read lengths.
 
     output:
         abs_fragments_contacts_weighted.txt: the sparse contact map
@@ -648,26 +659,27 @@ class Pipeline(AbstractCommand):
             genome=self.args["--genome"],
             input1=self.args["<input1>"],
             input2=self.args["<input2>"],
-            enzyme=self.args["--enzyme"],
+            aligner=self.args["--aligner"],
+            centromeres=self.args["--centromeres"],
             circular=self.args["--circular"],
-            out_dir=self.args["--outdir"],
-            tmp_dir=self.args["--tmpdir"],
-            plot=self.args["--plot"],
+            distance_law=self.args["--distance-law"],
+            enzyme=self.args["--enzyme"],
+            filter_events=self.args["--filter"],
+            force=self.args['--force'],
+            iterative=self.args["--iterative"],
+            mat_fmt=self.args["--matfmt"],
             min_qual=int(self.args["--quality-min"]),
             min_size=int(self.args["--size"]),
-            threads=int(self.args["--threads"]),
             no_cleanup=self.args["--no-cleanup"],
-            iterative=self.args["--iterative"],
-            filter_events=self.args["--filter"],
-            prefix=self.args["--prefix"],
-            start_stage=self.args["--start-stage"],
-            mat_fmt=self.args["--matfmt"],
-            aligner=self.args["--aligner"],
+            out_dir=self.args["--outdir"],
             pcr_duplicates=self.args["--duplicates"],
-            distance_law=self.args["--distance-law"],
-            centromeres=self.args["--centromeres"],
-            remove_centros=self.args["--remove-centromeres"],
+            plot=self.args["--plot"],
+            prefix=self.args["--prefix"],
             read_len=read_len,
+            remove_centros=self.args["--remove-centromeres"],
+            start_stage=self.args["--start-stage"],
+            threads=int(self.args["--threads"]),
+            tmp_dir=self.args["--tmpdir"],
         )
 
 
@@ -786,7 +798,7 @@ class Rebin(AbstractCommand):
     Rebins a Hi-C matrix and modifies its fragment and chrom files accordingly.
     Output files are in the same format as the input files (cool, graal or bg2).
     usage:
-        rebin [--binning=1] [--frags=FILE] [--chroms=FILE] <contact_map> <out_prefix>
+        rebin [--binning=1] [--frags=FILE] [--force] [--chroms=FILE] <contact_map> <out_prefix>
 
     arguments:
         contact_map             Sparse contact matrix in graal, cool or bg2 format.
@@ -798,18 +810,25 @@ class Rebin(AbstractCommand):
                                          [default: 1].
         -f, --frags=FILE                 Tab-separated file with headers,
                                          containing fragments start position in
-                                         the 3rd column, as generated by
+                                         the 3rd column. This is the file
+                                         "fragments_list.txt" generated by
                                          hicstuff pipeline. Required for graal
                                          matrices and recommended for bg2.
+        -F, --force                      Write even if the output file already exists.
         -c, --chroms=FILE                Tab-separated with headers, containing
                                          chromosome names, size, number of
-                                         restriction fragments.
+                                         restriction fragments. This is the file
+                                         "info_contigs.txt" generated by hicstuff
+                                         pipeline.
     """
 
     def execute(self):
         prefix = self.args['<out_prefix>']
         bin_str = self.args["--binning"].upper()
         hic_fmt = hio.get_hic_format(self.args['<contact_map>'])
+        # Get complete output filename and prevent overwriting unless --force is enabled
+        out_name = prefix + self.fmt2ext[hic_fmt]
+        self.check_output_path(out_name, force=self.args['--force'])
         # Load positions from fragments list and chromosomes from chrom file
         map_path = self.args["<contact_map>"]
         hic_map, frags, chromlist = hio.flexible_hic_loader(
@@ -949,7 +968,7 @@ class Subsample(AbstractCommand):
     Subsample contacts from a Hi-C matrix. Probability of sampling is proportional
     to the intensity of the bin.
     usage:
-        subsample  [--prop=FLOAT] <contact_map> <subsampled_prefix>
+        subsample  [--prop=FLOAT] [--force] <contact_map> <subsampled_prefix>
 
     arguments:
         contact_map             Sparse contact matrix in graal, bg2 or cool format.
@@ -961,12 +980,16 @@ class Subsample(AbstractCommand):
         -p, --prop=FLOAT        Proportion of contacts to sample from the input matrix
                                 if between 0 and 1. Raw number of contacts to keep if
                                 superior to 1. [default: 0.1]
+        -F, --force             Write even if the output file already exists.
     """
 
     def execute(self):
         hic_fmt = hio.get_hic_format(self.args["<contact_map>"])
-        mat, frags, _ = hio.flexible_hic_loader(self.args["<contact_map>"], quiet=True)
         prefix = self.args["<subsampled_prefix>"]
+        # Get complete output filename and prevent overwriting unless --force is enabled
+        out_name = prefix + self.fmt2ext[hic_fmt]
+        self.check_output_path(out_name, force=self.args['--force'])
+        mat, frags, _ = hio.flexible_hic_loader(self.args["<contact_map>"], quiet=True)
         subsampled = hcs.subsample_contacts(mat, float(self.args["--prop"]))
         subsampled = subsampled.tocoo()
         hio.flexible_hic_saver(subsampled, prefix, frags=frags, hic_fmt=hic_fmt)
@@ -978,21 +1001,30 @@ class Convert(AbstractCommand):
     bedgraph2D (bg2) and cooler (cool)
 
     usage:
-        convert [--frags=FILE] [--chroms=FILE]
+        convert [--frags=FILE] [--chroms=FILE] [--force]
                 [--from=FORMAT] [--to=FORMAT] <contact_map> <prefix>
 
     arguments:
         contact_map               The file containing the contact frequencies.
-        prefix                    The prefix path for output files. An extension will be added to
-                                  the files depending on the output format.
+        prefix                    The prefix path for output files. An extension
+                                  will be added to the files depending on the
+                                  output format.
 
     options:
-        -f, --frags=FILE          File containing the fragments coordinates. If
-                                  not already in the contact map file.
-        -c, --chroms=FILE         File containing the chromosome informations, if not
-                                  already in the contact map file.
+        -f, --frags=FILE          Tab-separated file with headers,
+                                  containing columns id, chrom, start_pos,
+                                  end_pos size. This is the file
+                                  "fragments_list.txt" generated by
+                                  hicstuff pipeline. Required for graal
+                                  matrices and recommended for bg2.
+        -F, --force               Write even if the output file already exists.
+        -c, --chroms=FILE         Tab-separated with headers, containing
+                                  columns contig, length, n_frags, cumul_length.
+                                  This is the file "info_contigs.txt" generated
+                                  by hicstuff pipeline.
         -F, --from=FORMAT         The format from which to convert. [default: graal]
-        -T, --to=FORMAT           The format to which files should be converted. [default: cool]
+        -T, --to=FORMAT           The format to which files should be
+                                  converted. [default: cool]
     """
 
     def execute(self):
@@ -1002,8 +1034,10 @@ class Convert(AbstractCommand):
         frags_path = self.args["--frags"]
         chroms_path = self.args["--chroms"]
         prefix = self.args["<prefix>"]
-        if dirname(prefix):
-            os.makedirs(dirname(prefix), exist_ok=True)
+
+        # Get complete output filename and prevent overwriting unless --force is enabled
+        out_name = prefix + self.fmt2ext[hic_fmt]
+        self.check_output_path(out_name, force=self.args['--force'])
 
         # Load
         mat, frags, chroms = hio.flexible_hic_loader(
@@ -1046,9 +1080,10 @@ class Distancelaw(AbstractCommand):
         -d, --dist-tbl=FILE1[,FILE2,...]    Directory to the file or files containing the 
                                             compute distance law. File should have the same
                                             format than the ones made by hicstuff pipeline.
-        -f, --frags=FILE                    File containing the fragments coordinates from
-                                            hicstuff pipeline for example. Necessary if pairs
-                                            given.
+        -f, --frags=FILE                    Tab-separated file with headers, containing
+                                            columns id, chrom, start_pos, end_pos size.
+                                            This is the file "fragments_list.txt" generated by
+                                            hicstuff pipeline. Required if pairs are given. 
         -i, --inf=INT                       Inferior born to plot the distance law. By 
                                             default the value is 3000 bp (3 kb). Have to
                                             be strictly positive.

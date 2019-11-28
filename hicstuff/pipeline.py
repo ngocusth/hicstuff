@@ -472,26 +472,27 @@ def full_pipeline(
     genome,
     input1,
     input2=None,
-    enzyme=5000,
+    aligner="bowtie2",
+    centromeres=None,
     circular=False,
-    out_dir=None,
-    tmp_dir=None,
-    plot=False,
+    distance_law=False,
+    enzyme=5000,
+    filter_events=False,
+    force=False,
+    iterative=False,
+    mat_fmt="GRAAL",
     min_qual=30,
     min_size=0,
-    threads=1,
     no_cleanup=False,
-    iterative=False,
-    filter_events=False,
-    prefix=None,
-    start_stage="fastq",
-    mat_fmt="GRAAL",
-    aligner="bowtie2",
+    out_dir=None,
     pcr_duplicates=False,
-    distance_law=False,
-    centromeres=None,
+    plot=False,
+    prefix=None,
     read_len=None,
     remove_centros=None,
+    start_stage="fastq",
+    threads=1,
+    tmp_dir=None,
 ):
     """
     Run the whole hicstuff pipeline. Starting from fastq files and a genome to
@@ -535,6 +536,8 @@ def full_pipeline(
         alignment.
     filter_events : bool
         Filter spurious or uninformative 3C events. Requires a restriction enzyme.
+    force : bool
+        If True, overwrite existing files with the same name as output.
     prefix : str or None
         Choose a common name for output files instead of default GRAAL names.
     start_stage : str
@@ -618,12 +621,19 @@ def full_pipeline(
     def _tmp_file(fname):
         if prefix:
             fname = prefix + "." + fname
-        return join(tmp_dir, fname)
+        full_path = join(tmp_dir, fname)
+        if not force and os.path.exists(full_path):
+            raise IOError("Temporary file {} already exists. Use --force to overwrite".format(full_path))
+        return full_path
 
     def _out_file(fname):
         if prefix:
             fname = prefix + "." + fname
-        return join(out_dir, fname)
+        full_path = join(out_dir, fname)
+        if not force and os.path.exists(full_path):
+            raise IOError("Output file {} already exists. Use --force to overwrite".format(full_path))
+
+        return full_path
 
     # Define temporary file names
     log_file = _out_file("hicstuff_" + now + ".log")
