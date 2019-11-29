@@ -931,7 +931,7 @@ def flexible_hic_saver(mat, out_prefix, frags=None, chroms=None, hic_fmt="graal"
     chroms : pandas.DataFrame or None
         Table of chromosomes / contigs informations.
     hic_fmt : str
-        Output format. Can be one of graal for GRAAL-compatible COO format, bg2 for
+        Output format. Can be one of graal for graal-compatible COO format, bg2 for
         2D bedgraph format, or cool for cooler compatible format.
     """
     if hic_fmt == "graal":

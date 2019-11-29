@@ -3,7 +3,7 @@
 
 """Genome digestion
 
-Functions used to write auxiliary instaGRAAL compatible
+Functions used to write auxiliary instagraal compatible
 sparse matrices.
 """
 
@@ -42,7 +42,7 @@ def write_frag_info(
     """Digest and write fragment information
 
     Write the fragments_list.txt and info_contigs.txt that are necessary for
-    instaGRAAL to run.
+    instagraal to run.
 
     Parameters
     ----------

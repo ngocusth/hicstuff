@@ -1,5 +1,5 @@
 """
-Handle generation of GRAAL-compatible contact maps from fastq files.
+Handle generation of graal-compatible contact maps from fastq files.
 cmdoret, 20190322
 """
 import os, time, csv, sys, re
@@ -350,7 +350,7 @@ def pairs2matrix(
     pairs_file,
     mat_file,
     fragments_file,
-    mat_fmt="GRAAL",
+    mat_fmt="graal",
     threads=1,
     tmp_dir=None,
 ):
@@ -367,7 +367,7 @@ def pairs2matrix(
         Path to the fragments_list.txt file. Used to know total
         matrix size in case some observations are not observed at the end.
     mat_fmt : str
-        The format to use when writing the matrix. Can be GRAAL or bg2 format.
+        The format to use when writing the matrix. Can be graal or bg2 format.
     threads : int
         Number of threads to use in parallel.
     tmp_dir : str
@@ -378,8 +378,8 @@ def pairs2matrix(
     frags = pd.read_csv(fragments_file, delimiter="\t")
 
     def write_mat_entry(frag1, frag2, contacts):
-        """Write a single sparse matrix entry in either GRAAL or bg2 format"""
-        if mat_fmt == "GRAAL":
+        """Write a single sparse matrix entry in either graal or bg2 format"""
+        if mat_fmt == "graal":
             mat.write("\t".join(map(str, [frag1, frag2, n_occ])) + "\n")
         elif mat_fmt == "bg2":
             frag1, frag2 = int(frag1), int(frag2)
@@ -421,7 +421,7 @@ def pairs2matrix(
         pairs_reader = csv.reader(pairs, delimiter="\t")
         # First line contains nrows, ncols and number of nonzero entries.
         # Number of nonzero entries is unknown for now
-        if mat_fmt == "GRAAL":
+        if mat_fmt == "graal":
             mat.write("\t".join(map(str, [n_frags, n_frags, "-"])) + "\n")
         for pair in pairs_reader:
             # Fragment ids are field 8 and 9
@@ -442,8 +442,8 @@ def pairs2matrix(
         n_nonzero += 1
         n_pairs += 1
 
-    # Edit header line to fill number of nonzero entries inplace in GRAAL header
-    if mat_fmt == "GRAAL":
+    # Edit header line to fill number of nonzero entries inplace in graal header
+    if mat_fmt == "graal":
         with open(mat_file) as mat, open(pre_mat_file, "w") as tmp_mat:
             header = mat.readline()
             header = header.replace("-", str(n_nonzero))
@@ -480,7 +480,7 @@ def full_pipeline(
     filter_events=False,
     force=False,
     iterative=False,
-    mat_fmt="GRAAL",
+    mat_fmt="graal",
     min_qual=30,
     min_size=0,
     no_cleanup=False,
@@ -539,7 +539,7 @@ def full_pipeline(
     force : bool
         If True, overwrite existing files with the same name as output.
     prefix : str or None
-        Choose a common name for output files instead of default GRAAL names.
+        Choose a common name for output files instead of default graal names.
     start_stage : str
         Step at which the pipeline should start. Can be "fastq", "bam", "pairs"
         or "pairs_idx". With starting from bam allows to skip alignment and start
@@ -549,7 +549,7 @@ def full_pipeline(
         attribution is skipped.
     mat_fmt : str
         Select the output matrix format. Can be either "bg2" for the
-        bedgraph2 format, "cool" for Mirnylab's cool format, or GRAAL for a
+        bedgraph2 format, "cool" for Mirnylab's cool format, or graal for a
         plain text COO format compatible with Koszullab's instagraal software.
     aligner : str
         Read alignment software to use. Can be either "minimap2" or "bowtie2".
@@ -709,14 +709,14 @@ def full_pipeline(
         info_contigs = _out_file("chr.tsv")
         mat = _out_file("mat.tsv")
         # If matrix has a different format, give it the right extension
-        if mat_fmt != "GRAAL":
+        if mat_fmt != "graal":
             mat = _out_file(mat_fmt)
     else:
-        # Default GRAAL file names
+        # Default graal file names
         fragments_list = _out_file("fragments_list.txt")
         info_contigs = _out_file("info_contigs.txt")
         mat = _out_file("abs_fragments_contacts_weighted.txt")
-        if mat_fmt != "GRAAL":
+        if mat_fmt != "graal":
             mat = _out_file("abs_fragments_contacts_weighted." + mat_fmt)
     # Define what input files are given
     if start_stage == 0:

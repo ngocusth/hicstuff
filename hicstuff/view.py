@@ -4,7 +4,7 @@
 """Hi-C visualization
 
 A lightweight library for quickly parsing, loading and
-viewing contact maps in instaGRAAL or csv format.
+viewing contact maps in instagraal or csv format.
 """
 
 
