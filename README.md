@@ -23,6 +23,7 @@ The goal is to make generation and manipulation of Hi-C matrices as simple as po
 * [Library](#Library)
 * [Connecting the modules](#Connecting-the-modules)
 * [File formats](#File-formats)
+* [Contributing](#Contributing)
 
 ## Installation
 
@@ -324,3 +325,14 @@ seq1	60000	409	0
 seq2	20000	155	409
 ```
 
+### Contributing
+
+All contributions are welcome, in the form of bug reports, suggestions, documentation or pull requests.
+We use the [numpy standard](https://numpydoc.readthedocs.io/en/latest/format.html) for docstrings when documenting functions.
+
+The code formatting standard we use is [black](https://github.com/psf/black), with --line-length=79 to follow PEP8 recommendations. We use `pytest` with the `pytest-doctest` and `pytest-pylint` plugins as our testing framework. Ideally, new functions should have associated unit tests, placed in the `tests` folder.
+To test the code, you can run:
+
+```bash
+pytest --doctest-modules --pylint --pylint-error-types=EF --pylint-rcfile=.pylintrc hicstuff tests
+```
