@@ -54,6 +54,9 @@ from hicstuff.log import logger
 import hicstuff.pipeline as hpi
 import hicstuff.distance_law as hcdl
 
+DIVERGENT_CMAPS = [
+            'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu',
+            'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic']
 
 class AbstractCommand:
     """Abstract base command class
@@ -518,7 +521,12 @@ class View(AbstractCommand):
             processed_map = processed_map.tocsr() - processed_map2.tocsr()
             processed_map = processed_map.tocoo()
             processed_map.data[np.isnan(processed_map.data)] = 0.0
-            cmap = "coolwarm"
+            if cmap not in DIVERGENT_CMAPS:
+                logger.warning(
+                    "You chose a non-divergent colormap to view "
+                    "a ratio. Defaulting to seismic"
+                )
+                cmap = "seismic"
             # Log transformation done already
             transform = False
 
