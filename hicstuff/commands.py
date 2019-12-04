@@ -379,6 +379,7 @@ class View(AbstractCommand):
         # BINNING
         if self.binning > 1:
             if self.bp_unit:
+                self.pos = self.frags.iloc[:, 2]
                 binned_map, binned_frags = hcs.bin_bp_sparse(
                     M=sparse_map, positions=self.pos, bin_len=self.binning
                 )
@@ -507,10 +508,9 @@ class View(AbstractCommand):
                     "Please provide an integer or basepair value for binning."
                 )
                 raise
-        sparse_map, frags, _ = hio.flexible_hic_loader(
+        sparse_map, self.frags, _ = hio.flexible_hic_loader(
             input_map, fragments_file=self.args["--frags"], quiet=True
         )
-        self.pos = frags.iloc[:, 2]
         output_file = self.args["--output"]
         processed_map = self.process_matrix(sparse_map)
         # If 2 matrices given compute log ratio
