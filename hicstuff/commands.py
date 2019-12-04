@@ -470,6 +470,19 @@ class View(AbstractCommand):
         input_map = self.args["<contact_map>"]
         hic_fmt = hio.get_hic_format(input_map)
         cmap = self.args["--cmap"]
+        # Switch to a divergent colormap for plotting ratios
+        if self.args["<contact_map2>"] is not None and cmap not in DIVERGENT_CMAPS:
+            # In case user specified a custom cmap incompatible with ratios
+            if cmap != "Reds":
+                logger.warning(
+                            "You chose a non-divergent colormap. Valid divergent "
+                            "cmaps are:\n\t{}".format(' '.join(DIVERGENT_CMAPS))
+                )
+            logger.info(
+                "Defaulting to seismic colormap for ratios. You can pick "
+                "another divergent colormap if you wish."
+            )
+            cmap = "seismic"
         self.perc_vmax = float(self.args["--max"])
         self.bp_unit = False
         bin_str = self.args["--binning"].upper()
@@ -495,7 +508,7 @@ class View(AbstractCommand):
                 )
                 raise
         sparse_map, frags, _ = hio.flexible_hic_loader(
-            input_map, fragments_file=self.args["--frags"]
+            input_map, fragments_file=self.args["--frags"], quiet=True
         )
         self.pos = frags.iloc[:, 2]
         output_file = self.args["--output"]
@@ -504,7 +517,7 @@ class View(AbstractCommand):
         if self.args["<contact_map2>"]:
             sparse_map2, _, _ = hio.flexible_hic_loader(
                 self.args["<contact_map2>"],
-                fragments_file=self.args["--frags"],
+                fragments_file=self.args["--frags"], quiet=True
             )
             processed_map2 = self.process_matrix(sparse_map2)
             if sparse_map2.shape != sparse_map.shape:
@@ -521,12 +534,6 @@ class View(AbstractCommand):
             processed_map = processed_map.tocsr() - processed_map2.tocsr()
             processed_map = processed_map.tocoo()
             processed_map.data[np.isnan(processed_map.data)] = 0.0
-            if cmap not in DIVERGENT_CMAPS:
-                logger.warning(
-                    "You chose a non-divergent colormap to view "
-                    "a ratio. Defaulting to seismic"
-                )
-                cmap = "seismic"
             # Log transformation done already
             transform = False
 
