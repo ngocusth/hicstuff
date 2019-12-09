@@ -725,7 +725,9 @@ def load_bedgraph2d(filename, bin_size=None, fragments_file=None):
     if bin_size is not None:
         # If bin size if provided, retrieve chromosome lengths, this will be
         # used when regenerating bin coordinates
-        chroms = bed2d[[0, 2]].groupby([0], sort=False).max()
+        chroms_left = bed2d[[3, 5]]
+        chroms_left.columns = [0, 2]
+        chroms = pd.concat([bed2d[[0, 2]], chroms_left]).groupby([0], sort=False).max()
         for chrom, size in zip(chroms.index, np.array(chroms)):
             chrom_sizes[chrom] = size[0]
     elif fragments_file is None:
