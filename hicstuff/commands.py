@@ -1332,6 +1332,7 @@ class Missview(AbstractCommand):
         phred = "F" * read_len
         tmp_fq = join(tmp_dir, 'simulated_reads.fq')
         self.check_output_path(tmp_fq, force=force)
+        logger.info("Simulating reads by splitting the genome into %i bp chunks", read_len)
         with open(tmp_fq, 'w') as fq_handle:
             for rec in SeqIO.parse(genome, 'fasta'):
                 for i in range(len(rec.seq) - read_len):
