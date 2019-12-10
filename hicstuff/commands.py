@@ -1377,7 +1377,10 @@ class Missview(AbstractCommand):
         log_content = open(glob.glob(join(tmp_dir, "*.log"))[0]).read()
         # Get (int rounded) percentage of reads mapped and convert to proportion
         prop_mapped = int(re.search(r'.*INFO :: ([0-9]*)% reads.*', log_content)[1]) / 100
-        breakpoint()
+        logger.info(
+                "Bins with less than %s mapped reads will be considered undetectable",
+                str(100 * prop_mapped) + "%"
+        )
         unmappable = mat.diagonal(0) < prop_mapped * resolution
         mappable_mat = np.ones(mat.shape)
         mappable_mat[unmappable, :] = 0
