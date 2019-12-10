@@ -44,6 +44,7 @@ from docopt import docopt
 import pandas as pd
 import numpy as np
 import pysam as ps
+import glob
 import copy
 from Bio import SeqIO
 import hicstuff.view as hcv
@@ -1301,7 +1302,7 @@ class Missview(AbstractCommand):
     finding repetitive regions in the genome.
 
     usage:
-        missview [--aligner=bowtie2] [--force] [--binning=INT]
+        missview [--aligner=bowtie2] [--force] [--binning=5000]
                  [--threads=1] [--tmpdir=STR] --read-len=INT <genome> <output>
 
     arguments:
@@ -1311,8 +1312,8 @@ class Missview(AbstractCommand):
     options:
         -a, --aligner=STR    The read alignment software to use. Can be either
                              bowtie2 or minimap2. [default: bowtie2]
-        -F, --force          Write even if the output file already exists.
         -b, --binning=INT    Resolution to use to preview the Hi-C map. [default: 5000]
+        -F, --force          Write even if the output file already exists.
         -R, --read-len=INT   Write even if the output file already exists.
         -t, --threads=INT    Number of CPUs to use in parallel. [default: 1]
         -T, --tmpdir=STR     Directory where temporary files will be generated.
@@ -1373,7 +1374,11 @@ class Missview(AbstractCommand):
         mat_path = join(tmp_dir, 'abs_fragments_contacts_weighted.txt')
         mat = hio.load_sparse_matrix(mat_path)
         # Check which bins are not at the median (i.e. drop in mapping rate)
-        unmappable = mat.diagonal(0) != np.median(mat.diagonal(0))
+        log_content = open(glob.glob(join(tmp_dir, "*.log"))[0]).read()
+        # Get (int rounded) percentage of reads mapped and convert to proportion
+        prop_mapped = int(re.search(r'.*INFO :: ([0-9]*)% reads.*', log_content)[1]) / 100
+        breakpoint()
+        unmappable = mat.diagonal(0) < prop_mapped * resolution
         mappable_mat = np.ones(mat.shape)
         mappable_mat[unmappable, :] = 0
         mappable_mat[:, unmappable] = 0
@@ -1389,6 +1394,7 @@ class Missview(AbstractCommand):
             vmax=2,
             cmap="Greys",
         )
+        logger.info("Output image saved at %s.", out)
         
 
 
