@@ -17,6 +17,7 @@ The subcommands are:
     distancelaw     Analyse and plot distance law.
     filter          Filters Hi-C pairs to exclude spurious events.
     iteralign       Iteratively aligns reads to a reference genome.
+    missview        Preview missing Hi-C bins in based on the genome and read length.
     pipeline        Hi-C pipeline to generate contact matrix from fastq files.
     rebin           Bin the matrix and regenerate files accordingly.
     subsample       Bootstrap subsampling of contacts from a Hi-C map.

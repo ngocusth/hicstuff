@@ -36,6 +36,7 @@ ValueError
 """
 import re
 import sys, os, shutil
+import tempfile
 from os.path import join, dirname
 from matplotlib import pyplot as plt
 from matplotlib import cm
@@ -43,6 +44,7 @@ from docopt import docopt
 import pandas as pd
 import numpy as np
 import copy
+from Bio import SeqIO
 import hicstuff.view as hcv
 import hicstuff.hicstuff as hcs
 import hicstuff.digest as hcd
@@ -1290,6 +1292,84 @@ class Distancelaw(AbstractCommand):
         # chromosomes with the initial names else plot the different conditions
         # with the names labels.
         hcdl.plot_ps_slope(xs, ps, labels, output_file_img, inf, sup)
+
+
+class Missview(AbstractCommand):
+    """
+    Previews bins that will be missing in a Hi-C map with a given read length by
+    finding repetitive regions in the genome.
+
+    usage:
+        missview [--aligner=bowtie2] [--force] [--binning=INT]
+                 [--threads=1] [--tmpdir=STR] --read-len=INT <genome> <output>
+
+    arguments:
+        genome                            Genome file in fasta format.
+        output                            Path to the output image.
+
+    options:
+        -a, --aligner={bowtie2, minimap2} The read alignment software to use. [default: bowtie2]
+        -F, --force                       Write even if the output file already exists.
+        -b, --binning=INT                 Resolution to use to preview the Hi-C map. [default: 5000]
+        -R, --read-len=INT                Write even if the output file already exists.
+        -t, --threads=INT                 Number of CPUs to use in parallel. [default: 1]
+        -T, --tmpdir=STR                  Directory where temporary files will be generated.
+    """
+
+    def execute(self):
+        aligner = self.args["--aligner"]
+        force = self.args["--force"]
+        genome = self.args['<genome>']
+        out = self.args["<output>"]
+        resolution = parse_bin_str(self.args['--binning'])
+        read_len= int(self.args["--read-len"])
+        threads= int(self.args["--threads"])
+        tmp_dir = self.args['--tmpdir']
+        if tmp_dir is None:
+            tmp_dir = tempfile.TemporaryDirectory().name
+        # Simulate reads and save into a fastq file
+        phred = "F" * read_len
+        tmp_fq = join(tmp_dir, 'simulated_reads.fq')
+        self.check_output_path(tmp_fq, force=force)
+        with open(tmp_fq, 'w') as fq_handle:
+            for rec in SeqIO.parse(genome, 'fasta'):
+                for i in range(len(rec.seq) - read_len):
+                        fq_handle.write('@NS_SIM_%s_%i\n' % (rec.id, i))
+                        fq_handle.write(str(rec.seq[i:i+read_len]))
+                        fq_handle.write('\n+\n' + phred + '\n')
+        # Map reads to genome
+        hpi.full_pipeline(
+                genome,
+                tmp_fq,
+                tmp_fq,
+                aligner=aligner,
+                enzyme=resolution,
+                force=force,
+                threads=threads,
+                out_dir=tmp_dir,
+                tmp_dir=tmp_dir
+        )
+        # Plot and save matrix
+        mat_path = join(tmp_dir, 'abs_fragments_contacts_weighted.txt')
+        mat = hio.load_sparse_matrix(mat_path)
+        # Check which bins are not at the median (i.e. drop in mapping rate)
+        unmappable = mat.diagonal(0) != np.median(mat.diagonal(0))
+        mappable_mat = np.ones(mat.shape)
+        mappable_mat[unmappable, :] = 0
+        mappable_mat[:, unmappable] = 0
+        hcv.plot_matrix(
+            mappable_mat,
+            filename=out,
+            title=" %.3f%% missing bins for %s \nwith %i bp reads at resolution %i." % (
+                round(100 * sum(unmappable) / len(unmappable), 3),
+                os.path.basename(genome),
+                read_len, resolution,
+            ), 
+            dpi=600,
+            vmax=2,
+            cmap="Greys",
+        )
+        
 
 
 def parse_bin_str(bin_str):

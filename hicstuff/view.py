@@ -73,7 +73,7 @@ def sparse_to_dense(M, remove_diag=True):
 
 
 def plot_matrix(
-    array, filename=None, vmin=0, vmax=None, dpi=DEFAULT_DPI, cmap="Reds"
+    array, filename=None, vmin=0, vmax=None, title=None, dpi=DEFAULT_DPI, cmap="Reds"
 ):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
@@ -91,6 +91,8 @@ def plot_matrix(
     # plt.gca().yaxis.set_major_locator(plt.NullLocator())
     plt.figure()
     plt.imshow(array, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none")
+    if title is not None:
+        plt.title(title)
     plt.colorbar()
     plt.axis("off")
     if filename:
