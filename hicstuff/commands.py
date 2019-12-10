@@ -43,6 +43,7 @@ from matplotlib import cm
 from docopt import docopt
 import pandas as pd
 import numpy as np
+import pysam as ps
 import copy
 from Bio import SeqIO
 import hicstuff.view as hcv
@@ -1331,6 +1332,7 @@ class Missview(AbstractCommand):
         # Simulate reads and save into a fastq file
         phred = "F" * read_len
         tmp_fq = join(tmp_dir, 'simulated_reads.fq')
+        tmp_bam = join(tmp_dir, 'simulated_reads.bam')
         self.check_output_path(tmp_fq, force=force)
         logger.info("Simulating reads by splitting the genome into %i bp chunks", read_len)
         with open(tmp_fq, 'w') as fq_handle:
@@ -1340,10 +1342,26 @@ class Missview(AbstractCommand):
                         fq_handle.write(str(rec.seq[i:i+read_len]))
                         fq_handle.write('\n+\n' + phred + '\n')
         # Map reads to genome
+        hpi.align_reads(
+            tmp_fq,
+            genome,
+            tmp_bam,
+            tmp_dir=tmp_dir,
+            threads=threads,
+            aligner=aligner,
+        )
+        # Sort alignments by name
+        ps.sort(
+            "-@", str(threads), "-n", "-O", "BAM", "-o", tmp_bam + ".sorted", tmp_bam 
+        )
+        shutil.move(tmp_bam+ ".sorted", tmp_bam)
+        # Run the standard pipeline with, using twice the forward reads.
+        # This will generate a diagonal-only matrix
         hpi.full_pipeline(
                 genome,
-                tmp_fq,
-                tmp_fq,
+                tmp_bam,
+                tmp_bam,
+                start_stage='bam',
                 aligner=aligner,
                 enzyme=resolution,
                 force=force,
