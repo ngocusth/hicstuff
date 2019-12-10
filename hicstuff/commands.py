@@ -1304,16 +1304,17 @@ class Missview(AbstractCommand):
                  [--threads=1] [--tmpdir=STR] --read-len=INT <genome> <output>
 
     arguments:
-        genome                            Genome file in fasta format.
-        output                            Path to the output image.
+        genome               Genome file in fasta format.
+        output               Path to the output image.
 
     options:
-        -a, --aligner={bowtie2, minimap2} The read alignment software to use. [default: bowtie2]
-        -F, --force                       Write even if the output file already exists.
-        -b, --binning=INT                 Resolution to use to preview the Hi-C map. [default: 5000]
-        -R, --read-len=INT                Write even if the output file already exists.
-        -t, --threads=INT                 Number of CPUs to use in parallel. [default: 1]
-        -T, --tmpdir=STR                  Directory where temporary files will be generated.
+        -a, --aligner=STR    The read alignment software to use. Can be either
+                             bowtie2 or minimap2. [default: bowtie2]
+        -F, --force          Write even if the output file already exists.
+        -b, --binning=INT    Resolution to use to preview the Hi-C map. [default: 5000]
+        -R, --read-len=INT   Write even if the output file already exists.
+        -t, --threads=INT    Number of CPUs to use in parallel. [default: 1]
+        -T, --tmpdir=STR     Directory where temporary files will be generated.
     """
 
     def execute(self):
