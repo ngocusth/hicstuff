@@ -89,6 +89,16 @@ def test_iteralign():
 
 def test_digest():
     args = "-e DpnII -p -f {0} -o {0} test_data/genome/seq.fa".format(OUT)
+    su.rmtree(OUT)
+    proc = hcmd.Digest(args.split(" "), {})
+    proc.execute()
+    # Should fail, directory already exists
+    with pytest.raises(IOError):
+        proc = hcmd.Digest(args.split(" "), {})
+        proc.execute()
+    # Should succeed with --force flag
+    breakpoint()
+    args =  '-F ' + args
     proc = hcmd.Digest(args.split(" "), {})
     proc.execute()
 

@@ -157,7 +157,7 @@ class Digest(AbstractCommand):
     named "info_contigs.txt" and "fragments_list.txt"
 
     usage:
-        digest [--plot] [--figdir=FILE] [--circular] [--size=INT]
+        digest [--plot] [--figdir=FILE] [--force] [--circular] [--size=INT]
                [--outdir=DIR] --enzyme=ENZ <fasta>
 
     arguments:
@@ -169,6 +169,7 @@ class Digest(AbstractCommand):
                                         representing fixed chunk sizes (in bp).
                                         Multiple comma-separated enzymes can
                                         be given.
+        -F, --force                     Write even if the output file already exists.
         -s, --size=INT                  Minimum size threshold to keep
                                         fragments. [default: 0]
         -o, --outdir=DIR                Directory where the fragments and
@@ -193,8 +194,13 @@ class Digest(AbstractCommand):
         if not self.args["--outdir"]:
             self.args["--outdir"] = os.getcwd()
         # Create output directory if it does not exist
-        if not os.path.exists(self.args["--outdir"]):
-            os.makedirs(self.args["--outdir"])
+        if os.path.exists(self.args["--outdir"]):
+            if not self.args['--force']:
+                raise IOError(
+                    "Output directory already exists. Use --force to overwrite"
+                )
+        else:
+            os.makedirs(self.args["--outdir"], exist_ok=True)
         if self.args["--figdir"]:
             figpath = join(self.args["--figdir"], "frags_hist.pdf")
         else:
