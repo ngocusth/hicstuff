@@ -97,7 +97,6 @@ def test_digest():
         proc = hcmd.Digest(args.split(" "), {})
         proc.execute()
     # Should succeed with --force flag
-    breakpoint()
     args =  '-F ' + args
     proc = hcmd.Digest(args.split(" "), {})
     proc.execute()
