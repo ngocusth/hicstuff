@@ -13,6 +13,7 @@ options:
     -v, --version               shows the version
 
 The subcommands are:
+    convert         Convert Hi-C data between different formats.
     digest          Digest genome into a list of fragments.
     distancelaw     Analyse and plot distance law.
     filter          Filters Hi-C pairs to exclude spurious events.
