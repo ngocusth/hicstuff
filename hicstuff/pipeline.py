@@ -663,7 +663,7 @@ def full_pipeline(
         genome_prefix = genome.with_suffix("")
         # Check if input file has index files
         bt2_idx_files = list(genome.parent.glob("{}*bt2*".format(genome.name)))
-        if len(bt2_idx_files) != 6:
+        if len(bt2_idx_files) < 6:
             # If no index present assume input is fasta and build it first
             logger.info(
                 "Bowtie2 index not found at %s, now generating one.",
