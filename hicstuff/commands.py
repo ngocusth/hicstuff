@@ -926,9 +926,14 @@ class Rebin(AbstractCommand):
                 frags.loc[chrom_mask, "start_pos"] = binning * bin_id
                 bin_ends = binning * bin_id + binning
                 # Do not allow bin ends to be larger than chrom size
-                chromsize = chromlist.length[chromlist.contig == chrom].values[
-                    0
-                ]
+                try:
+                    chromsize = chromlist.length[chromlist.contig == chrom].values[
+                        0
+                    ]
+                except AttributeError:
+                    chromsize = chromlist['length_kb'][chromlist.contig == chrom].values[
+                        0
+                    ]                    
                 bin_ends[bin_ends > chromsize] = chromsize
                 frags.loc[frags.chrom == chrom, "end_pos"] = bin_ends
 
