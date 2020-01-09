@@ -1033,15 +1033,17 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     sort_ver = (
         sort_ver.communicate()[0].decode().split("\n")[0].split(" ")[-1].split(".")
     )
-    sort_ver = list(map(int, sort_ver))
     # If so, specify threads, otherwise don't mention it in the command line
     try:
+        sort_ver = list(map(int, sort_ver))
         if sort_ver[0] < 8 or (sort_ver[0] == 8 and sort_ver[1] < 23):
             logger.warning(
                 "GNU sort version is {0} but >8.23 is required for parallel "
                 "sort. Sorting on a single thread.".format(".".join(map(str, sort_ver)))
             )
             parallel_ok = False
+    # BSD sort has a different format and will throw error upon parsing. It does
+    # not support parallel processes anyway.
     except ValueError:
             logger.warning(
                 "Using BSD sort instead of GNU sort. "

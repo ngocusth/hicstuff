@@ -8,7 +8,7 @@ FROM ubuntu:16.04
 
 
 
-LABEL Name=hicstuff Version=2.1.0
+LABEL Name=hicstuff Version=2.1.1
 
 # Install python dependencies
 COPY * ./ /app/
