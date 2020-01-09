@@ -1046,8 +1046,7 @@ def sort_pairs(in_file, out_file, keys, tmp_dir=None, threads=1, buffer="2G"):
     # not support parallel processes anyway.
     except ValueError:
             logger.warning(
-                "Using BSD sort instead of GNU sort. "
-                "Sorting on a single thread.".format(".".join(map(str, sort_ver)))
+                "Using BSD sort instead of GNU sort, sorting on a single thread."
             )
             parallel_ok = False
 
