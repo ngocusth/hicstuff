@@ -110,6 +110,11 @@ For example, to run the pipeline with minimap2 using 8 threads and generate a ma
 hicstuff pipeline -t 8 -a minimap2 -e DpnII -o out/ -g genome.fa reads_for.fq reads_rev.fq
 ```
 
+If you use bowtie2 for alignment, you need to index the genome before running the hicstuff pipeline:
+```
+bowtie2-build genome.fa genome.fa
+```
+
 The pipeline can also be run from python, using the `hicstuff.pipeline` submodule. For example, this would run the pipeline with bowtie2 (default) using iterative alignment and keep all intermediate files. For more examples using the API, see the [API demo](https://hicstuff.readthedocs.io/en/latest/notebooks/demo_api.html)
 
 ```python

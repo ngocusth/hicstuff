@@ -60,6 +60,7 @@ def test_full_pipeline():
         pcr_duplicates=True,
         filter_events=True,
         no_cleanup=True,
+        force=True,
     )
     # Set of parameters #2
     hpi.full_pipeline(
@@ -74,5 +75,6 @@ def test_full_pipeline():
         distance_law=True,
         tmp_dir="test_out/tmp",
         mat_fmt="cooler",
+        force=True,
     )
     shutil.rmtree("test_out/")

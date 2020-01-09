@@ -41,6 +41,7 @@ def align_reads(
     """
     Select and call correct alignment method and generate logs accordingly.
     Alignments are filtered so that there at most one alignment per read.
+    Alignments are sorted by read name in the output file.
 
     Parameters
     ----------
@@ -86,6 +87,7 @@ def align_reads(
             read_len=read_len,
         )
         st.rmtree(iter_tmp_dir)
+        sp.call('samtools view -F 2048 -h -@ {threads} -O BAM {tmp} -o {out}'.format(threads=threads, tmp=tmp_sam, out=out_bam), shell=True)
     else:
         if aligner == "minimap2":
             map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
@@ -101,15 +103,16 @@ def align_reads(
         }
         sp.call(map_cmd.format(**map_args), shell=True)
 
-    # Remove supplementary alignments
-    # TODO: replace sp.call with ps.view command. It currently has a bug
-    # preventing output redirection.
-    sp.call(
-        "samtools view -F 2048 -h -@ {threads} -O BAM -o {out} {tmp}".format(
-            tmp=tmp_sam, threads=threads, out=out_bam
-        ),
-        shell=True,
-    )
+        # Remove supplementary alignments
+        viewer = sp.Popen(
+            "samtools view -F 2048 -h -@ {threads} -O BAM {tmp}".format(
+                tmp=tmp_sam, threads=threads
+            ),
+            shell=True, stdout=sp.PIPE
+        )
+        # Sort reads by name for later processing
+        sorter = sp.Popen("samtools sort -n -@ {threads} -O BAM -o {out} -".format(threads=threads, out=out_bam), shell=True, stdin=viewer.stdout)
+        out, err = sorter.communicate()
     os.remove(tmp_sam)
 
 
@@ -132,7 +135,7 @@ def bam2pairs(bam1, bam2, out_pairs, info_contigs, min_qual=30):
     info_contigs : str
         Path to the info contigs file, to get info on chromosome sizes and order.
     min_qual : int
-        Minimum mapping quality required to keep a Hi=C pair.
+        Minimum mapping quality required to keep a Hi-C pair.
     """
     forward = ps.AlignmentFile(bam1, "rb")
     reverse = ps.AlignmentFile(bam2, "rb")
@@ -660,7 +663,7 @@ def full_pipeline(
         genome_prefix = genome.with_suffix("")
         # Check if input file has index files
         bt2_idx_files = list(genome.parent.glob("{}*bt2*".format(genome.name)))
-        if len(bt2_idx_files) != 6:
+        if len(bt2_idx_files) < 6:
             # If no index present assume input is fasta and build it first
             logger.info(
                 "Bowtie2 index not found at %s, now generating one.",
@@ -755,15 +758,6 @@ def full_pipeline(
             min_qual=min_qual,
             read_len=read_len,
         )
-        # Sort alignments by read name
-        ps.sort(
-            "-@", str(threads), "-n", "-O", "BAM", "-o", bam1 + ".sorted", bam1
-        )
-        st.move(bam1 + ".sorted", bam1)
-        ps.sort(
-            "-@", str(threads), "-n", "-O", "BAM", "-o", bam2 + ".sorted", bam2
-        )
-        st.move(bam2 + ".sorted", bam2)
 
     # Starting from bam files
     if start_stage <= 1:

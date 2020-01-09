@@ -14,12 +14,14 @@ increase of properly mapped reads.
 import os
 import sys
 import glob
+import re
 import subprocess as sp
 import pysam as ps
 import shutil as st
 import hicstuff.io as hio
 import contextlib
 from hicstuff.log import logger
+from os.path import join
 
 
 def check_bt2_index(ref):
@@ -108,12 +110,12 @@ def iterative_align(
         try:
             os.remove(bam_out)
         except IsADirectoryError:
-            logger.error("You need to give the SAM output file, not a folder.")
+            logger.error("You need to give the BAM output file, not a folder.")
             raise
 
     # Bowtie only accepts uncompressed fastq: uncompress it into a temp file
     if aligner == "bowtie2" and hio.is_compressed(fq_in):
-        uncomp_path = os.path.join(tmp_dir, os.path.basename(fq_in) + ".tmp")
+        uncomp_path = join(tmp_dir, os.path.basename(fq_in) + ".tmp")
         with hio.read_compressed(fq_in) as inf:
             with open(uncomp_path, "w") as uncomp:
                 st.copyfileobj(inf, uncomp)
@@ -153,11 +155,12 @@ def iterative_align(
     # iterative alignment per se
     while n <= read_len:
         logger.info(
-            "Truncating unaligned reads to {0}bp and mapping again.".format(
-                int(n)
+            "Truncating unaligned reads to {size}bp and mapping{again}.".format(
+                size=int(n),
+                again="" if first_round else " again"
             )
         )
-        iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
+        iter_out += [join(tmp_dir, "trunc_{0}.bam".format(str(n)))]
         # Generate a temporary input fastq file with the n first nucleotids
         # of the reads.
         truncated_reads = truncate_reads(
@@ -165,29 +168,37 @@ def iterative_align(
         )
 
         # Align the truncated reads on reference genome
-        temp_alignment = "{0}/temp_alignment.sam".format(tmp_dir)
+        temp_alignment = join(tmp_dir, 'temp_alignment.bam')
         map_args = {
             "fa": ref,
-            "threads": n_cpu,
-            "sam": temp_alignment,
+            "cpus": n_cpu,
             "fq": truncated_reads,
             "idx": index,
+            "bam": temp_alignment,
         }
-        if aligner == "minimap2" or aligner == "Minimap2":
-            cmd = "minimap2 -x sr -a -t {threads} {fa} {fq} > {sam}".format(
+        if re.match(r'^(minimap[2]?|mm[2]?)$', aligner, flags=re.IGNORECASE):
+            cmd = "minimap2 -x sr -a -t {cpus} {fa} {fq}".format(
                 **map_args
             )
-        else:
+        elif re.match(r'^(bowtie[2]?|bt[2]?)$', aligner, flags=re.IGNORECASE):
             cmd = (
-                "bowtie2 -x {idx} -p {threads} --rdg 500,3 --rfg 500,3"
-                " --quiet --very-sensitive -S {sam} {fq}"
+                "bowtie2 -x {idx} -p {cpus}"
+                " --quiet --very-sensitive {fq}"
             ).format(**map_args)
-        sp.call(cmd, shell=True)
+        else:
+            raise ValueError("Unknown aligner. Select bowtie2 or minimap2.")
+            
+        map_process = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+        sort_process = sp.Popen(
+                'samtools sort -n -@ {cpus} -O BAM -o {bam}'.format(**map_args),
+                shell=True, stdin=map_process.stdout
+        )
+        out, err = sort_process.communicate()
 
         # filter the reads: the reads whose truncated end was aligned are written
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
-        remaining_reads = filter_samfile(
+        remaining_reads = filter_bamfile(
             temp_alignment, iter_out[-1], min_qual
         )
 
@@ -209,31 +220,40 @@ def iterative_align(
         first_round=first_round
     )
     if aligner == "minimap2" or aligner == "Minimap2":
-        cmd = "minimap2 -x sr -a -t {1} {0} {3} > {2}".format(
-            ref, n_cpu, temp_alignment, truncated_reads
+        cmd = "minimap2 -x sr -a -t {cpus} {fa} {fq}".format(
+            fa=ref, cpus=n_cpu, fq=truncated_reads
         )
     else:
         cmd = (
-            "bowtie2 -x {0} -p {1} --rdg 500,3 --rfg 500,3 --quiet "
-            "--very-sensitive -S {2} {3}"
-        ).format(index, n_cpu, temp_alignment, truncated_reads)
-    sp.call(cmd, shell=True)
-    iter_out += [os.path.join(tmp_dir, "trunc_{0}.sam".format(str(n)))]
-    remaining_reads = filter_samfile(temp_alignment, iter_out[-1], min_qual)
+            "bowtie2 -x {idx} -p {cpus} --quiet "
+            "--very-sensitive {fq}"
+        ).format(idx=index, cpus=n_cpu, fq=truncated_reads)
+    map_process = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+    # Keep reads sorted by name
+    sort_process = sp.Popen(
+                'samtools sort -n -@ {cpus} -O BAM -o {bam}'.format(
+                    cpus=n_cpu, bam=temp_alignment
+        ),
+        shell=True,
+        stdin=map_process.stdout
+    )
+    out, err = sort_process.communicate()
+    iter_out += [join(tmp_dir, "trunc_{0}.bam".format(str(n)))]
+    remaining_reads = filter_bamfile(temp_alignment, iter_out[-1], min_qual)
 
     # Report unaligned reads as well
-    iter_out += [os.path.join(tmp_dir, "unaligned.sam")]
-    temp_sam = ps.AlignmentFile(temp_alignment, "r")
-    unmapped = ps.AlignmentFile(iter_out[-1], "w", template=temp_sam)
-    for r in temp_sam:
+    iter_out += [join(tmp_dir, "unaligned.bam")]
+    temp_bam = ps.AlignmentFile(temp_alignment, "rb", check_sq=False)
+    unmapped = ps.AlignmentFile(iter_out[-1], "wb", template=temp_bam)
+    for r in temp_bam:
         # Do not write supplementary alignments (keeping 1 alignment/read)
         if r.query_name in remaining_reads and not r.is_supplementary:
             unmapped.write(r)
     unmapped.close()
-    temp_sam.close()
+    temp_bam.close()
 
-    # Merge all aligned reads and unmapped reads into a single sam
-    ps.merge("-O", "BAM", "-@", str(n_cpu), bam_out, *iter_out)
+    # Merge all aligned reads and unmapped reads into a single bam
+    ps.merge("-n", "-O", "BAM", "-@", str(n_cpu), bam_out, *iter_out)
     logger.info(
         "{0} reads aligned / {1} total reads.".format(
             int(total_reads - len(remaining_reads)), int(total_reads)
@@ -279,10 +299,10 @@ def truncate_reads(tmp_dir, infile, unaligned_set, trunc_len, first_round):
     return outfile
 
 
-def filter_samfile(temp_alignment, filtered_out, min_qual=30):
-    """Filter alignment SAM files
+def filter_bamfile(temp_alignment, filtered_out, min_qual=30):
+    """Filter alignment BAM files
 
-    Reads all the reads in the input SAM alignment file.
+    Reads all the reads in the input BAM alignment file.
     Write reads to the output file if they are aligned with a good
     quality, otherwise add their name in a set to stage them for the next round
     of alignment.
@@ -306,16 +326,16 @@ def filter_samfile(temp_alignment, filtered_out, min_qual=30):
     # Keep those that do not map unambiguously for the next round.
 
     unaligned = set()
-    temp_sam = ps.AlignmentFile(temp_alignment, "r")
-    outf = ps.AlignmentFile(filtered_out, "w", template=temp_sam)
-    for r in temp_sam:
+    temp_bam = ps.AlignmentFile(temp_alignment, "rb", check_sq=False)
+    outf = ps.AlignmentFile(filtered_out, "wb", template=temp_bam)
+    for r in temp_bam:
         if r.flag in [0, 16] and r.mapping_quality >= min_qual:
             outf.write(r)
         else:
             unaligned.add(r.query_name)
 
     logger.info("{0} reads left to map.".format(len(unaligned)))
-    temp_sam.close()
+    temp_bam.close()
     outf.close()
 
     return unaligned
