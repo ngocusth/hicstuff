@@ -580,17 +580,36 @@ def full_pipeline(
     if aligner in ("bowtie2", "minimap2"):
         if check_tool(aligner) is None:
             logger.error("%s is not installed or not on PATH", aligner)
+            sys.exit(1)
     else:
         logger.error(
             "Incompatible aligner software, choose bowtie2 or minimap2"
         )
+        sys.exit(1)
     if check_tool("samtools") is None:
         logger.error("Samtools is not installed or not on PATH")
+        sys.exit(1)
 
     # Pipeline can start from 3 input types
     start_time = datetime.now()
     stages = {"fastq": 0, "bam": 1, "pairs": 2, "pairs_idx": 3}
     start_stage = stages[start_stage]
+
+    # Check if the number of input files is correct
+    if start_stage <= 1:
+        if input2 is None:
+            logger.error(
+                'You must provide 2 input files when --start-stage is fastq '
+                'or bam.'
+            )
+            sys.exit(1)
+    else:
+        if input2 is not None:
+            logger.error(
+                'You must provide a single input file when --start-stage is '
+                'pairs or pairs_idx.'
+            )
+            sys.exit(1)
     # sanitize enzyme
     enzyme = str(enzyme)
     # Remember whether fragments_file has been generated during this run
