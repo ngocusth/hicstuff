@@ -107,15 +107,15 @@ class Iteralign(AbstractCommand):
 
     options:
         -g, --genome=FILE        The genome on which to map the reads. Must be
-                                 The path to the bowtie2 index if using bowtie2
-                                 or to the genome in fasta format if using
-                                 minimap2.
+                                 the path to the bowtie2/bwa index if using bowtie2/bwa
+                                 or to the genome in fasta format if using minimap2.
         -t, --threads=INT        Number of parallel threads allocated for the
                                  alignment [default: 1].
         -T, --tempdir=DIR        Temporary directory. Defaults to current
                                  directory.
-        -a, --aligner=bowtie2    Choose alignment software between bowtie2 and
-                                 minimap2. [default: bowtie2]
+        -a, --aligner=bowtie2    Choose alignment software between bowtie2,
+                                 minimap2 or bwa. minimap2 should only be used for
+                                 reads > 100 bp. [default: bowtie2]
         -l, --min-len=INT        Length to which the reads should be
                                  truncated [default: 20].
         -o, --out-bam=FILE       Path where the alignment will be written in
@@ -608,7 +608,9 @@ class Pipeline(AbstractCommand):
 
     options:
         -a, --aligner=bowtie2         Alignment software to use. Can be either
-                                      bowtie2 or minimap2. [default: bowtie2]
+                                      bowtie2, minimap2 or bwa. minimap2 should
+                                      only be used for reads > 100 bp. 
+                                      [default: bowtie2]
         -c, --centromeres=FILE        Positions of the centromeres separated by
                                       a space and in the same order than the 
                                       chromosomes. Discordant with the circular
@@ -638,8 +640,8 @@ class Pipeline(AbstractCommand):
                                       and then repeatedly extending and
                                       aligning them.
         -g, --genome=FILE             Reference genome to map against. Path to
-                                      the bowtie2 index if using bowtie2, or to
-                                      a FASTA file if using minimap2.
+                                      the bowtie2/bwa index if using bowtie2/bwa, 
+                                      or to a FASTA file if using minimap2.
         -M, --matfmt=FMT              The format of the output sparse matrix.
                                       Can be "bg2" for 2D Bedgraph format, 
                                       "cool" for Mirnylab's cooler software, or
@@ -1322,7 +1324,8 @@ class Missview(AbstractCommand):
 
     options:
         -a, --aligner=STR    The read alignment software to use. Can be either
-                             bowtie2 or minimap2. [default: bowtie2]
+                             bowtie2, minimap2 or bwa. minimap2 should only be 
+                             used for reads > 100 bp. [default: bowtie2]
         -b, --binning=INT    Resolution to use to preview the Hi-C map. [default: 5000]
         -F, --force          Write even if the output file already exists.
         -R, --read-len=INT   Write even if the output file already exists.

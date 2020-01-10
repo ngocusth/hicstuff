@@ -48,7 +48,7 @@ def align_reads(
     reads : str
         Path to the fastq file with Hi-C reads.
     genome : str
-        Path to the genome bowtie2 index prefix if using bowtie2 or to the 
+        Path to the genome bowtie2/bwa index prefix if using bowtie2 or bwa, or to the 
         fasta if using minimap2.
     out_bam : str
         Path to the output BAM file containing mapped Hi-C reads.
@@ -57,7 +57,7 @@ def align_reads(
     threads : int
         Number of threads to run alignments in parallel.
     aligner : bool
-        Use minimap2 instead of bowtie2.
+        Use minimap2 or bwa instead of bowtie2.
     iterative : bool
         Wether to use the iterative mapping procedure (truncating reads and
         extending iteratively)
@@ -87,10 +87,18 @@ def align_reads(
             read_len=read_len,
         )
         st.rmtree(iter_tmp_dir)
-        sp.call('samtools view -F 2048 -h -@ {threads} -O BAM {tmp} -o {out}'.format(threads=threads, tmp=tmp_sam, out=out_bam), shell=True)
+        sp.call(
+            "samtools view -F 2048 -h -@ {threads} -O BAM {tmp} -o {out}".format(
+                threads=threads, tmp=tmp_sam, out=out_bam
+            ),
+            shell=True,
+        )
     else:
         if aligner == "minimap2":
             map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
+        elif aligner == "bwa":
+            index = hci.check_bwa_index(genome)
+            map_cmd = "bwa mem -t {threads} -v 1 {index} {fastq} > {sam}"
         else:
             index = hci.check_bt2_index(genome)
             map_cmd = "bowtie2 --very-sensitive-local -p {threads} -x {index} -U {fastq} > {sam}"
@@ -108,10 +116,17 @@ def align_reads(
             "samtools view -F 2048 -h -@ {threads} -O BAM {tmp}".format(
                 tmp=tmp_sam, threads=threads
             ),
-            shell=True, stdout=sp.PIPE
+            shell=True,
+            stdout=sp.PIPE,
         )
         # Sort reads by name for later processing
-        sorter = sp.Popen("samtools sort -n -@ {threads} -O BAM -o {out} -".format(threads=threads, out=out_bam), shell=True, stdin=viewer.stdout)
+        sorter = sp.Popen(
+            "samtools sort -n -@ {threads} -O BAM -o {out} -".format(
+                threads=threads, out=out_bam
+            ),
+            shell=True,
+            stdin=viewer.stdout,
+        )
         out, err = sorter.communicate()
     os.remove(tmp_sam)
 
@@ -266,9 +281,7 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
     reads_count = 0
     # Store header lines
     header = hio.get_pairs_header(pairs_idx_file)
-    with open(pairs_idx_file, "r") as pairs, open(
-        filtered_file, "w"
-    ) as filtered:
+    with open(pairs_idx_file, "r") as pairs, open(filtered_file, "w") as filtered:
         # Copy header lines to filtered file
         for head_line in header:
             filtered.write(head_line + "\n")
@@ -288,21 +301,15 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
         ]
         # Columns used for comparison of coordinates
         coord_cols = [col for col in paircols if col != "readID"]
-        pair_reader = csv.DictReader(
-            pairs, delimiter="\t", fieldnames=paircols
-        )
-        filt_writer = csv.DictWriter(
-            filtered, delimiter="\t", fieldnames=paircols
-        )
+        pair_reader = csv.DictReader(pairs, delimiter="\t", fieldnames=paircols)
+        filt_writer = csv.DictWriter(filtered, delimiter="\t", fieldnames=paircols)
 
         # Initialise a variable to store coordinates of reads in previous pair
         prev = {k: 0 for k in paircols}
         for pair in pair_reader:
             reads_count += 1
             # If coordinates are the same as before, skip pair
-            if all(
-                pair[pair_var] == prev[pair_var] for pair_var in coord_cols
-            ):
+            if all(pair[pair_var] == prev[pair_var] for pair_var in coord_cols):
                 filter_count += 1
                 continue
             # Else write pair and store new coordinates as previous
@@ -311,11 +318,7 @@ def filter_pcr_dup(pairs_idx_file, filtered_file):
                 prev = pair
         logger.info(
             "%d%% PCR duplicates have been filtered out (%d / %d pairs) "
-            % (
-                100 * round(filter_count / reads_count, 3),
-                filter_count,
-                reads_count,
-            )
+            % (100 * round(filter_count / reads_count, 3), filter_count, reads_count)
         )
 
 
@@ -336,26 +339,17 @@ def pairs2cool(pairs_file, cool_file, bins_file):
 
     # Make bins file compatible with cooler cload
     bins_tmp = bins_file + ".cooler"
-    bins = pd.read_csv(
-        bins_file, sep="\t", usecols=[1, 2, 3], skiprows=1, header=None
-    )
+    bins = pd.read_csv(bins_file, sep="\t", usecols=[1, 2, 3], skiprows=1, header=None)
     bins.to_csv(bins_tmp, sep="\t", header=False, index=False)
 
-    cooler_cmd = (
-        "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
-    )
+    cooler_cmd = "cooler cload pairs -c1 2 -p1 3 -p2 4 -c2 5 {bins} {pairs} {cool}"
     cool_args = {"bins": bins_tmp, "pairs": pairs_file, "cool": cool_file}
     sp.call(cooler_cmd.format(**cool_args), shell=True)
     os.remove(bins_tmp)
 
 
 def pairs2matrix(
-    pairs_file,
-    mat_file,
-    fragments_file,
-    mat_fmt="graal",
-    threads=1,
-    tmp_dir=None,
+    pairs_file, mat_file, fragments_file, mat_fmt="graal", threads=1, tmp_dir=None
 ):
     """Generate the matrix by counting the number of occurences of each
     combination of restriction fragments in a pairs file.
@@ -504,8 +498,8 @@ def full_pipeline(
     Parameters
     ----------
     genome : str
-        Path to the bowtie2 index prefix if using bowtie2 or to the genome in
-        fasta format if using minimap2.
+        Path to the bowtie2/bwa index prefix if using bowtie2/bwa or to the genome 
+        in fasta format if using minimap2.
     input1 : str
         Path to the Hi-C reads in fastq format (forward), the aligned Hi-C reads
         in BAM format, or the pairs file, depending on the value of start_stage.
@@ -555,7 +549,7 @@ def full_pipeline(
         bedgraph2 format, "cool" for Mirnylab's cool format, or graal for a
         plain text COO format compatible with Koszullab's instagraal software.
     aligner : str
-        Read alignment software to use. Can be either "minimap2" or "bowtie2".
+        Read alignment software to use. Can be either "minimap2", "bwa" or "bowtie2".
     pcr_duplicates : bool
         If True, PCR duplicates will be filtered based on genomic positions.
         Pairs where both reads have exactly the same coordinates are considered
@@ -577,14 +571,12 @@ def full_pipeline(
         around the centromere position given by in the centromere file.
     """
     # Check if third parties can be run
-    if aligner in ("bowtie2", "minimap2"):
+    if aligner in ("bowtie2", "minimap2", "bwa"):
         if check_tool(aligner) is None:
             logger.error("%s is not installed or not on PATH", aligner)
             sys.exit(1)
     else:
-        logger.error(
-            "Incompatible aligner software, choose bowtie2 or minimap2"
-        )
+        logger.error("Incompatible aligner software, choose bowtie2, minimap2 or bwa")
         sys.exit(1)
     if check_tool("samtools") is None:
         logger.error("Samtools is not installed or not on PATH")
@@ -599,15 +591,14 @@ def full_pipeline(
     if start_stage <= 1:
         if input2 is None:
             logger.error(
-                'You must provide 2 input files when --start-stage is fastq '
-                'or bam.'
+                "You must provide 2 input files when --start-stage is fastq " "or bam."
             )
             sys.exit(1)
     else:
         if input2 is not None:
             logger.error(
-                'You must provide a single input file when --start-stage is '
-                'pairs or pairs_idx.'
+                "You must provide a single input file when --start-stage is "
+                "pairs or pairs_idx."
             )
             sys.exit(1)
     # sanitize enzyme
@@ -685,12 +676,9 @@ def full_pipeline(
         if len(bt2_idx_files) < 6:
             # If no index present assume input is fasta and build it first
             logger.info(
-                "Bowtie2 index not found at %s, now generating one.",
-                genome_prefix,
+                "Bowtie2 index not found at %s, now generating one.", genome_prefix
             )
-            sp.run(
-                ["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE
-            )
+            sp.run(["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE)
             fasta = str(genome)
             genome = genome_prefix
         else:
@@ -712,6 +700,14 @@ def full_pipeline(
                     "the path to the bowtie2 index without the extension."
                 )
                 sys.exit(1)
+    elif aligner == "bwa":
+        bwa_idx_files = list(genome.parent.glob("{}*sa".format(genome.name)))
+        if len(bwa_idx_files) != 1:
+            # If no index present assume input is fasta and build it first
+            logger.info("bwa index not found at %s, now generating one.", genome)
+            cmd = "bwa index -a bwtsw {}".format(genome.name)
+            os.system(cmd)
+        fasta = str(genome)
     else:
         fasta = str(genome)
     # Check for spaces in fasta headers and issue error if found
@@ -793,9 +789,7 @@ def full_pipeline(
         )
 
         # Log fragment size distribution
-        hcd.frag_len(
-            frags_file_name=fragments_list, plot=plot, fig_path=frag_plot
-        )
+        hcd.frag_len(frags_file_name=fragments_list, plot=plot, fig_path=frag_plot)
 
         # Make pairs file (readID, chr1, chr2, pos1, pos2, strand1, strand2)
         bam2pairs(bam1, bam2, pairs, info_contigs, min_qual=min_qual)
@@ -872,13 +866,9 @@ def full_pipeline(
             _, _, chr_labels = hcdl.import_distance_law(out_distance_law)
             chr_labels = [lab[0] for lab in chr_labels]
             chr_labels_idx = np.unique(chr_labels, return_index=True)[1]
-            chr_labels = [
-                chr_labels[index] for index in sorted(chr_labels_idx)
-            ]
+            chr_labels = [chr_labels[index] for index in sorted(chr_labels_idx)]
             p_s = hcdl.normalize_distance_law(x_s, p_s)
-            hcdl.plot_ps_slope(
-                x_s, p_s, labels=chr_labels, fig_path=distance_law_plot
-            )
+            hcdl.plot_ps_slope(x_s, p_s, labels=chr_labels, fig_path=distance_law_plot)
 
     # Filter out PCR duplicates if requested
     if pcr_duplicates:

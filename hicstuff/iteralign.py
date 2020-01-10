@@ -45,9 +45,33 @@ def check_bt2_index(ref):
         index = index.split(".rev.1.bt2")[0]
     except IndexError:
         logger.error(
-            "Reference index is missing, please build the bowtie2 "
-            "index first."
+            "Reference index is missing, please build the bowtie2 " "index first."
         )
+        sys.exit(1)
+    return index
+
+
+def check_bwa_index(ref):
+    """
+    Checks for the existence of a bwa index based on the reference
+    file name.
+
+    Parameters
+    ----------
+    ref : str
+        Path to the reference genome.
+
+    Returns
+    -------
+    index : str
+        The bwa index basename.
+    """
+    index = os.path.splitext(ref)[0]
+    try:
+        index = glob.glob(index + "*sa")[0]
+        index = index.split(".sa")[0]
+    except IndexError:
+        logger.error("Reference index is missing, please build the bwa index first.")
         sys.exit(1)
     return index
 
@@ -61,11 +85,11 @@ def iterative_align(
     aligner="bowtie2",
     min_len=20,
     min_qual=30,
-    read_len= None
+    read_len=None,
 ):
     """Iterative alignment
 
-    Aligns reads iteratively reads of fq_in with bowtie2 or minimap2. Reads are
+    Aligns reads iteratively reads of fq_in with bowtie2, minimap2 or bwa. Reads are
     truncated to the 20 first nucleotides and unmapped reads are extended by 20
     nucleotides and realigned on each iteration.
 
@@ -77,13 +101,13 @@ def iterative_align(
         Path where temporary files should be written.
     ref : str
         Path to the reference genome if Minimap2 is used for alignment.
-        Path to the index genome if Bowtie2 is used for alignment. 
+        Path to the index genome if Bowtie2/bwa is used for alignment. 
     n_cpu : int
         The number of CPUs to use for the iterative alignment.
     bam_out : str
         Path where the final alignment should be written in BAM format.
     aligner : str
-        Choose between minimap2 or bowtie2 for the alignment.
+        Choose between minimap2, bwa or bowtie2 for the alignment.
     min_len : int
         The initial length of the fragments to align.
     min_qual : int
@@ -96,7 +120,7 @@ def iterative_align(
     Examples
     --------
     iterative_align(fq_in='example_for.fastq', ref='example_bt2_index', bam_out='example_for.bam', aligner="bowtie2")
-    iterative_align(fq_in='example_for.fastq', ref='example_genome.fa', bam_out='example_for.bam', aligner="mminimap2")
+    iterative_align(fq_in='example_for.fastq', ref='example_genome.fa', bam_out='example_for.bam', aligner="minimap2")
     """
     # set with the name of the unaligned reads :
     remaining_reads = set()
@@ -125,7 +149,9 @@ def iterative_align(
     # throw error if index does not exist
     index = ""
     if aligner == "bowtie2":
-        index = ref
+        index = check_bt2_index(ref)
+    elif aligner == "bwa":
+        index = check_bwa_index(ref)
     # Counting reads
     with hio.read_compressed(uncomp_path) as inf:
         for _ in inf:
@@ -156,8 +182,7 @@ def iterative_align(
     while n <= read_len:
         logger.info(
             "Truncating unaligned reads to {size}bp and mapping{again}.".format(
-                size=int(n),
-                again="" if first_round else " again"
+                size=int(n), again="" if first_round else " again"
             )
         )
         iter_out += [join(tmp_dir, "trunc_{0}.bam".format(str(n)))]
@@ -168,7 +193,7 @@ def iterative_align(
         )
 
         # Align the truncated reads on reference genome
-        temp_alignment = join(tmp_dir, 'temp_alignment.bam')
+        temp_alignment = join(tmp_dir, "temp_alignment.bam")
         map_args = {
             "fa": ref,
             "cpus": n_cpu,
@@ -176,40 +201,36 @@ def iterative_align(
             "idx": index,
             "bam": temp_alignment,
         }
-        if re.match(r'^(minimap[2]?|mm[2]?)$', aligner, flags=re.IGNORECASE):
-            cmd = "minimap2 -x sr -a -t {cpus} {fa} {fq}".format(
-                **map_args
-            )
-        elif re.match(r'^(bowtie[2]?|bt[2]?)$', aligner, flags=re.IGNORECASE):
+        if re.match(r"^(minimap[2]?|mm[2]?)$", aligner, flags=re.IGNORECASE):
+            cmd = "minimap2 -x sr -a -t {cpus} {fa} {fq}".format(**map_args)
+        elif re.match(r"^(bwa)$", aligner, flags=re.IGNORECASE):
+            cmd = "bwa mem -t {cpus} -v 1 {idx} {fq}".format(**map_args)
+        elif re.match(r"^(bowtie[2]?|bt[2]?)$", aligner, flags=re.IGNORECASE):
             cmd = (
-                "bowtie2 -x {idx} -p {cpus}"
-                " --quiet --very-sensitive {fq}"
+                "bowtie2 -x {idx} -p {cpus}" " --quiet --very-sensitive {fq}"
             ).format(**map_args)
         else:
-            raise ValueError("Unknown aligner. Select bowtie2 or minimap2.")
-            
+            raise ValueError("Unknown aligner. Select bowtie2, minimap2 or bwa.")
+
         map_process = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
         sort_process = sp.Popen(
-                'samtools sort -n -@ {cpus} -O BAM -o {bam}'.format(**map_args),
-                shell=True, stdin=map_process.stdout
+            "samtools sort -n -@ {cpus} -O BAM -o {bam}".format(**map_args),
+            shell=True,
+            stdin=map_process.stdout,
         )
         out, err = sort_process.communicate()
 
         # filter the reads: the reads whose truncated end was aligned are written
         # to the output file.
         # The reads whose truncated end was not aligned are kept for the next round.
-        remaining_reads = filter_bamfile(
-            temp_alignment, iter_out[-1], min_qual
-        )
+        remaining_reads = filter_bamfile(temp_alignment, iter_out[-1], min_qual)
 
         n += 20
         first_round = False
 
     # one last round without trimming
     logger.info(
-        "Trying to map unaligned reads at full length ({0}bp).".format(
-            int(read_len)
-        )
+        "Trying to map unaligned reads at full length ({0}bp).".format(int(read_len))
     )
 
     truncated_reads = truncate_reads(
@@ -217,25 +238,28 @@ def iterative_align(
         infile=uncomp_path,
         unaligned_set=remaining_reads,
         trunc_len=n,
-        first_round=first_round
+        first_round=first_round,
     )
     if aligner == "minimap2" or aligner == "Minimap2":
         cmd = "minimap2 -x sr -a -t {cpus} {fa} {fq}".format(
             fa=ref, cpus=n_cpu, fq=truncated_reads
         )
+    elif aligner == "bwa" or aligner == "Bwa" or aligner == "BWA":
+        cmd = "bwa mem -v 1 -t {cpus} {idx} {fq}".format(
+            idx=index, cpus=n_cpu, fq=truncated_reads
+        )
     else:
-        cmd = (
-            "bowtie2 -x {idx} -p {cpus} --quiet "
-            "--very-sensitive {fq}"
-        ).format(idx=index, cpus=n_cpu, fq=truncated_reads)
+        cmd = ("bowtie2 -x {idx} -p {cpus} --quiet " "--very-sensitive {fq}").format(
+            idx=index, cpus=n_cpu, fq=truncated_reads
+        )
     map_process = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
     # Keep reads sorted by name
     sort_process = sp.Popen(
-                'samtools sort -n -@ {cpus} -O BAM -o {bam}'.format(
-                    cpus=n_cpu, bam=temp_alignment
+        "samtools sort -n -@ {cpus} -O BAM -o {bam}".format(
+            cpus=n_cpu, bam=temp_alignment
         ),
         shell=True,
-        stdin=map_process.stdout
+        stdin=map_process.stdout,
     )
     out, err = sort_process.communicate()
     iter_out += [join(tmp_dir, "trunc_{0}.bam".format(str(n)))]
