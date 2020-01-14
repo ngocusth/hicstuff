@@ -29,6 +29,7 @@ RUN conda config --add channels bioconda
 RUN conda install -c conda-forge -y \
     bowtie2 \
     minimap2 \
+    bwa \
     samtools \
     htslib \
     pysam \ 
