@@ -77,4 +77,18 @@ def test_full_pipeline():
         mat_fmt="cooler",
         force=True,
     )
+    hpi.full_pipeline(
+        input1="test_data/sample.reads_for.fastq.gz",
+        input2="test_data/sample.reads_rev.fastq.gz",
+        genome="test_data/genome/seq.fa",
+        enzyme='DpnII,HinfI',
+        out_dir="test_out",
+        aligner="bwa",
+        iterative=True,
+        read_len=35,
+        prefix="test",
+        tmp_dir="test_out/tmp",
+        mat_fmt="bg2",
+        force=True,
+    )
     shutil.rmtree("test_out/")

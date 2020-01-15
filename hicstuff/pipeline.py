@@ -674,11 +674,13 @@ def full_pipeline(
         # Check if input file has index files
         bt2_idx_files = list(genome.parent.glob("{}*bt2*".format(genome.name)))
         if len(bt2_idx_files) < 6:
-            # If no index present assume input is fasta and build it first
-            logger.info(
-                "Bowtie2 index not found at %s, now generating one.", genome_prefix
-            )
-            sp.run(["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE)
+            # We only need the index if the user provided fastq input
+            if start_stage == 0:
+                # If no index present assume input is fasta and build it first
+                logger.info(
+                    "Bowtie2 index not found at %s, now generating one.", genome_prefix
+                )
+                sp.run(["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE)
             fasta = str(genome)
             genome = genome_prefix
         else:
@@ -704,9 +706,10 @@ def full_pipeline(
         bwa_idx_files = list(genome.parent.glob("{}*sa".format(genome.name)))
         if len(bwa_idx_files) != 1:
             # If no index present assume input is fasta and build it first
-            logger.info("bwa index not found at %s, now generating one.", genome)
-            cmd = "bwa index -a bwtsw {}".format(genome.name)
-            os.system(cmd)
+            # We only need the index if the user provided fastq input
+            if start_stage == 0:
+                logger.info("bwa index not found at %s, now generating one.", genome)
+                sp.run(['bwa', 'index', str(genome)])
         fasta = str(genome)
     else:
         fasta = str(genome)
