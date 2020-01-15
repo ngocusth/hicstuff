@@ -709,7 +709,7 @@ def full_pipeline(
             # We only need the index if the user provided fastq input
             if start_stage == 0:
                 logger.info("bwa index not found at %s, now generating one.", genome)
-                sp.run(['bwa', 'index', str(genome)])
+                sp.run(['bwa', 'index', str(genome)], stderr=sp.PIPE)
         fasta = str(genome)
     else:
         fasta = str(genome)
