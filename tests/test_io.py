@@ -11,6 +11,7 @@ import numpy as np
 import hicstuff.io as hio
 import cooler
 import pytest
+from pathlib import Path
 
 MAT_GRAAL = hio.load_sparse_matrix(
     "test_data/abs_fragments_contacts_weighted.txt"
@@ -104,4 +105,14 @@ def test_hic_format():
     with pytest.raises(ValueError):
         assert hio.get_hic_format("test_data/valid.pairs")
 
-
+def test_check_fasta_index():
+    f = NamedTemporaryFile("w", delete=False)
+    f.close
+    assert hio.check_fasta_index(f.name, mode='minimap2') == 0
+    for i in range(6):
+        Path(f.name + ".{}.bt2".format(i)).touch()
+    assert hio.check_fasta_index(f.name, mode='bowtie2') == f.name
+    assert hio.check_fasta_index(f.name, mode='bwa') == None
+    os.unlink(f.name)
+    for i in range(6):
+        os.unlink(f.name+".{}.bt2".format(i))

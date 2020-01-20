@@ -1222,7 +1222,7 @@ def check_fasta_index(ref, mode='bowtie2'):
         refdir = str(ref.parent)
         refdir_files = os.listdir(refdir)
         bwa_idx_files = [join(refdir, f) for f in refdir_files if re.search(r'.*\.(sa|pac|bwt|ann|amb)$', f)]
-        index = None if len(bwa_idx_files) < 1 else bwa_idx_files
+        index = None if len(bwa_idx_files) < 5 else bwa_idx_files
     else:
         return 0
     if index is not None:
