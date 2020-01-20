@@ -24,56 +24,6 @@ from hicstuff.log import logger
 from os.path import join
 
 
-def check_bt2_index(ref):
-    """
-    Checks for the existence of a bowtie2 index based on the reference
-    file name.
-
-    Parameters
-    ----------
-    ref : str
-        Path to the reference genome.
-
-    Returns
-    -------
-    index : str
-        The bowtie2 index basename.
-    """
-    index = os.path.splitext(ref)[0]
-    try:
-        index = glob.glob(index + "*rev.1.bt2")[0]
-        index = index.split(".rev.1.bt2")[0]
-    except IndexError:
-        logger.error(
-            "Reference index is missing, please build the bowtie2 " "index first."
-        )
-        sys.exit(1)
-    return index
-
-
-def check_bwa_index(ref):
-    """
-    Checks for the existence of a bwa index based on the reference
-    file name.
-
-    Parameters
-    ----------
-    ref : str
-        Path to the reference genome.
-
-    Returns
-    -------
-    index : str
-        The bwa index basename.
-    """
-    index = os.path.splitext(ref)[0]
-    try:
-        index = glob.glob(index + "*sa")[0]
-        index = index.split(".sa")[0]
-    except IndexError:
-        logger.error("Reference index is missing, please build the bwa index first.")
-        sys.exit(1)
-    return index
 
 
 def iterative_align(
@@ -147,11 +97,13 @@ def iterative_align(
         uncomp_path = fq_in
 
     # throw error if index does not exist
-    index = ""
-    if aligner == "bowtie2":
-        index = check_bt2_index(ref)
-    elif aligner == "bwa":
-        index = check_bwa_index(ref)
+    index = hio.check_fasta_index(ref, mode=aligner)
+    if index is None:
+        logger.error(
+            "Reference index is missing, please build the {} ".format(aligner), 
+            "index first."
+        )
+        sys.exit(1)
     # Counting reads
     with hio.read_compressed(uncomp_path) as inf:
         for _ in inf:

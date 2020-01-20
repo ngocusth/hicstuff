@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import collections
 import subprocess as sp
+import pathlib
 import re
 from os.path import join, exists
 from random import getrandbits
@@ -1192,3 +1193,41 @@ def rename_genome(genome, output=None, ambiguous=True):
 
             output_handle.write(header)
             output_handle.write("{}\n".format(new_seq))
+
+
+def check_fasta_index(ref, mode='bowtie2'):
+    """
+    Checks for the existence of a bowtie2 or bwa index based on the reference
+    file name.
+
+    Parameters
+    ----------
+    ref : str
+        Path to the reference genome.
+    mode : str
+        The alignment software used to build the index. bowtie2 or bwa. If any
+        other value is given, the function returns 0.
+
+    Returns
+    -------
+    index : str
+        The bowtie2 or bwa index basename. None if no index was found
+    """
+    ref = pathlib.Path(ref)
+    if mode == 'bowtie2':
+        # Bowtie2 should have 6 index files
+        bt2_idx_files = list(ref.parent.glob("{}*bt2*".format(ref.name)))
+        index = None if len(bt2_idx_files) < 6 else bt2_idx_files
+    elif mode == 'bwa':
+        refdir = str(ref.parent)
+        refdir_files = os.listdir(refdir)
+        bwa_idx_files = [join(refdir, f) for f in refdir_files if re.search(r'.*\.(sa|pac|bwt|ann|amb)$', f)]
+        index = None if len(bwa_idx_files) < 1 else bwa_idx_files
+    else:
+        return 0
+    if index is not None:
+        # Convert the PosixPath objects to strings and get the longest common prefix to obtain
+        # index basename (without the dot)
+        index = os.path.commonprefix(list(map(str, index))).strip('.')
+    return index
+

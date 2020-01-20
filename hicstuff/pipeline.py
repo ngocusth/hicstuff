@@ -71,8 +71,7 @@ def align_reads(
     """
     if tmp_dir is None:
         tmp_dir = os.getcwd()
-    index = None
-    tmp_sam = out_bam + ".tmp"
+    tmp_bam = out_bam + ".tmp"
 
     if iterative:
         iter_tmp_dir = hio.generate_temp_dir(tmp_dir)
@@ -81,7 +80,7 @@ def align_reads(
             tmp_dir=iter_tmp_dir,
             ref=genome,
             n_cpu=threads,
-            bam_out=tmp_sam,
+            bam_out=tmp_bam,
             min_qual=min_qual,
             aligner=aligner,
             read_len=read_len,
@@ -89,7 +88,7 @@ def align_reads(
         st.rmtree(iter_tmp_dir)
         sp.call(
             "samtools view -F 2048 -h -@ {threads} -O BAM {tmp} -o {out}".format(
-                threads=threads, tmp=tmp_sam, out=out_bam
+                threads=threads, tmp=tmp_bam, out=out_bam
             ),
             shell=True,
         )
@@ -97,24 +96,22 @@ def align_reads(
         if aligner == "minimap2":
             map_cmd = "minimap2 -2 -t {threads} -ax sr {fasta} {fastq} > {sam}"
         elif aligner == "bwa":
-            index = hci.check_bwa_index(genome)
             map_cmd = "bwa mem -t {threads} -v 1 {index} {fastq} > {sam}"
         else:
-            index = hci.check_bt2_index(genome)
             map_cmd = "bowtie2 --very-sensitive-local -p {threads} -x {index} -U {fastq} > {sam}"
         map_args = {
             "threads": threads,
-            "sam": tmp_sam,
+            "sam": tmp_bam,
             "fastq": reads,
             "fasta": genome,
-            "index": index,
+            "index": genome,
         }
         sp.call(map_cmd.format(**map_args), shell=True)
 
         # Remove supplementary alignments
         viewer = sp.Popen(
             "samtools view -F 2048 -h -@ {threads} -O BAM {tmp}".format(
-                tmp=tmp_sam, threads=threads
+                tmp=tmp_bam, threads=threads
             ),
             shell=True,
             stdout=sp.PIPE,
@@ -128,7 +125,7 @@ def align_reads(
             stdin=viewer.stdout,
         )
         out, err = sorter.communicate()
-    os.remove(tmp_sam)
+    os.remove(tmp_bam)
 
 
 def bam2pairs(bam1, bam2, out_pairs, info_contigs, min_qual=30):
@@ -666,23 +663,28 @@ def full_pipeline(
     pairs_filtered = _tmp_file("valid_idx_filtered.pairs")
     pairs_pcr = _tmp_file("valid_idx_pcrfree.pairs")
 
+    # Enable file logging
+    hcl.set_file_handler(log_file)
+    generate_log_header(log_file, input1, input2, genome, enzyme)
+
     # If the user chose bowtie2 and supplied an index, extract fasta from it
     # For later steps of the pipeline (digestion / frag attribution)
     genome = pathlib.Path(genome)
+    idx = hio.check_fasta_index(genome, mode=aligner)
     if aligner == "bowtie2":
-        genome_prefix = genome.with_suffix("")
-        # Check if input file has index files
-        bt2_idx_files = list(genome.parent.glob("{}*bt2*".format(genome.name)))
-        if len(bt2_idx_files) < 6:
+        if idx is None:
             # We only need the index if the user provided fastq input
             if start_stage == 0:
-                # If no index present assume input is fasta and build it first
+                # If no index present assume input is fasta, copy it in tmp and
+                # index it (to avoid conflict between instances)
                 logger.info(
-                    "Bowtie2 index not found at %s, now generating one.", genome_prefix
+                    "Bowtie2 index not found at %s, generating "
+                    "a local temporary index.", genome
                 )
-                sp.run(["bowtie2-build", str(genome), genome_prefix], stderr=sp.PIPE)
-            fasta = str(genome)
-            genome = genome_prefix
+                st.copy(genome, tmp_genome)
+                fasta = tmp_genome
+                genome = tmp_genome
+                sp.run(["bowtie2-build", '-q', str(fasta), fasta], stderr=sp.PIPE)
         else:
             # Index is present, extract fasta file from it
             bt2fa = sp.Popen(
@@ -703,13 +705,16 @@ def full_pipeline(
                 )
                 sys.exit(1)
     elif aligner == "bwa":
-        bwa_idx_files = list(genome.parent.glob("{}*sa".format(genome.name)))
-        if len(bwa_idx_files) != 1:
+        if idx is None:
             # If no index present assume input is fasta and build it first
             # We only need the index if the user provided fastq input
             if start_stage == 0:
-                logger.info("bwa index not found at %s, now generating one.", genome)
-                sp.run(['bwa', 'index', str(genome)], stderr=sp.PIPE)
+                logger.info("bwa index not found at %s, generating "
+                            "a local temporary index.", genome)
+                st.copy(genome, tmp_genome)
+                fasta = tmp_genome
+                genome = tmp_genome
+                sp.run(['bwa', 'index', str(fasta)], stderr=sp.PIPE)
         fasta = str(genome)
     else:
         fasta = str(genome)
@@ -719,11 +724,8 @@ def full_pipeline(
             logger.error(
                 "Sequence identifiers contain spaces. Please clean the input genome."
             )
+    # Make sure genome is str and not pathlib.PosixPath
     genome = str(genome)
-    # Enable file logging
-    hcl.set_file_handler(log_file)
-    generate_log_header(log_file, input1, input2, genome, enzyme)
-
     # Define output file names (tsv files)
     if prefix:
         fragments_list = _out_file("frags.tsv")
