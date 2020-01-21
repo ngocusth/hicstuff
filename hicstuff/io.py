@@ -1206,7 +1206,7 @@ def check_fasta_index(ref, mode='bowtie2'):
         Path to the reference genome.
     mode : str
         The alignment software used to build the index. bowtie2 or bwa. If any
-        other value is given, the function returns 0.
+        other value is given, the function returns the reference path.
 
     Returns
     -------
@@ -1224,7 +1224,7 @@ def check_fasta_index(ref, mode='bowtie2'):
         bwa_idx_files = [join(refdir, f) for f in refdir_files if re.search(r'.*\.(sa|pac|bwt|ann|amb)$', f)]
         index = None if len(bwa_idx_files) < 5 else bwa_idx_files
     else:
-        return 0
+        index = [ref]
     if index is not None:
         # Convert the PosixPath objects to strings and get the longest common prefix to obtain
         # index basename (without the dot)

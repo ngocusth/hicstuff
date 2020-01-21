@@ -108,7 +108,7 @@ def test_hic_format():
 def test_check_fasta_index():
     f = NamedTemporaryFile("w", delete=False)
     f.close
-    assert hio.check_fasta_index(f.name, mode='minimap2') == 0
+    assert hio.check_fasta_index(f.name, mode='minimap2') == f.name
     for i in range(6):
         Path(f.name + ".{}.bt2".format(i)).touch()
     assert hio.check_fasta_index(f.name, mode='bowtie2') == f.name
