@@ -25,9 +25,6 @@ except ImportError:
     pass
 
 
-DEFAULT_DPI = 500
-DEFAULT_SATURATION_THRESHOLD = 99
-
 
 load_sparse_matrix = hio.load_sparse_matrix
 
@@ -73,17 +70,36 @@ def sparse_to_dense(M, remove_diag=True):
 
 
 def plot_matrix(
-    array, filename=None, vmin=0, vmax=None, title=None, dpi=DEFAULT_DPI, cmap="Reds"
+    array, filename=None, vmin=0, vmax=None, title=None, dpi=500, cmap="Reds",
 ):
     """A function that performs all the tedious matplotlib
     magic to draw a 2D array with as few parameters and
     as little whitespace as possible.
 
     Adjusted from https://github.com/koszullab/metaTOR
+
+    Parameters
+    ----------
+    array : numpy.array
+        The input (dense) matrix that must be plotted.
+    filename : str
+        The filename where the image should be stored. If None, the
+        image is shown interactively.
+    vmin : int
+        The minimum value on the colorscale.
+    vmax : int or None
+        The maximum value on the colorscale. If None, the 99th percentile
+        is taken.
+    title : str
+        The string to display as figure title.
+    dpi : int
+        The DPI (i.e. resolution in dots per inch) of the output image.
+    cmap : str
+        The name of the matplotlib colormap to use when plotting the matrix.
     """
 
     if vmax is None:
-        vmax = np.percentile(array, DEFAULT_SATURATION_THRESHOLD)
+        vmax = np.percentile(array, 99)
     # plt.gca().set_axis_off()
     # plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     # plt.margins(0, 0)
@@ -97,7 +113,6 @@ def plot_matrix(
     plt.axis("off")
     if filename:
         plt.savefig(filename, bbox_inches="tight", pad_inches=0.0, dpi=dpi)
-        del filename
     else:
         plt.show()
 
