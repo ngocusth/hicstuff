@@ -107,24 +107,12 @@ def align_reads(
             "index": genome,
         }
         sp.call(map_cmd.format(**map_args), shell=True)
-
-        # Remove supplementary alignments
-        viewer = sp.Popen(
-            "samtools view -F 2048 -h -@ {threads} -O BAM {tmp}".format(
-                tmp=tmp_bam, threads=threads
+        # Remove supplementary alignments and sort reads by name
+        sp.call("samtools view -F 2048 -h -@ {threads} {tmp} | samtools sort -n -@ {threads} -o {out} -".format(
+                tmp=tmp_bam, threads=threads, out=out_bam
             ),
             shell=True,
-            stdout=sp.PIPE,
         )
-        # Sort reads by name for later processing
-        sorter = sp.Popen(
-            "samtools sort -n -@ {threads} -O BAM -o {out} -".format(
-                threads=threads, out=out_bam
-            ),
-            shell=True,
-            stdin=viewer.stdout,
-        )
-        out, err = sorter.communicate()
     os.remove(tmp_bam)
 
 
