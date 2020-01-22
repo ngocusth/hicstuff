@@ -670,9 +670,8 @@ def full_pipeline(
                     "a local temporary index.", genome
                 )
                 st.copy(genome, tmp_genome)
-                fasta = tmp_genome
                 genome = tmp_genome
-                sp.run(["bowtie2-build", '-q', str(fasta), fasta], stderr=sp.PIPE)
+                sp.run(["bowtie2-build", '-q', str(genome), genome], stderr=sp.PIPE)
         else:
             # Index is present, extract fasta file from it
             bt2fa = sp.Popen(
@@ -683,7 +682,6 @@ def full_pipeline(
             _, bt2err = bt2fa.communicate()
             # bowtie2-inspect still has return code 0 when crashing, need to
             # actively look for error in stderr
-            fasta = tmp_genome
             if re.search(r"[Ee]rror", bt2err.decode()):
 
                 logger.error(bt2err)
@@ -692,6 +690,7 @@ def full_pipeline(
                     "the path to the bowtie2 index without the extension."
                 )
                 sys.exit(1)
+
     elif aligner == "bwa":
         if idx is None:
             # If no index present assume input is fasta and build it first
@@ -700,12 +699,9 @@ def full_pipeline(
                 logger.info("bwa index not found at %s, generating "
                             "a local temporary index.", genome)
                 st.copy(genome, tmp_genome)
-                fasta = tmp_genome
                 genome = tmp_genome
                 sp.run(['bwa', 'index', str(fasta)], stderr=sp.PIPE)
-        fasta = str(genome)
-    else:
-        fasta = str(genome)
+    fasta = str(genome)
     # Check for spaces in fasta headers and issue error if found
     for record in SeqIO.parse(fasta, "fasta"):
         if " " in record.id:
