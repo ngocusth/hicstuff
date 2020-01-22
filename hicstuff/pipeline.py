@@ -657,59 +657,75 @@ def full_pipeline(
 
     # If the user chose bowtie2 and supplied an index, extract fasta from it
     # For later steps of the pipeline (digestion / frag attribution)
-    genome = pathlib.Path(genome)
+    # Check if the genome is an index or fasta file
     idx = hio.check_fasta_index(genome, mode=aligner)
-    if aligner == "bowtie2":
-        if idx is None:
-            # We only need the index if the user provided fastq input
-            if start_stage == 0:
-                # If no index present assume input is fasta, copy it in tmp and
-                # index it (to avoid conflict between instances)
-                logger.info(
-                    "Bowtie2 index not found at %s, generating "
-                    "a local temporary index.", genome
-                )
-                st.copy(genome, tmp_genome)
-                genome = tmp_genome
-                sp.run(["bowtie2-build", '-q', str(genome), genome], stderr=sp.PIPE)
-        else:
-            # Index is present, extract fasta file from it
-            bt2fa = sp.Popen(
-                ["bowtie2-inspect", str(genome)],
-                stdout=open(tmp_genome, "w"),
-                stderr=sp.PIPE,
+    is_fasta = hio.check_is_fasta(genome)
+    
+    # Different aligners accept different files. Make sure the input format is good.
+    # Note bowtie2 can extract fasta from the index, but bwa cannot
+    sane_input = {
+            'bowtie2': is_fasta or idx,
+            'minimap2': is_fasta, 
+            'bwa': is_fasta
+    }
+
+    if not sane_input[aligner]:
+        logger.error("You must provide either a fasta or bowtie2 index prefix as genome")
+
+    # Just use the input genome is it is indexed
+    if is_fasta and idx:
+        fasta = genome
+    # Otherwise copy it in tmpdir for indexing, unless the input is a bt2 index, in which
+    # case fasta will be extracted later from it.
+    else:
+        if is_fasta:
+            st.copy(genome, tmp_genome)
+            genome = tmp_genome
+        fasta = tmp_genome
+        
+
+    # Bowtie2-specific feature: extract fasta from the index
+    if aligner == 'bowtie2' and not is_fasta:
+        # Index is present, extract fasta file from it
+        bt2fa = sp.Popen(
+            ["bowtie2-inspect", genome],
+            stdout=open(tmp_genome, "w"),
+            stderr=sp.PIPE,
+        )
+        _, bt2err = bt2fa.communicate()
+        # bowtie2-inspect still has return code 0 when crashing, need to
+        # actively look for error in stderr
+        if re.search(r"[Ee]rror", bt2err.decode()):
+
+            logger.error(bt2err)
+            logger.error(
+                "bowtie2-inspect has failed, make sure you provided "
+                "the path to the bowtie2 index without the extension."
             )
-            _, bt2err = bt2fa.communicate()
-            # bowtie2-inspect still has return code 0 when crashing, need to
-            # actively look for error in stderr
-            if re.search(r"[Ee]rror", bt2err.decode()):
+            sys.exit(1)
 
-                logger.error(bt2err)
-                logger.error(
-                    "bowtie2-inspect has failed, make sure you provided "
-                    "the path to the bowtie2 index without the extension."
-                )
-                sys.exit(1)
+    # Build index with bowtie2 / bwa if required
+    if idx is None and aligner in ['bowtie2', 'bwa']:
+        if aligner == 'bowtie2':
+            index_cmd = ["bowtie2-build", '-q', fasta, fasta]
+        elif aligner == 'bwa':
+            index_cmd = ['bwa', 'index', fasta]
+        # We only need the index if the user provided fastq input
+        if start_stage == 0:
+            # If no index present assume input is fasta, copy it in tmp and
+            # index it (to avoid conflict between instances)
+            logger.info(
+                "%s index not found at %s, generating "
+                "a local temporary index.", aligner, genome
+            )
+            sp.run(index_cmd, stderr=sp.PIPE)
 
-    elif aligner == "bwa":
-        if idx is None:
-            # If no index present assume input is fasta and build it first
-            # We only need the index if the user provided fastq input
-            if start_stage == 0:
-                logger.info("bwa index not found at %s, generating "
-                            "a local temporary index.", genome)
-                st.copy(genome, tmp_genome)
-                genome = tmp_genome
-                sp.run(['bwa', 'index', str(fasta)], stderr=sp.PIPE)
-    fasta = str(genome)
     # Check for spaces in fasta headers and issue error if found
     for record in SeqIO.parse(fasta, "fasta"):
         if " " in record.id:
             logger.error(
                 "Sequence identifiers contain spaces. Please clean the input genome."
             )
-    # Make sure genome is str and not pathlib.PosixPath
-    genome = str(genome)
     # Define output file names (tsv files)
     if prefix:
         fragments_list = _out_file("frags.tsv")

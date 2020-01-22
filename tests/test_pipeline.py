@@ -62,33 +62,36 @@ def test_full_pipeline():
         no_cleanup=True,
         force=True,
     )
-    # Set of parameters #2
-    hpi.full_pipeline(
-        input1="test_data/sample.reads_for.fastq.gz",
-        input2="test_data/sample.reads_rev.fastq.gz",
-        genome="test_data/genome/seq.fa",
-        enzyme=5000,
-        out_dir="test_out",
-        aligner="minimap2",
-        iterative=True,
-        prefix="test",
-        distance_law=True,
-        tmp_dir="test_out/tmp",
-        mat_fmt="cooler",
-        force=True,
-    )
-    hpi.full_pipeline(
-        input1="test_data/sample.reads_for.fastq.gz",
-        input2="test_data/sample.reads_rev.fastq.gz",
-        genome="test_data/genome/seq.fa",
-        enzyme='DpnII,HinfI',
-        out_dir="test_out",
-        aligner="bwa",
-        iterative=True,
-        read_len=35,
-        prefix="test",
-        tmp_dir="test_out/tmp",
-        mat_fmt="bg2",
-        force=True,
-    )
+    start_input = {
+        'fastq': [
+            "test_data/sample.reads_for.fastq.gz",
+            "test_data/sample.reads_rev.fastq.gz",
+        ],
+        'bam': ['test_out/tmp/for.bam', 'test_out/tmp/rev.bam'],
+        'pairs': ['test_out/tmp/valid.pairs', None],
+        'pairs_idx': ['test_out/tmp/valid_idx.pairs', None]
+    }
+    # Test all (48) combinations of:
+    for stage, [in1, in2] in start_input.items():
+        # Iterative alignment or not
+        for iterative in [True, False]:
+            # read alignment software
+            for aligner in ['bowtie2', 'bwa', 'minimap2']:
+                # Indexed or non-indexed genome
+                for genome in ['test_data/genome/seq', 'test_data/genome/seq.fa']:
+                    hpi.full_pipeline(
+                        input1=in1,
+                        input2=in2,
+                        genome="test_data/genome/seq.fa",
+                        enzyme=5000,
+                        out_dir="test_out2",
+                        aligner=aligner,
+                        iterative=iterative,
+                        prefix="test",
+                        distance_law=True,
+                        start_stage=stage,
+                        mat_fmt="cooler",
+                        force=True,
+                    )
     shutil.rmtree("test_out/")
+    shutil.rmtree("test_out2/")

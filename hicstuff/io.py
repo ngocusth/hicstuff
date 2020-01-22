@@ -1231,3 +1231,25 @@ def check_fasta_index(ref, mode='bowtie2'):
         index = os.path.commonprefix(list(map(str, index))).strip('.')
     return index
 
+
+def check_is_fasta(in_file):
+    """
+    Checks whether input file is in fasta format.
+    
+    Parameters
+    ----------
+    in_file : str
+        Path to the input file.
+
+    Returns
+    -------
+    bool :
+        True if the input is in fasta format, False otherwise
+    """
+    try:
+        with open(in_file, "r") as handle:
+            fasta = any(SeqIO.parse(handle, "fasta"))
+    except FileNotFoundError:
+        fasta = False
+            
+    return fasta
