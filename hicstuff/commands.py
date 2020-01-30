@@ -654,9 +654,8 @@ class Pipeline(AbstractCommand):
                                       directory.
         -p, --plot                    Generates plots in the output directory
                                       at different steps of the pipeline.
-        -P, --prefix=PREFIX           Overrides default graal-compatible
-                                      filenames and use a prefix with
-                                      extensions instead.
+        -P, --prefix=PREFIX           Overrides default filenames and prefixes all
+                                      output files with a custom name.
         -q, --quality-min=INT         Minimum mapping quality for selecting
                                       contacts. [default: 30].
         -r, --remove-centromeres=INT  Integer. Number of kb that will be remove around 
