@@ -328,6 +328,12 @@ def get_pairs_distance(
         If True, calculate the distance as the chromosome is circular. Default 
         value is False.
     """
+    # Check this is a pairs_idx file and not simple pairs
+    if line['frag1'] is None:
+        logger.error(
+            'Input pairs file must have frag1 and frag2 columns. In hicstuff '
+            'pipeline, this is the "valid_idx.pairs" file.'
+        )
     # We only keep the event +/+ or -/-. This is done to avoid to have any
     # event of uncut which are not possible in these events. We can remove the
     # good events of +/- or -/+ because we don't need a lot of reads to compute
